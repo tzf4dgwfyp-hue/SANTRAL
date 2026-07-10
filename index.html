@@ -1,0 +1,2259 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<title>KAPAK BOYUT HESABI — 6 Yüz / Izgara | Cenk Altınay</title>
+<style>
+  /* ---------- TEMALAR ---------- */
+  :root{
+    --bg:#0f1720; --panel:#16212c; --panel2:#1c2a37; --border:#2a3b4a;
+    --text:#e6edf3; --muted:#8ba3b5; --accent:#4fb8a8; --accent-soft:rgba(79,184,168,.14);
+    --warn:#e0a13a; --bad:#d9534f; --good:#4fb87d;
+    --input-bg:#0c141b; --canvas:#0a1118;
+  }
+  body[data-theme="celik"]{
+    --bg:#14161a; --panel:#1d2126; --panel2:#252a31; --border:#353d47;
+    --text:#e8eaed; --muted:#9aa4ad; --accent:#5b9bd5; --accent-soft:rgba(91,155,213,.14);
+    --warn:#d9a441; --bad:#d9534f; --good:#58b368;
+    --input-bg:#101317; --canvas:#0c0e11;
+  }
+  body[data-theme="aydinlik"]{
+    --bg:#eef1f4; --panel:#ffffff; --panel2:#f2f5f8; --border:#d4dbe2;
+    --text:#1d2733; --muted:#5c6b7a; --accent:#2563a8; --accent-soft:rgba(37,99,168,.10);
+    --warn:#b07a1a; --bad:#c0392b; --good:#2e8b57;
+    --input-bg:#ffffff; --canvas:#0f1720;
+  }
+  body[data-theme="kehribar"]{
+    --bg:#171310; --panel:#201a15; --panel2:#29211a; --border:#3d3226;
+    --text:#f0e9df; --muted:#b3a48f; --accent:#e0a13a; --accent-soft:rgba(224,161,58,.14);
+    --warn:#e0a13a; --bad:#d9534f; --good:#8fb85a;
+    --input-bg:#130f0b; --canvas:#0f0c09;
+  }
+  body[data-theme="nordik"]{
+    --bg:#0d1420; --panel:#131c2c; --panel2:#192537; --border:#253652;
+    --text:#e4ecf7; --muted:#8fa3bf; --accent:#6fd3e7; --accent-soft:rgba(111,211,231,.12);
+    --warn:#e0b04a; --bad:#e05e5a; --good:#5fbf8f;
+    --input-bg:#0a101b; --canvas:#080d16;
+  }
+
+  /* ---------- TEMEL ---------- */
+  *{box-sizing:border-box;}
+  body{background:var(--bg);color:var(--text);font-family:'Segoe UI',Arial,sans-serif;margin:0;}
+  h1{font-size:15px;letter-spacing:.6px;margin:0;text-transform:uppercase;}
+  .appsub{color:var(--muted);font-size:11px;display:block;margin-top:2px;}
+  .appdev{color:var(--accent);font-size:10px;font-weight:600;letter-spacing:.3px;display:block;margin-top:3px;opacity:.85;}
+
+  /* ---------- UYGULAMA ÇUBUĞU ---------- */
+  .appbar{position:sticky;top:0;z-index:50;display:flex;justify-content:space-between;align-items:center;gap:14px;
+    background:var(--panel);border-bottom:1px solid var(--border);padding:12px 20px;}
+  .appbar-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .appbar-right label{margin:0 4px 0 0;display:inline;}
+
+  /* ---------- YERLEŞİM ---------- */
+  .app{display:grid;grid-template-columns:320px 1fr;gap:16px;padding:16px 20px;align-items:start;}
+  .side{position:sticky;top:66px;display:flex;flex-direction:column;gap:12px;max-height:calc(100vh - 82px);overflow-y:auto;}
+  .main{min-width:0;}
+  @media(max-width:1150px){ .app{grid-template-columns:1fr;} .side{position:static;max-height:none;} }
+
+  /* ---------- GÖRÜNÜM SEKMELERİ ---------- */
+  .viewbar{display:flex;gap:6px;margin-bottom:14px;border-bottom:1px solid var(--border);}
+  .vbtn{background:transparent;border:none;border-bottom:2px solid transparent;color:var(--muted);
+    padding:10px 18px;font-size:13px;font-weight:700;cursor:pointer;letter-spacing:.3px;}
+  .vbtn:hover{color:var(--text);}
+  .vbtn.active{color:var(--accent);border-bottom-color:var(--accent);}
+  .view{display:none;}
+  .view.active{display:block;}
+
+  /* ---------- KARTLAR ---------- */
+  .section{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:14px;}
+  .section h2{font-size:11.5px;text-transform:uppercase;letter-spacing:.6px;color:var(--accent);margin:0 0 12px;border-bottom:1px solid var(--border);padding-bottom:7px;}
+  .side .section{margin-bottom:0;padding:14px;}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;}
+  .side .grid{grid-template-columns:repeat(auto-fit,minmax(80px,1fr));gap:10px;}
+
+  /* ---------- FORM ---------- */
+  label{display:block;font-size:10.5px;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.3px;}
+  input, select{width:100%;background:var(--input-bg);border:1px solid var(--border);color:var(--text);padding:8px 10px;border-radius:6px;font-size:13.5px;}
+  input.readonly{color:var(--accent);background:var(--accent-soft);border-color:var(--border);}
+  input:focus, select:focus{outline:none;border-color:var(--accent);}
+
+  /* ---------- BUTONLAR ---------- */
+  .add-btn2{background:var(--accent);color:var(--bg);border:none;padding:9px 16px;border-radius:6px;
+    font-weight:700;font-size:12.5px;cursor:pointer;letter-spacing:.3px;white-space:nowrap;}
+  .add-btn2:hover{filter:brightness(1.12);}
+  .add-btn2.ghost{background:transparent;color:var(--accent);border:1px solid var(--accent);}
+  .del-btn{background:var(--bad);color:#fff;border:none;padding:8px 14px;border-radius:6px;font-weight:700;font-size:12px;cursor:pointer;}
+  .del-btn:disabled{background:var(--border);cursor:not-allowed;}
+
+  /* ---------- SEKMELER (yüz + modül) ---------- */
+  .tabs{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:14px;}
+  .tab{padding:8px 14px;background:var(--panel);border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:12.5px;font-weight:600;color:var(--muted);}
+  .tab:hover{color:var(--text);border-color:var(--muted);}
+  .tab.active{background:var(--accent-soft);color:var(--accent);border-color:var(--accent);}
+
+  /* ---------- TABLO ---------- */
+  table{width:100%;border-collapse:collapse;font-size:12.5px;}
+  th{background:var(--panel2);color:var(--muted);font-weight:600;padding:6px;text-align:center;border:1px solid var(--border);font-size:10.5px;text-transform:uppercase;letter-spacing:.3px;}
+  td{padding:5px 6px;border:1px solid var(--border);text-align:center;}
+  .profil-table td:first-child, .profil-table th:first-child, .cut-table td:first-child{text-align:left;}
+
+  /* ---------- DURUM & NOT ---------- */
+  .status{font-size:13px;font-weight:700;padding:9px 13px;border-radius:6px;margin-top:12px;line-height:1.5;}
+  .status.good{background:rgba(79,184,125,.14);color:var(--good);border:1px solid var(--good);}
+  .status.warn{background:rgba(224,161,58,.14);color:var(--warn);border:1px solid var(--warn);}
+  .status.bad{background:rgba(217,83,79,.14);color:var(--bad);border:1px solid var(--bad);}
+  .status.info{background:var(--accent-soft);color:var(--muted);border:1px solid var(--border);}
+  .note{font-size:11px;color:var(--muted);margin-top:6px;line-height:1.5;}
+  .flex-between{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;}
+  .badge{display:inline-block;background:var(--panel2);border:1px solid var(--border);border-radius:4px;padding:3px 8px;font-size:11px;color:var(--muted);}
+  .checkbox-row{display:flex;align-items:center;gap:8px;}
+  .checkbox-row input[type=checkbox]{width:auto;}
+  .checkbox-row label{margin:0;text-transform:none;font-size:13px;color:var(--text);}
+  .dim-readout{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:6px;}
+  .dim-readout div{background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:7px 13px;}
+  .dim-readout .val{font-size:15px;font-weight:700;color:var(--accent);}
+  .dim-readout .lbl{font-size:9.5px;color:var(--muted);text-transform:uppercase;}
+  .orient-select{max-width:230px;}
+
+  /* ---------- ÇİZİM ALANLARI (tema bağımsız koyu görünüm penceresi) ---------- */
+  .canvas-wrap{background:#ffffff;border:1px solid var(--border);border-radius:8px;padding:12px;overflow-x:auto;}
+  .app-footer{text-align:center;color:var(--muted);font-size:11px;font-weight:600;letter-spacing:.4px;padding:14px 20px 20px;opacity:.75;}
+  svg{display:block;margin:0 auto;}
+  .svg-panel{cursor:pointer;}
+  .svg-panel:hover .panel-rect{stroke:#4fb8a8;stroke-width:2.5;}
+  .panel-rect.selected{stroke:#4fb8a8;stroke-width:3;}
+  .svg-addbtn, .svg-gap, .svg-innergap, .svg-addpanel{cursor:pointer;}
+  .svg-addbtn:hover rect{fill:#2a4a44;}
+  .svg-addpanel:hover rect{fill:#2a4a44;}
+  .svg-gap:hover .gap-hint, .svg-innergap:hover .gap-hint{stroke:#4fb8a8;stroke-width:2;}
+  .face-hit3{cursor:copy;}
+  .face-hit3:hover{fill:rgba(79,184,168,0.12);stroke:#4fb8a8;stroke-width:2;}
+
+  /* ---------- DÜZENLEYİCİ & LEJANT ---------- */
+  .editor{background:var(--panel2);border:1px solid var(--accent);border-radius:8px;padding:14px;margin-top:12px;display:none;}
+  .editor.open{display:block;}
+  .editor .grid{grid-template-columns:repeat(auto-fit,minmax(170px,1fr));}
+  .editor-title{font-size:13px;font-weight:700;color:var(--accent);margin-bottom:10px;}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;margin-top:10px;font-size:11px;color:var(--muted);}
+  .legend span{display:inline-flex;align-items:center;gap:5px;}
+  .legend i{display:inline-block;width:14px;height:14px;border-radius:3px;border:1px solid var(--border);}
+</style>
+</head>
+<body>
+
+<header class="appbar">
+  <div>
+    <h1>AHU Panel Konfigüratörü</h1>
+    <span class="appsub">Çok modüllü kapak / panel boyutlandırma — 6 yüz, ızgara yerleşimi, otomatik takviye</span>
+    <span class="appdev">Cenk Altınay</span>
+  </div>
+  <div class="appbar-right">
+    <div style="display:flex;align-items:center;gap:6px;">
+      <label for="theme_sel" style="margin:0;">Tema</label>
+      <select id="theme_sel" style="width:130px;">
+        <option value="gece" selected>Gece</option>
+        <option value="celik">Çelik</option>
+        <option value="aydinlik">Aydınlık</option>
+        <option value="kehribar">Kehribar</option>
+        <option value="nordik">Nordik</option>
+      </select>
+    </div>
+    <button class="add-btn2" id="btn_excel">⬇ Excel Çıktısı</button>
+  </div>
+</header>
+
+<div class="app">
+
+<aside class="side">
+
+  <div class="section">
+    <h2>Proje Bilgisi</h2>
+    <div class="grid" style="grid-template-columns:1fr 1fr;">
+      <div><label>İş Numarası</label><input type="text" id="prj_isno" placeholder="örn. 2026-041"></div>
+      <div><label>Santral Adı</label><input type="text" id="prj_ad" placeholder="örn. AHU-3 Mutfak"></div>
+    </div>
+    <div class="note">Excel dosya adında ve özet sayfasında kullanılır.</div>
+  </div>
+
+  <div class="section" id="module-bar">
+    <h2>Modüller</h2>
+    <div class="tabs" id="modtabs" style="margin-bottom:10px;"></div>
+    <button class="add-btn2 ghost" id="btn_addmod" style="width:100%;">+ Modül (aktifin SAĞına)</button>
+    <div class="note">Ana ekleme yolu: <b>3B Montaj</b> görünümünde hedef yüze tıklamak — yeni modül o yönde bitişik oluşur. ✕ modülü siler.</div>
+  </div>
+
+  <div class="section">
+    <h2>Aktif Modül Ölçüleri</h2>
+    <div class="grid">
+      <div><label id="dimW_lbl">W — Genişlik (mm)</label><input type="number" id="dim_W" value="0"></div>
+      <div><label id="dimH_lbl">H — Yükseklik (mm)</label><input type="number" id="dim_H" value="0"></div>
+      <div><label id="dimL_lbl">L — Uzunluk (mm)</label><input type="number" id="dim_L" value="0"></div>
+    </div>
+    <div class="note" id="excel_note"></div>
+  </div>
+
+  <div class="section">
+    <h2>Varsayımlar</h2>
+    <div class="grid">
+      <div>
+        <label>Profil Serisi</label>
+        <select id="seri"><option value="50">50</option><option value="60" selected>60</option></select>
+      </div>
+      <div><label>Kenar (oto)</label><input class="readonly" id="v_kenar" readonly></div>
+      <div><label>Takviye (oto)</label><input class="readonly" id="v_takviye" readonly></div>
+      <div><label>Köşe Pl. (oto)</label><input class="readonly" id="v_kose" readonly></div>
+      <div><label>Takv. Pl. (oto)</label><input class="readonly" id="v_takviyeplastik" readonly></div>
+      <div><label>Tolerans W</label><input type="number" id="v_tolw" value="2"></div>
+      <div><label>Tolerans H</label><input type="number" id="v_tolh" value="2"></div>
+    </div>
+    <div class="note">Tolerans W genişlik, H yükseklik eksenine uygulanır; açılır panellerde +1 mm. Bölüm içi tek kapak ölçüsüz bırakılırsa iç yüksekliği otomatik kaplar.</div>
+    <button class="add-btn2 ghost" id="btn_newprofil" style="width:100%;margin-top:10px;">+ Yeni Profil Tanımla</button>
+    <div id="profil_editor" style="display:none;margin-top:10px;border-top:1px solid var(--border);padding-top:10px;">
+      <div class="grid" style="grid-template-columns:1fr 1fr;">
+        <div style="grid-column:1/-1;"><label>Profil Adı</label><input type="text" id="pe_ad" placeholder="örn. 70"></div>
+        <div><label>Kenar (mm)</label><input type="number" id="pe_kenar" value="60"></div>
+        <div><label>Takviye (mm)</label><input type="number" id="pe_takviye" value="60"></div>
+        <div><label>Köşe Pl. (mm)</label><input type="number" id="pe_kose" value="80"></div>
+        <div><label>Takv. Pl. (mm)</label><input type="number" id="pe_tp" value="20"></div>
+      </div>
+      <div class="note">Takviye Plastiği <b>0</b> girilirse o profilde takviye plastiği kullanılmaz: takviye boyu tam açıklık olur, görselde uç başlıkları çizilmez.</div>
+      <div style="display:flex;gap:8px;margin-top:8px;">
+        <button class="add-btn2" id="pe_kaydet" style="flex:1;">Kaydet</button>
+        <button class="add-btn2 ghost" id="pe_iptal" style="flex:1;">Kapat</button>
+        <button class="del-btn" id="pe_sil" style="display:none;">Sil</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>Yerleşim Modeli</h2>
+    <div class="note" style="margin:0;">
+      <b>ÖN/ARKA</b> → L×H &nbsp;|&nbsp; <b>SOL/SAĞ</b> → W×H &nbsp;|&nbsp; <b>ÜST/ALT</b> → L×W.<br><br>
+      Yüz, ana yönde <b>bölümlere</b> ayrılır; her bölüm dik yönde kapaklara bölünebilir.
+      <b>Takviyeler otomatik atılır</b>, görselde tıklanarak iptal edilir. Boğaz içeren bölümlerin bitişiği kilitlidir.
+    </div>
+  </div>
+
+</aside>
+
+<main class="main">
+
+  <div class="viewbar">
+    <button class="vbtn active" data-view="v3d">3B Montaj</button>
+    <button class="vbtn" data-view="vfaces">Yüz Düzenleme</button>
+    <button class="vbtn" data-view="vsum">Özet &amp; Listeler</button>
+  </div>
+
+  <div id="view-v3d" class="view active">
+    <div class="section" id="threed-section">
+      <div class="flex-between" style="margin-bottom:12px;">
+        <span class="note" style="margin:0;">Sürükleme: döndürme &nbsp;|&nbsp; Tekerlek: yakınlaş / uzaklaş &nbsp;|&nbsp; <b>Shift + sürükleme: kaydırma</b> &nbsp;|&nbsp; <b>Modül ekleme: hedef yüze tıklanır</b> — yeni modül o yönde bitişik oluşur. Arkada kalanlar ve tam örtüşen iç birleşim yüzleri çizilmez; Damper/Boğaz 150 mm dışa çıkıntılıdır.</span>
+        <button class="add-btn2 ghost" id="v3_reset">Görünümü Sıfırla</button>
+      </div>
+      <div class="canvas-wrap" id="canvas3d" style="cursor:grab;user-select:none;touch-action:none;"></div>
+      <div class="status bad" id="coll_warn" style="display:none;"></div>
+    </div>
+  </div>
+
+  <div id="view-vfaces" class="view">
+    <div class="tabs" id="tabs"></div>
+    <div id="faces-container"></div>
+  </div>
+
+  <div id="view-vsum" class="view">
+<div class="section" id="global-summary-section">
+  <h2>Cihaz İskeleti — 3B Çerçeve (Otomatik)</h2>
+  <div style="overflow-x:auto;"><table class="profil-table">
+    <thead><tr><th>Eleman</th><th>Adet</th><th>Boy (mm)</th><th>Toplam Uzunluk (m)</th><th>Açıklama</th></tr></thead>
+    <tbody id="gsum_frame"></tbody>
+  </table></div>
+  <div class="note">Her modül kendi 12 ayrıtlı iskeletini taşır (4×W + 4×H + 4×L<sub>modül</sub>) ve 8 köşe plastiği kullanır; tablo tüm modüllerin toplamıdır. Komşu modüllerin birleşim düzleminde profiller bilinçli olarak çift sayılır — her modül bağımsız çerçevedir ve birleşimde iki çerçeve yan yana gelir.</div>
+
+  <h2 style="margin-top:18px;">Takviye Kesim Özeti — Cihaz Geneli (Otomatik)</h2>
+  <div style="overflow-x:auto;"><table class="profil-table">
+    <thead><tr><th>Yüz</th><th>Takviye</th><th>Konum / Kaynak</th><th>Adet</th><th>Boy (mm)</th></tr></thead>
+    <tbody id="gsum_detail"></tbody>
+  </table></div>
+  <h2 style="margin-top:18px;">Toplu Sipariş Listesi (Boya Göre Gruplu)</h2>
+  <div style="overflow-x:auto;"><table class="profil-table">
+    <thead><tr><th>Profil</th><th>Boy (mm)</th><th>Toplam Adet</th><th>Toplam Uzunluk (m)</th></tr></thead>
+    <tbody id="gsum_group"></tbody>
+  </table></div>
+  <div class="note" id="gsum_note"></div>
+</div>
+
+<div class="section" id="global-summary">
+  <h2>Genel Kesim Özeti — Tüm Yüzler (Otomatik)</h2>
+  <div class="note" style="margin-bottom:10px;" id="global_note"></div>
+  <h2 style="border:none;margin-bottom:8px;">Profiller</h2>
+  <div style="overflow-x:auto;"><table class="profil-table">
+    <thead><tr><th>Profil</th><th>Boy (mm)</th><th>Toplam Adet</th></tr></thead>
+    <tbody id="global_profil"></tbody>
+  </table></div>
+  <h2 style="border:none;margin:16px 0 8px;">Kapaklar (SABİT kesim ölçüleri)</h2>
+  <div style="overflow-x:auto;"><table class="profil-table">
+    <thead><tr><th>Tip</th><th>SABİT w (mm)</th><th>SABİT h (mm)</th><th>Toplam Adet</th></tr></thead>
+    <tbody id="global_kapak"></tbody>
+  </table></div>
+</div>
+
+  </div><!-- /view-vsum -->
+
+</main>
+</div><!-- /app -->
+
+<footer class="app-footer">Cenk Altınay</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<script>
+const FACE_DEFS = [
+  {name:"ÖN YÜZ",  wKey:"L", hKey:"H"},
+  {name:"ARKA YÜZ",wKey:"L", hKey:"H"},
+  {name:"ÜST YÜZ", wKey:"L", hKey:"W"},
+  {name:"ALT YÜZ", wKey:"L", hKey:"W"},
+  {name:"SOL YÜZ", wKey:"W", hKey:"H"},
+  {name:"SAĞ YÜZ", wKey:"W", hKey:"H"}
+];
+const SABIT_TYPES = ["Üst Panel","Normal Panel","Boğaz Uzun","Boğaz 2 Uzun"];
+const ACILIR_TYPES = ["Camlı Açılır","Camsız Açılır"];
+const ELEMAN_TYPES = ["Damper","Boğaz"];                    // panel değil: 0 tolerans, girilen ölçü = kesim ölçüsü
+const BOS_TYPES = ["Boş Alan"];                             // bilinçli boşluk: yer kaplar, kesim listesine girmez
+const BOGAZ_TYPES = ["Boğaz Uzun","Boğaz 2 Uzun","Boğaz"];  // bitişiğine dikey takviye atılmaz
+const isAcilir = t => ACILIR_TYPES.includes(t);
+const isBogaz = t => BOGAZ_TYPES.includes(t);
+const isEleman = t => ELEMAN_TYPES.includes(t);
+const isBos = t => BOS_TYPES.includes(t);
+
+const TYPE_COLORS = {
+  "Üst Panel":"#2c3e50", "Normal Panel":"#34495e",
+  "Boğaz Uzun":"#5d4a1f", "Boğaz 2 Uzun":"#6b4423",
+  "Camlı Açılır":"#1f4e5f", "Camsız Açılır":"#27556b",
+  "Damper":"#4a3f63", "Boğaz":"#5c3a1e",
+  "Boş Alan":"#0d141b"
+};
+
+/*
+ IZGARA VERİ MODELİ
+ face = {
+   kapaksiz, orient ('H': bölümler soldan sağa | 'V': bölümler yukarıdan aşağıya),
+   columns: [ { size, panels:[{size,type}], innerGaps:[bool] } ],
+   colGaps: [bool],           // bölümler arası ANA takviye (orient H → dikey)
+   selected: {col, idx} | null
+ }
+ column.size  = bölümün ana yöndeki ölçüsü (H orient → kapak genişliği w)
+ panel.size   = kapağın dik yöndeki ölçüsü  (H orient → kapak yüksekliği h)
+                Bölümde TEK kapak varsa ve size=0 → otomatik tam yükseklik.
+ innerGaps[i] = bölüm içindeki i. ile i+1. kapak arasında ARA takviye (orient H → yatay)
+*/
+function newColumn(){ return { size:0, panels:[{size:0, type:"Normal Panel"}], innerGaps:[] }; }
+function newFaceSet(){
+  return FACE_DEFS.map(()=>({
+    kapaksiz: false,
+    orient: 'H',
+    cont: 'ana',
+    selected: null,
+    columns: [ newColumn() ],
+    colGaps: []
+  }));
+}
+function newModule(){ return { L:0, H:0, W:0, pos:{x:0,y:0,z:0}, faces: newFaceSet() }; }
+
+const GLASS_R_MM = 75; // gözetleme camı: sabit Ø150 mm (katalog değeri)
+
+const state = {
+  dims: {},                                    // W/H/L getter'ları aktif modüle yönlenir
+  varsayimlar: { seri: 60, tolW: 2, tolH: 2 },
+  proje: { isNo:'', ad:'' },
+  modules: [ newModule() ],
+  active: 0
+};
+// Geriye uyumluluk: mevcut tüm yüz kodu aktif modül üzerinden çalışır
+Object.defineProperty(state, 'faces', { get(){ return state.modules[state.active].faces; } });
+// Ölçü setter'ları: değer değişince o eksende ilerideki TÜM modüller delta kadar kayar —
+// bitişik montaj korunur: boşluk açılmaz, iç içe girme oluşmaz
+['W','H','L'].forEach(k=>{
+  const axis = {L:'x', H:'y', W:'z'}[k];
+  Object.defineProperty(state.dims, k, {
+    get(){ return state.modules[state.active][k]; },
+    set(v){
+      const md = state.modules[state.active];
+      const oldExt = modExt(md, axis);
+      md[k] = v;
+      const delta = modExt(md, axis) - oldExt;
+      if(delta !== 0){
+        const plane = md.pos[axis] + oldExt;
+        state.modules.forEach(B=>{
+          if(B===md) return;
+          if(B.pos[axis] >= plane - 0.5) B.pos[axis] += delta;
+        });
+      }
+    }
+  });
+});
+function withModule(m, fn){
+  const prev = state.active; state.active = m;
+  try{ return fn(); } finally{ state.active = prev; }
+}
+
+// Yüz → eksen/yön eşlemesi (modül ekleme ve birleşim tespiti için)
+const FACE_ATT = [
+  {axis:'z', dir:+1},  // ÖN
+  {axis:'z', dir:-1},  // ARKA
+  {axis:'y', dir:+1},  // ÜST
+  {axis:'y', dir:-1},  // ALT
+  {axis:'x', dir:-1},  // SOL
+  {axis:'x', dir:+1}   // SAĞ
+];
+const EXT_KEY = {x:'L', y:'H', z:'W'};
+function modExt(md, axis){ const v = md[EXT_KEY[axis]]; return v>0 ? v : PH3[EXT_KEY[axis]]; }
+
+// Bir yüze tıklanınca o yönde yeni modül: ölçüler komşudan kopyalanır (sonradan düzenlenebilir), konum bitişik
+function addModuleAt(m, fi){
+  const nb = state.modules[m];
+  const att = FACE_ATT[fi];
+  const nm = newModule();
+  nm.L = nb.L; nm.H = nb.H; nm.W = nb.W;
+  nm.pos = {x:nb.pos.x, y:nb.pos.y, z:nb.pos.z};
+  nm.pos[att.axis] += att.dir>0 ? modExt(nb, att.axis) : -modExt(nm, att.axis);
+  nm.attAxis = att.axis; nm.attDir = att.dir;   // silme sırasında boşluk kapatma bu eksende yapılır
+  state.modules.push(nm);
+  state.active = state.modules.length-1;
+  renderAll();
+}
+
+// AABB çakışma denetimi: iki modül üç eksende de iç içe geçiyorsa (temas hariç) çakışmadır
+function detectCollisions(){
+  const out = [];
+  const eps = 0.5;
+  for(let i=0; i<state.modules.length; i++){
+    for(let j=i+1; j<state.modules.length; j++){
+      const A = state.modules[i], B = state.modules[j];
+      const aE = {x:modExt(A,'x'), y:modExt(A,'y'), z:modExt(A,'z')};
+      const bE = {x:modExt(B,'x'), y:modExt(B,'y'), z:modExt(B,'z')};
+      const hit = ['x','y','z'].every(a=>
+        A.pos[a] < B.pos[a]+bE[a]-eps && B.pos[a] < A.pos[a]+aE[a]-eps);
+      if(hit) out.push([i,j]);
+    }
+  }
+  return out;
+}
+
+// Yüz, başka bir modülün eş-düzlemli karşı yüzü tarafından TAM örtülüyorsa iç birleşimdir → çizilmez
+function faceMated(m, fi){
+  const A = state.modules[m];
+  const att = FACE_ATT[fi];
+  const aExt = {x:modExt(A,'x'), y:modExt(A,'y'), z:modExt(A,'z')};
+  const plane = A.pos[att.axis] + (att.dir>0 ? aExt[att.axis] : 0);
+  const tang = ['x','y','z'].filter(a=>a!==att.axis);
+  const eps = 0.5;
+  return state.modules.some((B,bi)=>{
+    if(bi===m) return false;
+    const bExt = {x:modExt(B,'x'), y:modExt(B,'y'), z:modExt(B,'z')};
+    const bPlane = B.pos[att.axis] + (att.dir>0 ? 0 : bExt[att.axis]);
+    if(Math.abs(bPlane-plane)>eps) return false;
+    return tang.every(a=> B.pos[a] <= A.pos[a]+eps && B.pos[a]+bExt[a] >= A.pos[a]+aExt[a]-eps);
+  });
+}
+
+// Yüz kısa kodları — kapak adlandırmasında yüz ayrımı için (örn. ÖN-B1K1)
+const FACE_CODE = ['ÖN','AR','ÜS','AL','SO','SA'];
+
+// Profil deposu: 50 ve 60 gömülü; özel profiller eklenebilir ve tarayıcıda kalıcıdır.
+// takviyePlastik = 0 → takviye plastiği kullanılmaz (boy düşümü ve görsel başlıklar kalkar).
+const PROFILES = {
+  '50': { kenar:50, takviye:40, kose:71, takviyePlastik:21, builtin:true },
+  '60': { kenar:60, takviye:60, kose:80, takviyePlastik:20, builtin:true }
+};
+try{
+  const cp = JSON.parse(localStorage.getItem('kh_profiles')||'{}');
+  Object.entries(cp).forEach(([k,v])=>{ PROFILES[k] = {...v, builtin:false}; });
+}catch(_){}
+function saveCustomProfiles(){
+  try{
+    const cp = {};
+    Object.entries(PROFILES).forEach(([k,v])=>{ if(!v.builtin) cp[k] = {kenar:v.kenar, takviye:v.takviye, kose:v.kose, takviyePlastik:v.takviyePlastik}; });
+    localStorage.setItem('kh_profiles', JSON.stringify(cp));
+  }catch(_){}
+}
+
+function getV(){
+  const seri = String(state.varsayimlar.seri);
+  const p = PROFILES[seri] || PROFILES['60'];
+  return {
+    seri,
+    kenar: p.kenar,
+    takviye: p.takviye,
+    kose: p.kose,
+    takviyePlastik: p.takviyePlastik,
+    tolW: state.varsayimlar.tolW,
+    tolH: state.varsayimlar.tolH
+  };
+}
+
+function colHasBogaz(col){ return col.panels.some(p=>isBogaz(p.type)); }
+function colGapLocked(face, i){ return colHasBogaz(face.columns[i]) || colHasBogaz(face.columns[i+1]); }
+
+function syncStructure(face){
+  const needCG = Math.max(face.columns.length-1, 0);
+  while(face.colGaps.length < needCG) face.colGaps.push(true);   // otomatik: yeni ara = takviyeli
+  face.colGaps.length = needCG;
+  for(let i=0;i<needCG;i++) if(colGapLocked(face,i)) face.colGaps[i]=false;
+  face.columns.forEach(col=>{
+    const needIG = Math.max(col.panels.length-1, 0);
+    while(col.innerGaps.length < needIG) col.innerGaps.push(true); // otomatik: yeni ara = takviyeli
+    col.innerGaps.length = needIG;
+  });
+}
+
+function computeFace(fi){
+  const def = FACE_DEFS[fi];
+  const face = state.faces[fi];
+  syncStructure(face);
+  const V = getV();
+  const faceW = Number(state.dims[def.wKey])||0;
+  const faceH = Number(state.dims[def.hKey])||0;
+  const orient = face.orient;
+
+  const alongDim  = orient==='H' ? faceW : faceH;   // bölüm dizilim ekseni
+  const acrossDim = orient==='H' ? faceH : faceW;   // bölüm içi dizilim ekseni
+  const tolAlong  = orient==='H' ? V.tolW : V.tolH; // bölüm ölçüsü = genişlik (H) → tolW
+  const tolAcross = orient==='H' ? V.tolH : V.tolW;
+  const icAcross = acrossDim - 2*V.kenar;
+
+  const profilBase = {
+    ustAlt: { boy: faceW - 2*V.kose },
+    dikey:  { boy: faceH - 2*V.kose }
+  };
+
+  if(face.kapaksiz){
+    return {def, faceW, faceH, orient, V, icAcross, kapaksiz:true,
+      status:{cls:"info", text:"Bu yüz kapaksız — dolu panel"}, profil:profilBase,
+      colResults:[], anaTakAdedi:0, icKullAlong:null, kalanAlong:null, toplamKapak:0, araTakToplam:0};
+  }
+
+  const anaTakAdedi = face.colGaps.filter(Boolean).length;
+  const icKullAlong = alongDim - 2*V.kenar - anaTakAdedi*V.takviye;
+
+  let toplamAlong = 0, toplamKapak = 0, araTakToplam = 0;
+  const colResults = face.columns.map((col, ci)=>{
+    const colSize = Number(col.size)||0;
+    if(colSize>0) toplamAlong += colSize;
+
+    const innerTakAdedi = col.innerGaps.filter(Boolean).length;
+    araTakToplam += innerTakAdedi;
+    const icColAcross = icAcross - innerTakAdedi*V.takviye; // bölüm içi kullanılabilir dik ölçü
+
+    const single = col.panels.length===1;
+    let toplamAcross = 0;
+    const enteredList = col.panels.map(pp=>Number(pp.size)||0);
+    const lastIdx = col.panels.length-1;
+    const panels = col.panels.map((p,pi)=>{
+      const eleman = isEleman(p.type);      // Damper/Boğaz: 0 tolerans
+      const bos = isBos(p.type);            // Boş Alan: yer kaplar, kesime girmez
+      if(!eleman && !bos) toplamKapak++;
+      const entered = enteredList[pi];
+      // Otomatik doldurma: tek hücre boş bırakılırsa VEYA son hücre "Boş Alan" ve ölçüsüzse kalan alanı alır
+      const trailingBosAuto = bos && entered<=0 && pi===lastIdx && !single
+        && enteredList.slice(0,lastIdx).every(v=>v>0);
+      const auto = (single && entered<=0) || trailingBosAuto;
+      const eff = auto
+        ? (single ? Math.max(icColAcross,0)
+                  : Math.max(icColAcross - enteredList.slice(0,lastIdx).reduce((a,b)=>a+b,0), 0))
+        : entered;
+      if(!auto && entered>0) toplamAcross += entered;
+      const acilir = isAcilir(p.type);
+
+      // Gerçek w/h eşleşmesi
+      const panelW = orient==='H' ? colSize : eff;
+      const panelH = orient==='H' ? eff : colSize;
+
+      const sabitAlongV  = (colSize>0 && !bos) ? (eleman ? colSize : colSize - (acilir?tolAlong+1:tolAlong)) : null;
+      const sabitAcrossV = (eff>0 && !bos) ? (eleman ? eff : eff - (acilir?tolAcross+1:tolAcross)) : null;
+      const sabitW = orient==='H' ? sabitAlongV : sabitAcrossV;
+      const sabitH = orient==='H' ? sabitAcrossV : sabitAlongV;
+
+      return {entered, auto, eff, panelW, panelH, sabitW, sabitH, type:p.type, acilir, eleman, bos};
+    });
+
+    const autoUsed = panels.some(pp=>pp.auto);
+    const kalanAcross = autoUsed ? 0 : (icColAcross - toplamAcross);
+    return {colSize, panels, innerTakAdedi, icColAcross, kalanAcross, autoUsed, hasBogaz: colHasBogaz(col)};
+  });
+
+  const kalanAlong = icKullAlong - toplamAlong;
+
+  // BOYDAN BOYA YÖN ANALİZİ — 'ara' (bölüm içi) sürekli seçildiyse hizalama doğrulanır
+  const contInfo = {requested: face.cont==='ara', valid: face.cont!=='ara', msg:''};
+  let alignedHeights = null, alignedGaps = null;
+  if(face.cont==='ara'){
+    if(face.columns.length===1){
+      contInfo.valid = true;
+      alignedHeights = colResults[0].panels.map(p=>p.eff);
+      alignedGaps = face.columns[0].innerGaps.slice();
+    } else {
+      const n0 = face.columns[0].panels.length;
+      const h0 = colResults[0].panels.map(p=>p.eff);
+      const g0 = face.columns[0].innerGaps;
+      let ok = true, why = '';
+      for(let ci=1; ci<face.columns.length && ok; ci++){
+        if(face.columns[ci].panels.length !== n0){ ok=false; why='bölümlerin kapak sayıları farklı'; break; }
+        for(let k=0;k<g0.length;k++){ if(!!face.columns[ci].innerGaps[k] !== !!g0[k]){ ok=false; why='ara takviye desenleri hizalı değil'; break; } }
+        if(ok){ for(let k=0;k<n0;k++){
+          const e0=h0[k], e1=colResults[ci].panels[k].eff;
+          if(e0<=0||e1<=0){ ok=false; why='kapak yükseklikleri eksik'; break; }
+          if(Math.abs(e0-e1)>0.51){ ok=false; why='kapak yükseklikleri hizalı değil (Bölüm 1 ↔ Bölüm '+(ci+1)+')'; break; }
+        } }
+      }
+      contInfo.valid = ok; contInfo.msg = why;
+      if(ok){ alignedHeights = h0; alignedGaps = g0.slice(); }
+    }
+  }
+
+  // DURUM
+  const alongName = orient==='H' ? 'genişlik' : 'yükseklik';
+  const acrossName = orient==='H' ? 'yükseklik' : 'genişlik';
+  let cls='info', lines=[];
+  if(faceW<=0 || faceH<=0){ lines.push(`Gerekli ana ölçüler girilmedi (${def.wKey}, ${def.hKey})`); }
+  else {
+    const anyColSize = colResults.some(c=>c.colSize>0);
+    if(!anyColSize) lines.push(`Bölüm ${alongName} ölçüleri girilmedi — görselde kapağa tıklanarak girilir`);
+    else {
+      if(Math.abs(kalanAlong)<1e-6){ lines.push(`✓ Ana yön (${alongName}) TAM OTURDU — iç kullanılabilir: ${icKullAlong.toFixed(0)} mm`); cls='good'; }
+      else if(kalanAlong>0){ lines.push(`⚠ Ana yön (${alongName}): ${kalanAlong.toFixed(0)} mm EKSİK`); cls='warn'; }
+      else { lines.push(`⚠ Ana yön (${alongName}): ${Math.abs(kalanAlong).toFixed(0)} mm FAZLA`); cls='bad'; }
+    }
+    colResults.forEach((c,ci)=>{
+      if(c.autoUsed) return; // tek kapak oto → her zaman tam
+      if(c.panels.length>1 || c.panels[0].entered>0){
+        if(Math.abs(c.kalanAcross)>1e-6){
+          const t = c.kalanAcross>0 ? `${c.kalanAcross.toFixed(0)} mm EKSİK` : `${Math.abs(c.kalanAcross).toFixed(0)} mm FAZLA`;
+          lines.push(`⚠ Bölüm ${ci+1} dik yön (${acrossName}): ${t}`);
+          if(cls==='good'||cls==='info') cls = c.kalanAcross>0?'warn':'bad';
+          else if(cls==='warn' && c.kalanAcross<0) cls='bad';
+        }
+      }
+    });
+    if(cls==='good' && colResults.every(c=>c.autoUsed || Math.abs(c.kalanAcross)<1e-6)){
+      // ana yön + tüm bölümler tam
+    }
+    if(contInfo.requested && !contInfo.valid){
+      lines.push('⚠ Boydan boya "bölüm içi" uygulanamadı: '+contInfo.msg+' — "bölümler arası" sürekli düzene geri düşüldü');
+      if(cls==='good'||cls==='info') cls='warn';
+    }
+  }
+  const status = {cls, text: lines.join('  |  ')};
+
+  const anaTakBoy = acrossDim - 2*V.kenar - 2*V.takviyePlastik; // boydan boya (dik eksende tam)
+  const anaTakYon = orient==='H' ? 'Dikey' : 'Yatay';
+  const araTakYon = orient==='H' ? 'Yatay' : 'Dikey';
+
+  // TAKVİYE KAYITLARI — seçilen sürekli yöne göre kesim boyları
+  const takviyeRecords = [];
+  const dimsOk = faceW>0 && faceH>0;
+  const contAra = contInfo.requested && contInfo.valid; // bölüm içi (yatay) sürekli
+  if(!contAra){
+    // Varsayılan hiyerarşi: ana sürekli, ara segment
+    if(anaTakAdedi>0) takviyeRecords.push({tip:'Ana Takviye', yon:anaTakYon, kaynak:'Boydan boya', adet:anaTakAdedi, boy: dimsOk ? anaTakBoy : null});
+    face.columns.forEach((col,ci)=>{
+      const cnt = col.innerGaps.filter(Boolean).length;
+      if(cnt>0){
+        const cs = Number(col.size)||0;
+        takviyeRecords.push({tip:'Ara Takviye', yon:araTakYon, kaynak:'Bölüm '+(ci+1)+' — segment', adet:cnt, boy: cs>0 ? cs-2*V.takviyePlastik : null});
+      }
+    });
+  } else {
+    // Ters hiyerarşi: ara sürekli (boydan boya), ana segmentli
+    const levels = alignedGaps.filter(Boolean).length;
+    if(levels>0) takviyeRecords.push({tip:'Ara Takviye', yon:araTakYon, kaynak:'Boydan boya', adet:levels, boy: dimsOk ? (alongDim-2*V.kenar-2*V.takviyePlastik) : null});
+    if(anaTakAdedi>0){
+      let span=0; const segs=[];
+      alignedHeights.forEach((h,k)=>{
+        span += h;
+        const gapOn = k<alignedGaps.length ? alignedGaps[k] : false;
+        if(gapOn){ segs.push(span); span=0; }
+      });
+      segs.push(span);
+      segs.forEach((s,si)=>{
+        takviyeRecords.push({tip:'Ana Takviye', yon:anaTakYon, kaynak:'Segment '+(si+1)+' — sürekli üyeler arası', adet:anaTakAdedi, boy: (dimsOk && s>0) ? s-2*V.takviyePlastik : null});
+      });
+    }
+  }
+
+  return {def, faceW, faceH, orient, V, icAcross, kapaksiz:false,
+    colResults, anaTakAdedi, anaTakBoy, anaTakYon, araTakYon, araTakToplam,
+    icKullAlong, kalanAlong, toplamKapak, status, profil:profilBase,
+    takviyeRecords, contInfo};
+}
+
+function renderVarsayimlar(){
+  const V = getV();
+  const sel = document.getElementById('seri');
+  if(sel){
+    sel.innerHTML = Object.keys(PROFILES).map(k=>
+      `<option value="${k}"${String(state.varsayimlar.seri)===k?' selected':''}>${k}${PROFILES[k].builtin?'':' (özel)'}</option>`).join('');
+  }
+  document.getElementById('v_kenar').value = V.kenar;
+  document.getElementById('v_takviye').value = V.takviye;
+  document.getElementById('v_kose').value = V.kose;
+  document.getElementById('v_takviyeplastik').value = V.takviyePlastik;
+}
+
+// ---------- SVG ----------
+function drawFaceSVG(fi){
+  const r = computeFace(fi);
+  const face = state.faces[fi];
+  const V = r.V;
+  const orient = r.orient;
+
+  const SVG_W = 880, SVG_H = 480, PAD = 46;
+  const hasDims = r.faceW>0 && r.faceH>0;
+  const modelW = hasDims ? r.faceW : 1400;
+  const modelH = hasDims ? r.faceH : 1200;
+  const reserveX = orient==='H' ? 74 : 0;
+  const reserveY = orient==='V' ? 74 : 0;
+  const scale = Math.min((SVG_W-2*PAD-reserveX)/modelW, (SVG_H-2*PAD-reserveY)/modelH);
+  const fw = modelW*scale, fh = modelH*scale;
+  const ox = PAD, oy = PAD;
+  const kenarPx = Math.max(V.kenar*scale, 4);
+  const takviyePx = Math.max(V.takviye*scale, 4);
+
+  let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${SVG_W}" height="${SVG_H}" viewBox="0 0 ${SVG_W} ${SVG_H}">`;
+  svg += `<rect x="${ox}" y="${oy}" width="${fw}" height="${fh}" fill="#eef1f4" stroke="#3a4d5c" stroke-width="2"/>`;
+  svg += `<rect x="${ox}" y="${oy}" width="${fw}" height="${kenarPx}" fill="#22303d"/>`;
+  svg += `<rect x="${ox}" y="${oy+fh-kenarPx}" width="${fw}" height="${kenarPx}" fill="#22303d"/>`;
+  svg += `<rect x="${ox}" y="${oy}" width="${kenarPx}" height="${fh}" fill="#22303d"/>`;
+  svg += `<rect x="${ox+fw-kenarPx}" y="${oy}" width="${kenarPx}" height="${fh}" fill="#22303d"/>`;
+  // Köşe plastikleri (4 adet) — yalnızca görsel; boy düşümleri hesapta zaten mevcut
+  const kosePx = V.kose>0 ? Math.max(V.kose*scale, 6) : 0;
+  const plastikPx = V.takviyePlastik>0 ? Math.max(V.takviyePlastik*scale, 2.5) : 0;
+  const PL = '#10161d';
+  // Boydan boya (sürekli) yön açık renkle vurgulanır; segmentli yön koyu kalır
+  const contAra2 = face.cont==='ara' && r.contInfo && r.contInfo.valid;
+  const CONT_FILL = '#547a96', SEG_FILL = '#3d5568';
+  const colFill = contAra2 ? SEG_FILL : CONT_FILL;
+  const innerFill = contAra2 ? CONT_FILL : SEG_FILL;
+  if(kosePx>0) [[ox,oy],[ox+fw-kosePx,oy],[ox,oy+fh-kosePx],[ox+fw-kosePx,oy+fh-kosePx]].forEach(cc=>{
+    svg += `<rect x="${cc[0]}" y="${cc[1]}" width="${kosePx}" height="${kosePx}" fill="${PL}" stroke="#55707f" stroke-width="0.8"/>`;
+  });
+  svg += `<text x="${ox+fw/2}" y="${oy-14}" fill="#33424e" font-size="12" text-anchor="middle">${r.def.wKey} = ${hasDims?r.faceW:'?'} mm</text>`;
+  svg += `<text x="${ox-14}" y="${oy+fh/2}" fill="#33424e" font-size="12" text-anchor="middle" transform="rotate(-90 ${ox-14} ${oy+fh/2})">${r.def.hKey} = ${hasDims?r.faceH:'?'} mm</text>`;
+
+  if(face.kapaksiz){
+    svg += `<text x="${ox+fw/2}" y="${oy+fh/2}" fill="#3d4d5a" font-size="15" text-anchor="middle">KAPAKSIZ YÜZ — DOLU PANEL</text>`;
+    svg += `<text x="${SVG_W-PAD}" y="${SVG_H-14}" fill="#9aa8b2" font-size="9.5" text-anchor="end" font-style="italic">Cenk Altınay</text></svg>`;
+    return svg;
+  }
+
+  const innerX = ox+kenarPx, innerY = oy+kenarPx;
+  const innerW = fw-2*kenarPx, innerH = fh-2*kenarPx;
+  const alongStartPx = orient==='H' ? innerX : innerY;
+  const acrossStartPx = orient==='H' ? innerY : innerX;
+  const acrossLenPx = orient==='H' ? innerH : innerW;
+
+  // Bölüm görsel ölçüleri: girilmişse mm oranlı, girilmemişse eşit paylaştır
+  const icKullMm = Math.max(r.icKullAlong||0, 1);
+  const colSizes = r.colResults.map(c=>c.colSize);
+  const totalEntered = colSizes.reduce((a,b)=>a+(b>0?b:0),0);
+  const zeroCount = colSizes.filter(v=>v<=0).length;
+  const remainingMm = Math.max(icKullMm-totalEntered, 0);
+  const placeholderMm = zeroCount>0 ? Math.max(remainingMm/zeroCount, icKullMm*0.10) : 0;
+
+  let cursor = alongStartPx;
+  const innerBars = [], colBars = []; // sürekli yön kesişimde üstte çizilsin diye tamponlanır
+  const bandsPx = [];                  // hizalı ara takviye bantları (boydan boya 'ara' geometrisi için)
+
+  r.colResults.forEach((cRes, ci)=>{
+    const col = face.columns[ci];
+    const colMm = cRes.colSize>0 ? cRes.colSize : placeholderMm;
+    const colPx = Math.max(colMm*scale, 26);
+
+    // Bölüm içi paneller (dik eksende)
+    const icColMm = Math.max(cRes.icColAcross, 1);
+    const pEntered = cRes.panels.map(p=>p.auto ? cRes.icColAcross : p.entered);
+    const pTotal = pEntered.reduce((a,b)=>a+(b>0?b:0),0);
+    const pZero = pEntered.filter(v=>v<=0).length;
+    const pRemaining = Math.max(icColMm-pTotal, 0);
+    const pPlaceholder = pZero>0 ? Math.max(pRemaining/pZero, icColMm*0.12) : 0;
+
+    let pCursor = acrossStartPx;
+    cRes.panels.forEach((p, pi)=>{
+      const pMm = pEntered[pi]>0 ? pEntered[pi] : pPlaceholder;
+      const pPx = Math.max(pMm*scale, 20);
+      const color = TYPE_COLORS[p.type] || "#34495e";
+      const isSel = face.selected && face.selected.col===ci && face.selected.idx===pi;
+      const dash = p.bos ? 'stroke-dasharray="7,5" fill-opacity="0.35"'
+                 : ((p.entered<=0 && !p.auto) ? 'stroke-dasharray="5,4" fill-opacity="0.4"' : '');
+
+      let px, py, pw, ph;
+      if(orient==='H'){ px=cursor; py=pCursor; pw=colPx; ph=pPx; }
+      else            { px=pCursor; py=cursor; pw=pPx; ph=colPx; }
+
+      svg += `<g class="svg-panel" data-face="${fi}" data-col="${ci}" data-panel="${pi}">`;
+      svg += `<rect class="panel-rect${isSel?' selected':''}" x="${px}" y="${py}" width="${pw}" height="${ph}" fill="${color}" stroke="#4a5d6e" stroke-width="1.5" ${dash}/>`;
+      if(p.type==='Camlı Açılır'){
+        const gr = Math.max(Math.min(GLASS_R_MM*scale, Math.min(pw,ph)*0.42), 4);
+        svg += `<circle cx="${px+pw/2}" cy="${py+ph/2}" r="${gr.toFixed(1)}" fill="rgba(127,200,220,0.22)" stroke="#7fc8dc" stroke-width="1.4"/>`;
+      }
+      if(p.acilir) svg += `<circle cx="${px+7}" cy="${py+ph*0.3}" r="2.5" fill="#4fb8a8"/><circle cx="${px+7}" cy="${py+ph*0.7}" r="2.5" fill="#4fb8a8"/>`;
+      if(p.eleman){
+        if(p.type==='Damper'){
+          // Jaluzi kanatlı damper (frontal) — referans: yoğun yatay lamelli, çerçeveli
+          svg += `<rect x="${px+3}" y="${py+3}" width="${pw-6}" height="${ph-6}" fill="none" stroke="#8577a8" stroke-width="1.2"/>`;
+          const nSlat = Math.max(4, Math.min(12, Math.floor(ph/16)));
+          for(let li=1; li<nSlat; li++){
+            const ly = py+3 + (ph-6)*li/nSlat;
+            svg += `<line x1="${px+5}" y1="${ly.toFixed(1)}" x2="${px+pw-5}" y2="${ly.toFixed(1)}" stroke="#150f22" stroke-width="1.6"/>`;
+          }
+        } else {
+          // Boğaz (frontal) — flanş çerçevesi + koyu kanal açıklığı
+          svg += `<rect x="${px+4}" y="${py+4}" width="${pw-8}" height="${ph-8}" fill="none" stroke="#7a6a4a" stroke-width="1.4"/>`;
+          const iw=(pw-8)*0.68, ih=(ph-8)*0.68;
+          svg += `<rect x="${(px+pw/2-iw/2).toFixed(1)}" y="${(py+ph/2-ih/2).toFixed(1)}" width="${iw.toFixed(1)}" height="${ih.toFixed(1)}" fill="#05080c" stroke="#3a4750" stroke-width="1"/>`;
+        }
+        // +150 mm çıkıntı notu (frontal görünümde derinlik gösterilemez)
+        svg += `<text x="${px+pw/2}" y="${py+12}" fill="#8ba3b5" font-size="8.5" text-anchor="middle">+${'150'} mm çıkıntı</text>`;
+      }
+      const shortT = p.type.length>12 ? p.type.slice(0,11)+'…' : p.type;
+      const cx=px+pw/2, cy=py+ph/2;
+      if(ph>44 && pw>60){
+        svg += `<text x="${cx}" y="${cy-8}" fill="#e6edf3" font-size="10.5" font-weight="600" text-anchor="middle">${FACE_CODE[fi]}-B${ci+1}K${pi+1}</text>`;
+        svg += `<text x="${cx}" y="${cy+5}" fill="#8ba3b5" font-size="9" text-anchor="middle">${shortT}</text>`;
+        const sizeTxt = orient==='H'
+          ? `${cRes.colSize>0?cRes.colSize:'?'}×${p.eff>0?Math.round(p.eff):'?'}${p.auto?' (oto)':''}`
+          : `${p.eff>0?Math.round(p.eff):'?'}×${cRes.colSize>0?cRes.colSize:'?'}${p.auto?' (oto)':''}`;
+        svg += `<text x="${cx}" y="${cy+19}" fill="#4fb8a8" font-size="9.5" font-weight="700" text-anchor="middle">${sizeTxt}</text>`;
+      } else {
+        svg += `<text x="${cx}" y="${cy+3}" fill="#e6edf3" font-size="9.5" font-weight="600" text-anchor="middle">${FACE_CODE[fi]}-B${ci+1}K${pi+1}</text>`;
+      }
+      svg += `</g>`;
+
+      pCursor += pPx;
+
+      // Bölüm içi ara boşluk / ara takviye
+      if(pi < cRes.panels.length-1){
+        const on = col.innerGaps[pi];
+        if(on){
+          if(ci===0) bandsPx.push(pCursor);
+          if(!contAra2){
+          if(orient==='H') innerBars.push(`<g class="svg-innergap" data-face="${fi}" data-col="${ci}" data-gap="${pi}"><rect x="${cursor}" y="${pCursor}" width="${colPx}" height="${takviyePx}" fill="${innerFill}" stroke="#4a5d6e" stroke-width="0.8"/>${plastikPx>0?`<rect x="${cursor}" y="${pCursor}" width="${plastikPx}" height="${takviyePx}" fill="${PL}"/><rect x="${cursor+colPx-plastikPx}" y="${pCursor}" width="${plastikPx}" height="${takviyePx}" fill="${PL}"/>`:``}<rect x="${cursor}" y="${pCursor-5}" width="${colPx}" height="${takviyePx+10}" fill="transparent"/></g>`);
+          else innerBars.push(`<g class="svg-innergap" data-face="${fi}" data-col="${ci}" data-gap="${pi}"><rect x="${pCursor}" y="${cursor}" width="${takviyePx}" height="${colPx}" fill="${innerFill}" stroke="#4a5d6e" stroke-width="0.8"/>${plastikPx>0?`<rect x="${pCursor}" y="${cursor}" width="${takviyePx}" height="${plastikPx}" fill="${PL}"/><rect x="${pCursor}" y="${cursor+colPx-plastikPx}" width="${takviyePx}" height="${plastikPx}" fill="${PL}"/>`:``}<rect x="${pCursor-5}" y="${cursor}" width="${takviyePx+10}" height="${colPx}" fill="transparent"/></g>`);
+          }
+          pCursor += takviyePx;
+        } else {
+          if(orient==='H'){
+            svg += `<g class="svg-innergap" data-face="${fi}" data-col="${ci}" data-gap="${pi}"><line class="gap-hint" x1="${cursor}" y1="${pCursor}" x2="${cursor+colPx}" y2="${pCursor}" stroke="#55697c" stroke-width="1.5" stroke-dasharray="3,5"/><rect x="${cursor}" y="${pCursor-7}" width="${colPx}" height="14" fill="transparent"><title>Ara takviye ekle/kaldır</title></rect></g>`;
+          } else {
+            svg += `<g class="svg-innergap" data-face="${fi}" data-col="${ci}" data-gap="${pi}"><line class="gap-hint" x1="${pCursor}" y1="${cursor}" x2="${pCursor}" y2="${cursor+colPx}" stroke="#55697c" stroke-width="1.5" stroke-dasharray="3,5"/><rect x="${pCursor-7}" y="${cursor}" width="14" height="${colPx}" fill="transparent"><title>Ara takviye ekle/kaldır</title></rect></g>`;
+          }
+        }
+      }
+    });
+
+    // Bölüm dik yön kalan boşluğu
+    if(hasDims && !cRes.autoUsed && cRes.kalanAcross>1e-6 && (cRes.panels.length>1 || cRes.panels[0].entered>0)){
+      const kPx = Math.min(Math.max(cRes.kalanAcross*scale,8), acrossStartPx+acrossLenPx-pCursor);
+      if(kPx>2){
+        if(orient==='H') svg += `<rect x="${cursor}" y="${pCursor}" width="${colPx}" height="${kPx}" fill="#3a2a10" fill-opacity="0.5" stroke="#e0a13a" stroke-width="1" stroke-dasharray="4,3"/>`;
+        else svg += `<rect x="${pCursor}" y="${cursor}" width="${kPx}" height="${colPx}" fill="#3a2a10" fill-opacity="0.5" stroke="#e0a13a" stroke-width="1" stroke-dasharray="4,3"/>`;
+      }
+    }
+
+    // Bölüme kapak ekle butonu (bölümün dik yön sonunda küçük +)
+    {
+      let bx, by;
+      if(orient==='H'){ bx = cursor+colPx/2-11; by = innerY+innerH+4; }
+      else            { bx = innerX+innerW+4;   by = cursor+colPx/2-11; }
+      svg += `<g class="svg-addpanel" data-face="${fi}" data-col="${ci}">
+        <rect x="${bx}" y="${by}" width="22" height="22" rx="5" fill="#1c3a34" stroke="#4fb8a8" stroke-width="1"/>
+        <text x="${bx+11}" y="${by+16}" fill="#4fb8a8" font-size="15" font-weight="700" text-anchor="middle">+</text>
+        <title>Bu bölüme kapak ekle (dik yönde böl)</title>
+      </g>`;
+    }
+
+    cursor += colPx;
+
+    // Bölümler arası ANA takviye / boşluk
+    if(ci < r.colResults.length-1){
+      const locked = colGapLocked(face, ci);
+      const on = face.colGaps[ci];
+      if(on){
+        if(contAra2){
+          // Boydan boya 'ara' geçerli: bu yöndeki takviye kesişimlerde bölünür,
+          // her segmentin iki ucuna takviye plastiği gelir (hesapla birebir)
+          const aEnd = (orient==='H') ? innerY+innerH : innerX+innerW;
+          let segStart = (orient==='H') ? innerY : innerX;
+          const bounds = [];
+          bandsPx.forEach(b=>{ bounds.push([segStart, b]); segStart = b + takviyePx; });
+          bounds.push([segStart, aEnd]);
+          let segs = '';
+          bounds.forEach(bd=>{
+            const s0=bd[0], s1=bd[1];
+            if(s1-s0 < 1) return;
+            if(orient==='H'){
+              segs += `<rect x="${cursor}" y="${s0}" width="${takviyePx}" height="${(s1-s0)}" fill="${colFill}" stroke="#4a5d6e" stroke-width="0.8"/>`;
+              if(plastikPx>0) segs += `<rect x="${cursor}" y="${s0}" width="${takviyePx}" height="${plastikPx}" fill="${PL}"/><rect x="${cursor}" y="${s1-plastikPx}" width="${takviyePx}" height="${plastikPx}" fill="${PL}"/>`;
+            } else {
+              segs += `<rect x="${s0}" y="${cursor}" width="${(s1-s0)}" height="${takviyePx}" fill="${colFill}" stroke="#4a5d6e" stroke-width="0.8"/>`;
+              if(plastikPx>0) segs += `<rect x="${s0}" y="${cursor}" width="${plastikPx}" height="${takviyePx}" fill="${PL}"/><rect x="${s1-plastikPx}" y="${cursor}" width="${plastikPx}" height="${takviyePx}" fill="${PL}"/>`;
+            }
+          });
+          const hit = (orient==='H')
+            ? `<rect x="${cursor-5}" y="${innerY}" width="${takviyePx+10}" height="${innerH}" fill="transparent"/>`
+            : `<rect x="${innerX}" y="${cursor-5}" width="${innerW}" height="${takviyePx+10}" fill="transparent"/>`;
+          colBars.push(`<g class="svg-gap" data-face="${fi}" data-gap="${ci}">${segs}${hit}</g>`);
+        }
+        else if(orient==='H') colBars.push(`<g class="svg-gap" data-face="${fi}" data-gap="${ci}"><rect x="${cursor}" y="${innerY}" width="${takviyePx}" height="${innerH}" fill="${colFill}" stroke="#4a5d6e" stroke-width="0.8"/>${plastikPx>0?`<rect x="${cursor}" y="${innerY}" width="${takviyePx}" height="${plastikPx}" fill="${PL}"/><rect x="${cursor}" y="${innerY+innerH-plastikPx}" width="${takviyePx}" height="${plastikPx}" fill="${PL}"/>`:``}<rect x="${cursor-5}" y="${innerY}" width="${takviyePx+10}" height="${innerH}" fill="transparent"/></g>`);
+        else colBars.push(`<g class="svg-gap" data-face="${fi}" data-gap="${ci}"><rect x="${innerX}" y="${cursor}" width="${innerW}" height="${takviyePx}" fill="${colFill}" stroke="#4a5d6e" stroke-width="0.8"/>${plastikPx>0?`<rect x="${innerX}" y="${cursor}" width="${plastikPx}" height="${takviyePx}" fill="${PL}"/><rect x="${innerX+innerW-plastikPx}" y="${cursor}" width="${plastikPx}" height="${takviyePx}" fill="${PL}"/>`:``}<rect x="${innerX}" y="${cursor-5}" width="${innerW}" height="${takviyePx+10}" fill="transparent"/></g>`);
+        cursor += takviyePx;
+      } else {
+        const strokeCol = locked ? '#e0a13a' : '#55697c';
+        const attrs = locked ? '' : `class="svg-gap" data-face="${fi}" data-gap="${ci}"`;
+        if(orient==='H'){
+          svg += `<g ${attrs}><line class="gap-hint" x1="${cursor}" y1="${innerY}" x2="${cursor}" y2="${innerY+innerH}" stroke="${strokeCol}" stroke-width="1.5" stroke-dasharray="3,5"/>`;
+          if(!locked) svg += `<rect x="${cursor-7}" y="${innerY}" width="14" height="${innerH}" fill="transparent"><title>Ana takviye ekle/kaldır</title></rect>`;
+          else svg += `<rect x="${cursor-7}" y="${innerY}" width="14" height="${innerH}" fill="transparent"><title>Kilitli — boğaz panel bitişiği</title></rect>`;
+          svg += `</g>`;
+        } else {
+          svg += `<g ${attrs}><line class="gap-hint" x1="${innerX}" y1="${cursor}" x2="${innerX+innerW}" y2="${cursor}" stroke="${strokeCol}" stroke-width="1.5" stroke-dasharray="3,5"/>`;
+          if(!locked) svg += `<rect x="${innerX}" y="${cursor-7}" width="${innerW}" height="14" fill="transparent"><title>Ana takviye ekle/kaldır</title></rect>`;
+          else svg += `<rect x="${innerX}" y="${cursor-7}" width="${innerW}" height="14" fill="transparent"><title>Kilitli — boğaz panel bitişiği</title></rect>`;
+          svg += `</g>`;
+        }
+      }
+    }
+  });
+
+  // Ana yön kalan boşluk
+  if(hasDims && r.kalanAlong>1e-6){
+    const kPx = Math.max(r.kalanAlong*scale, 10);
+    if(orient==='H'){
+      const w = Math.min(kPx, ox+fw-kenarPx-cursor);
+      if(w>2){
+        svg += `<rect x="${cursor}" y="${innerY}" width="${w}" height="${innerH}" fill="#3a2a10" fill-opacity="0.5" stroke="#e0a13a" stroke-width="1" stroke-dasharray="4,3"/>`;
+        svg += `<text x="${cursor+w/2}" y="${innerY+innerH/2}" fill="#e0a13a" font-size="10" text-anchor="middle" transform="rotate(-90 ${cursor+w/2} ${innerY+innerH/2})">${r.kalanAlong.toFixed(0)} mm boş</text>`;
+      }
+    } else {
+      const h = Math.min(kPx, oy+fh-kenarPx-cursor);
+      if(h>2){
+        svg += `<rect x="${innerX}" y="${cursor}" width="${innerW}" height="${h}" fill="#3a2a10" fill-opacity="0.5" stroke="#e0a13a" stroke-width="1" stroke-dasharray="4,3"/>`;
+        svg += `<text x="${innerX+innerW/2}" y="${cursor+h/2+3}" fill="#e0a13a" font-size="10" text-anchor="middle">${r.kalanAlong.toFixed(0)} mm boş</text>`;
+      }
+    }
+  }
+
+  // Sürekli üye kesişimde üstte: seçilen yön son çizilir
+  if(contAra2){
+    // Boydan boya sürekli ara takviyeler: tek parça, yalnız iki uçta plastik
+    bandsPx.forEach((b,gi)=>{
+      if(orient==='H'){
+        innerBars.push(`<g class="svg-innergap" data-face="${fi}" data-col="all" data-gap="${gi}"><rect x="${innerX}" y="${b}" width="${innerW}" height="${takviyePx}" fill="${innerFill}" stroke="#4a5d6e" stroke-width="0.8"/>${plastikPx>0?`<rect x="${innerX}" y="${b}" width="${plastikPx}" height="${takviyePx}" fill="${PL}"/><rect x="${innerX+innerW-plastikPx}" y="${b}" width="${plastikPx}" height="${takviyePx}" fill="${PL}"/>`:``}<rect x="${innerX}" y="${b-5}" width="${innerW}" height="${takviyePx+10}" fill="transparent"><title>Boydan boya ara takviye — tıklanınca tüm bölümlerde kaldırılır</title></rect></g>`);
+      } else {
+        innerBars.push(`<g class="svg-innergap" data-face="${fi}" data-col="all" data-gap="${gi}"><rect x="${b}" y="${innerY}" width="${takviyePx}" height="${innerH}" fill="${innerFill}" stroke="#4a5d6e" stroke-width="0.8"/>${plastikPx>0?`<rect x="${b}" y="${innerY}" width="${takviyePx}" height="${plastikPx}" fill="${PL}"/><rect x="${b}" y="${innerY+innerH-plastikPx}" width="${takviyePx}" height="${plastikPx}" fill="${PL}"/>`:``}<rect x="${b-5}" y="${innerY}" width="${takviyePx+10}" height="${innerH}" fill="transparent"><title>Boydan boya ara takviye — tıklanınca tüm bölümlerde kaldırılır</title></rect></g>`);
+      }
+    });
+  }
+  if(contAra2) svg += colBars.join('') + innerBars.join('');
+  else svg += innerBars.join('') + colBars.join('');
+
+  // [+ BÖLÜM] butonu
+  let btnX, btnY;
+  if(orient==='H'){ btnX = ox+fw+18; btnY = oy+fh/2-22; }
+  else            { btnX = ox+fw/2-22; btnY = oy+fh+18; }
+  svg += `<g class="svg-addbtn" data-addface="${fi}">
+    <rect x="${btnX}" y="${btnY}" width="44" height="44" rx="8" fill="#1c3a34" stroke="#4fb8a8" stroke-width="1.5"/>
+    <text x="${btnX+22}" y="${btnY+29}" fill="#4fb8a8" font-size="26" font-weight="700" text-anchor="middle">+</text>
+    <text x="${btnX+22}" y="${btnY+58}" fill="#8ba3b5" font-size="9" text-anchor="middle">BÖLÜM</text>
+  </g>`;
+
+  svg += `<text x="${SVG_W-PAD}" y="${SVG_H-14}" fill="#9aa8b2" font-size="9.5" text-anchor="end" font-style="italic">Cenk Altınay</text>`;
+  svg += `</svg>`;
+  return svg;
+}
+
+// ---------- HTML ----------
+function buildFaceHTML(fi){
+  const def = FACE_DEFS[fi];
+  return `
+  <div class="section">
+    <div class="flex-between" style="margin-bottom:10px;">
+      <span class="badge">${def.name} — ${def.wKey} × ${def.hKey}</span>
+      <div style="display:flex;gap:18px;align-items:center;flex-wrap:wrap;">
+        <div class="orient-select">
+          <label>Ana Yerleşim Yönü</label>
+          <select data-orientface="${fi}">
+            <option value="H" selected>Soldan Sağa (bölümler = kolonlar)</option>
+            <option value="V">Yukarıdan Aşağıya (bölümler = satırlar)</option>
+          </select>
+        </div>
+        <div class="orient-select">
+          <label>Boydan Boya Takviye</label>
+          <select data-contface="${fi}">
+            <option value="ana" selected>Bölümler arası (ana)</option>
+            <option value="ara">Bölüm içi (ara)</option>
+          </select>
+        </div>
+        <div class="checkbox-row">
+          <input type="checkbox" id="f${fi}_kapaksiz" data-kapaksizface="${fi}">
+          <label for="f${fi}_kapaksiz">Bu yüz kapaksız</label>
+        </div>
+      </div>
+    </div>
+    <div class="dim-readout">
+      <div><div class="lbl">Bölüm</div><div class="val" id="f${fi}_bolum">—</div></div>
+      <div><div class="lbl">Toplam Kapak</div><div class="val" id="f${fi}_adedi">—</div></div>
+      <div><div class="lbl" id="f${fi}_anatak_lbl">Ana Takviye</div><div class="val" id="f${fi}_anatak">—</div></div>
+      <div><div class="lbl" id="f${fi}_aratak_lbl">Ara Takviye</div><div class="val" id="f${fi}_aratak">—</div></div>
+      <div><div class="lbl" id="f${fi}_ickull_lbl">İç Kullanılabilir</div><div class="val" id="f${fi}_ickull">—</div></div>
+    </div>
+    <div class="canvas-wrap" id="f${fi}_canvas"></div>
+    <div class="legend">
+      <span><i style="background:#34495e;"></i> Sabit panel</span>
+      <span><i style="background:#5d4a1f;"></i> Boğaz panel</span>
+      <span><i style="background:#1f4e5f;"></i> Açılır panel</span>
+      <span><i style="background:#4a3f63;"></i> Damper (0 tolerans)</span>
+      <span><i style="background:#5c3a1e;"></i> Boğaz (0 tolerans, takviye kilidi)</span>
+      <span><i style="background:#3d5568;"></i> Takviye — segmentli (tıkla: iptal)</span>
+      <span><i style="background:#547a96;"></i> Takviye — boydan boya (sürekli yön)</span>
+      <span><i style="background:#10161d;"></i> Köşe / takviye plastiği</span>
+      <span><i style="background:transparent;border-color:#55697c;"></i> İptal edilmiş ara (tıkla: geri ekle)</span>
+      <span><i style="background:transparent;border-color:#e0a13a;"></i> Kilitli ara (boğaz bitişiği)</span>
+    </div>
+    <div class="editor" id="f${fi}_editor">
+      <div class="editor-title" id="f${fi}_editor_title">Düzenle</div>
+      <div id="f${fi}_editor_body"></div>
+      <div class="note" id="f${fi}_ed_info"></div>
+    </div>
+    <div class="status info" id="f${fi}_status">Ana ölçüler girilmedi</div>
+  </div>
+
+  <div class="section">
+    <h2>Kesim Listesi — Kapaklar</h2>
+    <div style="overflow-x:auto;"><table class="cut-table">
+      <thead><tr><th>Kapak</th><th>Tip</th><th>İstenen w</th><th>İstenen h</th><th>SABİT w</th><th>SABİT h</th></tr></thead>
+      <tbody id="f${fi}_cutbody"></tbody>
+    </table></div>
+  </div>
+
+  <div class="section">
+    <h2>Profil Ölçüleri</h2>
+    <table class="profil-table">
+      <thead><tr><th>Profil</th><th>Adet</th><th>Boy (mm)</th><th>Açıklama</th></tr></thead>
+      <tbody id="f${fi}_profilbody"></tbody>
+    </table>
+  </div>`;
+}
+
+function typeOptions(sel){
+  return `<optgroup label="Sabit">${SABIT_TYPES.map(t=>`<option value="${t}"${sel===t?' selected':''}>${t}</option>`).join('')}</optgroup>`+
+         `<optgroup label="Açılır">${ACILIR_TYPES.map(t=>`<option value="${t}"${sel===t?' selected':''}>${t}</option>`).join('')}</optgroup>`+
+         `<optgroup label="Eleman (0 tolerans)">${ELEMAN_TYPES.map(t=>`<option value="${t}"${sel===t?' selected':''}>${t}</option>`).join('')}</optgroup>`+
+         `<optgroup label="Boş">${BOS_TYPES.map(t=>`<option value="${t}"${sel===t?' selected':''}>${t}</option>`).join('')}</optgroup>`;
+}
+
+function editorInfo(r, ci, pi){
+  const c = r.colResults[ci];
+  const p = c.panels[pi];
+  let info = '';
+  if(p.sabitW!==null) info += `SABİT w: ${p.sabitW.toFixed(0)} mm. `;
+  if(p.sabitH!==null) info += `SABİT h: ${p.sabitH.toFixed(0)} mm. `;
+  if(p.eleman) info += `Eleman — 0 tolerans: girilen ölçü kesim/sipariş ölçüsüdür. `;
+  if(p.bos) info += `Boş Alan — kesim listesine girmez; son hücrede ölçüsüz bırakılırsa kalan alanı otomatik doldurur. `;
+  if(p.auto) info += `Yükseklik otomatik (bölüm iç ölçüsü: ${c.icColAcross.toFixed(0)} mm). `;
+  if(!c.autoUsed && Math.abs(c.kalanAcross)>1e-6 && c.panels.length>1) info += `Bölüm dik yön kalanı: ${c.kalanAcross.toFixed(0)} mm.`;
+  return info;
+}
+
+function renderEditor(fi){
+  const face = state.faces[fi];
+  const ed = document.getElementById(`f${fi}_editor`);
+  const body = document.getElementById(`f${fi}_editor_body`);
+  if(!face.selected || face.kapaksiz){ ed.classList.remove('open'); body.innerHTML=''; return; }
+  ed.classList.add('open');
+  const r = computeFace(fi);
+  const {col:ci, idx:pi} = face.selected;
+  const col = face.columns[ci];
+  const p = col.panels[pi];
+  const orient = face.orient;
+
+  document.getElementById(`f${fi}_editor_title`).textContent = `Bölüm ${ci+1} / Kapak ${pi+1}`;
+  const colLbl = orient==='H' ? 'Bölüm Genişliği w (mm) — bölümdeki tüm kapaklar için ortak' : 'Bölüm Yüksekliği h (mm) — bölümdeki tüm kapaklar için ortak';
+  const pLbl = orient==='H' ? 'Kapak Yüksekliği h (mm)' : 'Kapak Genişliği w (mm)';
+  const single = col.panels.length===1;
+  body.innerHTML = `<div class="grid">
+    <div><label>${colLbl}</label><input type="number" id="f${fi}_ed_colsize" value="${col.size||''}"></div>
+    <div><label>${pLbl}${single?' — boş = otomatik tam':''}</label><input type="number" id="f${fi}_ed_psize" value="${p.size||''}" placeholder="${single?'oto':''}"></div>
+    <div><label>Panel Tipi</label><select id="f${fi}_ed_type">${typeOptions(p.type)}</select></div>
+    <div style="display:flex;align-items:flex-end;gap:8px;">
+      <button class="del-btn" id="f${fi}_ed_del" ${(face.columns.length<=1 && single)?'disabled':''}>Kapağı Sil</button>
+    </div>
+  </div>`;
+  document.getElementById(`f${fi}_ed_info`).textContent = editorInfo(r, ci, pi);
+}
+
+// Kesim listesi satırları — HTML tablosu ve Excel çıktısı aynı kaynaktan beslenir
+function getCutRows(r){
+  const out = [];
+  const fc = FACE_CODE[FACE_DEFS.indexOf(r.def)] || '';
+  r.colResults.forEach((c,ci)=>{
+    c.panels.forEach((p,pi)=>{
+      if(p.bos) return; // Boş Alan kesim listesine girmez
+      const istW = p.panelW>0 ? Math.round(p.panelW) : null;
+      const istH = p.panelH>0 ? Math.round(p.panelH)+(p.auto?' (oto)':'') : null;
+      const sabH = p.sabitH!==null ? Math.round(p.sabitH) : null;
+      out.push([fc+'-B'+(ci+1)+'K'+(pi+1), p.type, istW!==null?istW:'—', istH!==null?istH:'—',
+        p.sabitW!==null?Math.round(p.sabitW):'—', sabH!==null?sabH:'—']);
+    });
+  });
+  return out;
+}
+
+// Excel çıktısı için: yalnızca SABİT ölçüler (imalat kesim değerleri)
+function getSabitRows(r){
+  const out = [];
+  const fc = FACE_CODE[FACE_DEFS.indexOf(r.def)] || '';
+  r.colResults.forEach((c,ci)=>{
+    c.panels.forEach((p,pi)=>{
+      if(p.bos) return; // Boş Alan kesim listesine girmez
+      const g = p.sabitW!==null ? Math.round(p.sabitW) : 'ÖLÇÜ EKSİK';
+      const y = p.sabitH!==null ? Math.round(p.sabitH) : 'ÖLÇÜ EKSİK';
+      out.push([fc+'-B'+(ci+1)+'K'+(pi+1), p.type, g, y]);
+    });
+  });
+  return out;
+}
+
+function renderCutTable(fi){
+  const r = computeFace(fi);
+  const body = document.getElementById(`f${fi}_cutbody`);
+  if(r.kapaksiz){ body.innerHTML = '<tr><td colspan="6">Kapaksız yüz</td></tr>'; return; }
+  body.innerHTML = getCutRows(r).map(row=>
+    `<tr>${row.map(v=>`<td>${v}</td>`).join('')}</tr>`
+  ).join('');
+}
+
+function renderProfilTable(fi){
+  const r = computeFace(fi);
+  const face = state.faces[fi];
+  const body = document.getElementById(`f${fi}_profilbody`);
+  const V = r.V;
+  const dash = '—';
+  let rows = `<tr><td colspan="4" style="color:var(--muted);font-size:11px;">Çerçeve profilleri cihaz iskeletinde (sayfa sonu, 3B) bir kez hesaplanır — ayrıtlar komşu yüzlerle paylaşıldığından yüz bazında sayılmaz.</td></tr>`;
+  if(!r.kapaksiz){
+    if(r.takviyeRecords.length===0){
+      rows += `<tr><td colspan="4">Takviye yok</td></tr>`;
+    } else {
+      r.takviyeRecords.forEach(t=>{
+        rows += `<tr><td>${t.yon} ${t.tip}</td><td>${t.adet}</td><td>${t.boy!==null?t.boy.toFixed(0):'⚠ ölçü eksik'}</td><td>${t.kaynak}</td></tr>`;
+      });
+    }
+  }
+  body.innerHTML = rows;
+}
+
+function renderFace(fi){
+  const r = computeFace(fi);
+  const face = state.faces[fi];
+  const orient = r.orient;
+
+  document.getElementById(`f${fi}_bolum`).textContent = r.kapaksiz ? '—' : face.columns.length;
+  document.getElementById(`f${fi}_adedi`).textContent = r.kapaksiz ? '—' : r.toplamKapak;
+  document.getElementById(`f${fi}_anatak_lbl`).textContent = (orient==='H'?'Dikey':'Yatay')+' Ana Takviye';
+  document.getElementById(`f${fi}_anatak`).textContent = r.kapaksiz ? '0' : r.anaTakAdedi;
+  document.getElementById(`f${fi}_aratak_lbl`).textContent = (orient==='H'?'Yatay':'Dikey')+' Ara Takviye';
+  document.getElementById(`f${fi}_aratak`).textContent = r.kapaksiz ? '0' : r.araTakToplam;
+  document.getElementById(`f${fi}_ickull_lbl`).textContent = orient==='H' ? 'İç Kullanılabilir W' : 'İç Kullanılabilir H';
+  document.getElementById(`f${fi}_ickull`).textContent = (!r.kapaksiz && r.icKullAlong!==null && r.faceW>0 && r.faceH>0) ? r.icKullAlong.toFixed(0)+' mm' : '—';
+
+  document.getElementById(`f${fi}_canvas`).innerHTML = drawFaceSVG(fi);
+
+  const st = document.getElementById(`f${fi}_status`);
+  st.className = 'status '+r.status.cls;
+  st.textContent = r.status.text;
+
+  renderCutTable(fi);
+  renderProfilTable(fi);
+  renderEditor(fi);
+  renderGlobalSummary();
+}
+
+// Editör inputlarına dokunmadan güncelleme (odak korunur)
+function partialRender(fi){
+  const r = computeFace(fi);
+  const face = state.faces[fi];
+  document.getElementById(`f${fi}_anatak`).textContent = r.kapaksiz ? '0' : r.anaTakAdedi;
+  document.getElementById(`f${fi}_aratak`).textContent = r.kapaksiz ? '0' : r.araTakToplam;
+  document.getElementById(`f${fi}_ickull`).textContent = (!r.kapaksiz && r.icKullAlong!==null && r.faceW>0 && r.faceH>0) ? r.icKullAlong.toFixed(0)+' mm' : '—';
+  document.getElementById(`f${fi}_canvas`).innerHTML = drawFaceSVG(fi);
+  const st = document.getElementById(`f${fi}_status`);
+  st.className = 'status '+r.status.cls;
+  st.textContent = r.status.text;
+  renderCutTable(fi);
+  renderProfilTable(fi);
+  if(face.selected){
+    document.getElementById(`f${fi}_ed_info`).textContent = editorInfo(r, face.selected.col, face.selected.idx);
+  }
+  renderGlobalSummary();
+}
+
+// ---------- CİHAZ GENELİ TAKVİYE ÖZETİ ----------
+function collectTakviyeRows(){
+  const rows = [];      // {face, tip, yon, kaynak, adet, boy|null}
+  const missing = [];
+  state.modules.forEach((md, m)=>{
+    withModule(m, ()=>{
+      FACE_DEFS.forEach((def, fi)=>{
+        const r = computeFace(fi);
+        if(r.kapaksiz) return;
+        const faceName = 'M'+(m+1)+' '+def.name;
+        r.takviyeRecords.forEach(t=>{
+          rows.push({face:faceName, tip:t.tip, yon:t.yon, kaynak:t.kaynak, adet:t.adet, boy:t.boy});
+          if(t.boy===null) missing.push(faceName+' '+t.kaynak+': ölçü eksik');
+        });
+        if(r.contInfo && r.contInfo.requested && !r.contInfo.valid){
+          missing.push(faceName+': boydan boya "bölüm içi" uygulanamadı ('+r.contInfo.msg+') — varsayılan hiyerarşiyle hesaplandı');
+        }
+      });
+    });
+  });
+  return {rows, missing};
+}
+
+function renderGlobalSummary(){
+  // 3B İSKELET — 12 ayrıt: 4×W, 4×H, 4×L (ayrıtlar yüzler arasında paylaşılır, bir kez sayılır)
+  const V = getV();
+  const frameEl = document.getElementById('gsum_frame');
+  if(frameEl){
+    const N = state.modules.length;
+    const pmap = new Map(); // boy → adet (her modülün L/H/W ekseni 4'er profil)
+    let missingDim = 0;
+    state.modules.forEach(md=>{
+      ['L','H','W'].forEach(k=>{
+        if(md[k]>0){ const boy = md[k]-2*V.kose; pmap.set(boy,(pmap.get(boy)||0)+4); }
+        else missingDim += 4;
+      });
+    });
+    let frameRows = '';
+    [...pmap.entries()].sort((a,b)=>b[0]-a[0]).forEach(([boy,adet])=>{
+      frameRows += `<tr><td>İskelet Profili</td><td>${adet}</td><td>${boy.toFixed(0)}</td><td>${(adet*boy/1000).toFixed(2)}</td><td>Eksen ölçüsü − 2×Köşe Plastik</td></tr>`;
+    });
+    if(missingDim>0) frameRows += `<tr><td>İskelet Profili</td><td>${missingDim}</td><td>⚠</td><td>—</td><td>Modül ölçüleri eksik</td></tr>`;
+    frameRows += `<tr><td>Köşe Plastiği (3 yönlü)</td><td>${8*N}</td><td>—</td><td>—</td><td>Modül başına 8</td></tr>`;
+    frameEl.innerHTML = frameRows;
+  }
+
+  const {rows, missing} = collectTakviyeRows();
+  // KAPAKLAR (SABİT) — tüm modüller, tip + ölçü bazında gruplu (bugüne dek doldurulmuyordu)
+  const gk = document.getElementById('global_kapak');
+  if(gk){
+    const kmap = new Map();
+    state.modules.forEach((md,m)=>{
+      withModule(m, ()=>{
+        FACE_DEFS.forEach((_,fi)=>{
+          const rk = computeFace(fi);
+          if(rk.kapaksiz) return;
+          rk.colResults.forEach(c=>c.panels.forEach(p=>{
+            if(p.bos) return;
+            const w = p.sabitW!==null ? Math.round(p.sabitW) : 'ÖLÇÜ EKSİK';
+            const h = p.sabitH!==null ? Math.round(p.sabitH) : 'ÖLÇÜ EKSİK';
+            const key = p.type+'|'+w+'|'+h;
+            kmap.set(key, (kmap.get(key)||0)+1);
+          }));
+        });
+      });
+    });
+    gk.innerHTML = [...kmap.entries()]
+      .sort((a,b)=>a[0].localeCompare(b[0],'tr'))
+      .map(([key,adet])=>{
+        const kp = key.split('|');
+        return `<tr><td>${kp[0]}</td><td>${kp[1]}</td><td>${kp[2]}</td><td>${adet}</td></tr>`;
+      }).join('') || `<tr><td colspan="4" style="color:var(--muted);">Henüz kapak tanımlanmadı</td></tr>`;
+  }
+
+  const detail = document.getElementById('gsum_detail');
+  const group = document.getElementById('gsum_group');
+  const note = document.getElementById('gsum_note');
+  if(!detail) return;
+  render3D();
+
+  if(rows.length===0){
+    detail.innerHTML = '<tr><td colspan="5">Henüz takviye eklenmedi — görselde ara boşluklara tıklanarak eklenir</td></tr>';
+    group.innerHTML = '<tr><td colspan="4">—</td></tr>';
+    note.textContent = '';
+    return;
+  }
+
+  detail.innerHTML = rows.map(x=>
+    `<tr><td>${x.face}</td><td>${x.yon} ${x.tip}</td><td>${x.kaynak}</td><td>${x.adet}</td><td>${x.boy!==null?x.boy.toFixed(0):'⚠ ölçü eksik'}</td></tr>`
+  ).join('');
+
+  // Boya göre grupla (yalnızca boyu hesaplanabilenler)
+  const map = new Map();
+  let skipped = 0;
+  rows.forEach(x=>{
+    if(x.boy===null){ skipped += x.adet; return; }
+    // Ana/Ara ayrımı korunur: profil kesiti aynı olsa da işleme farkı olabilir
+    const key = x.tip+'|'+x.boy.toFixed(0);
+    if(!map.has(key)) map.set(key, {tip:x.tip, boy:x.boy, adet:0});
+    map.get(key).adet += x.adet;
+  });
+  const groups = [...map.values()].sort((a,b)=> a.tip.localeCompare(b.tip) || b.boy-a.boy);
+  group.innerHTML = groups.map(g=>
+    `<tr><td>${g.tip}</td><td>${g.boy.toFixed(0)}</td><td>${g.adet}</td><td>${(g.boy*g.adet/1000).toFixed(2)}</td></tr>`
+  ).join('') || '<tr><td colspan="4">—</td></tr>';
+
+  let noteTxt = 'Boylar otomatik türetilir: Ana Takviye = dik eksen − 2×Kenar − 2×Takviye Plastik (boydan boya) | Ara Takviye = bölüm ölçüsü − 2×Takviye Plastik (segment). Yön ekleri (yatay/dikey) sipariş listesinde birleştirilir; kesit aynıdır.';
+  if(skipped>0) noteTxt = '⚠ '+skipped+' adet takviye eksik ölçü nedeniyle sipariş listesine dahil edilemedi. '+noteTxt;
+  if(missing.length>0) noteTxt += ' Eksikler: '+[...new Set(missing)].join('; ')+'.';
+  note.textContent = noteTxt;
+}
+
+function renderModTabs(){
+  const bar = document.getElementById('modtabs');
+  if(!bar) return;
+  bar.innerHTML = '';
+  state.modules.forEach((md, i)=>{
+    const tab = document.createElement('div');
+    tab.className = 'tab'+(i===state.active?' active':'');
+    tab.innerHTML = `M${i+1} <span style="color:var(--muted);font-weight:400;">@(${md.pos.x},${md.pos.y},${md.pos.z})</span> `
+      + (state.modules.length>1 ? `<span data-moddel="${i}" style="cursor:pointer;color:var(--bad);padding:0 3px;" title="Modülü sil">✕</span>` : '');
+    tab.dataset.modtab = i;
+    bar.appendChild(tab);
+  });
+  const md = state.modules[state.active];
+  ['W','H','L'].forEach(k=>{
+    const el = document.getElementById('dim_'+k);
+    if(el) el.value = md[k] || '';
+    const lb = document.getElementById('dim'+k+'_lbl');
+    if(lb) lb.textContent = `${k} — M${state.active+1} ${k==='L'?'Uzunluk':k==='H'?'Yükseklik':'Genişlik'} (mm)`;
+  });
+}
+
+function renderAll(){
+  renderVarsayimlar();
+  renderModTabs();
+  FACE_DEFS.forEach((_,i)=>renderFace(i));
+  renderGlobalSummary();
+}
+
+// ---------- 3B GÖRÜNÜM ----------
+// Serbest döndürme: yaw (dikey eksen) + pitch (yatay eksen), ortografik projeksiyon.
+// Tekerlek: yakınlaş/uzaklaş | Shift+sürükleme: kaydırma | Sürükleme: döndürme.
+// Arkaya bakan yüzler ve yalnızca arka yüzlere ait ayrıtlar çizilmez.
+const view3d = {yaw:-0.55, pitch:0.42, zoom:1, panX:0, panY:0, drag:null};
+const EL3_DEPTH = 150; // Damper/Boğaz dışa çıkıntısı (mm) — yalnızca görsel
+const PH3 = {W:800, H:1200, L:1400}; // ölçü girilmemişse temsili prizma
+
+// Yüzün mm cinsinden hücre geometrisi (u: yüz yatayı, v: yüz dikeyi, sol-üst orijin)
+function faceLayoutRects(fi){
+  const r = computeFace(fi);
+  const face = state.faces[fi];
+  const V = r.V;
+  const def = FACE_DEFS[fi];
+  const FW = (Number(state.dims[def.wKey])||0) > 0 ? Number(state.dims[def.wKey]) : PH3[def.wKey];
+  const FH = (Number(state.dims[def.hKey])||0) > 0 ? Number(state.dims[def.hKey]) : PH3[def.hKey];
+  const k = V.kenar, tk = V.takviye;
+  const kp = V.kose, tp3 = V.takviyePlastik;
+  const PL3 = '#10161d';
+  const contAra3 = face.cont==='ara' && r.contInfo && r.contInfo.valid;
+  const CONT3 = '#547a96', SEG3 = '#3d5568';
+  const colFill3 = contAra3 ? SEG3 : CONT3;
+  const innerFill3 = contAra3 ? CONT3 : SEG3;
+  const innerBarR = [], colBarR = [];   // sürekli yön en son eklenir (3B'de üstte)
+  const bandsMm = [];
+  const rects = [], labels = [];
+  rects.push({u0:0,v0:0,u1:FW,v1:FH, fill:'#131d27'});
+  rects.push({u0:0,v0:0,u1:FW,v1:k, fill:'#22303d'});
+  rects.push({u0:0,v0:FH-k,u1:FW,v1:FH, fill:'#22303d'});
+  rects.push({u0:0,v0:0,u1:k,v1:FH, fill:'#22303d'});
+  rects.push({u0:FW-k,v0:0,u1:FW,v1:FH, fill:'#22303d'});
+  // Köşe plastikleri (görsel) — profilde köşe plastiği yoksa çizilmez
+  if(kp>0) [[0,0],[FW-kp,0],[0,FH-kp],[FW-kp,FH-kp]].forEach(cc=>{
+    rects.push({u0:cc[0],v0:cc[1],u1:cc[0]+kp,v1:cc[1]+kp, fill:PL3});
+  });
+  if(face.kapaksiz){
+    labels.push({u:FW/2, v:FH/2, text:'KAPAKSIZ'});
+    return {FW,FH,rects,labels};
+  }
+  const orient = face.orient;
+  const alongLen = orient==='H'?FW:FH, acrossLen = orient==='H'?FH:FW;
+  const icAcross = acrossLen-2*k;
+  const icKullAlong = alongLen-2*k-r.anaTakAdedi*tk;
+  const colSizes = r.colResults.map(c=>c.colSize);
+  const tot = colSizes.reduce((a,b)=>a+(b>0?b:0),0);
+  const zc = colSizes.filter(x=>x<=0).length;
+  const phCol = zc>0 ? Math.max((icKullAlong-tot)/zc, icKullAlong*0.1) : 0;
+  let cur = k;
+  r.colResults.forEach((cRes,ci)=>{
+    const col = face.columns[ci];
+    const colMm = cRes.colSize>0?cRes.colSize:phCol;
+    const icCol = icAcross - cRes.innerTakAdedi*tk;
+    const effs = cRes.panels.map(p=>p.auto?icCol:p.entered);
+    const ptot = effs.reduce((a,b)=>a+(b>0?b:0),0);
+    const pzc = effs.filter(x=>x<=0).length;
+    const phP = pzc>0?Math.max((icCol-ptot)/pzc, icCol*0.12):0;
+    let pc = k;
+    cRes.panels.forEach((p,pi)=>{
+      const pm = effs[pi]>0?effs[pi]:phP;
+      const rc = orient==='H'
+        ? {u0:cur, v0:pc, u1:cur+colMm, v1:pc+pm}
+        : {u0:pc, v0:cur, u1:pc+pm, v1:cur+colMm};
+      rc.fill = TYPE_COLORS[p.type]||'#34495e';
+      if(p.eleman){ rc.eleman = true; rc.elType = p.type; rc.lbl = FACE_CODE[fi]+'-B'+(ci+1)+'K'+(pi+1); }
+      if(p.bos) rc.bos = true;
+      rects.push(rc);
+      if(p.type==='Camlı Açılır'){
+        rects.push({circle:true, cu:(rc.u0+rc.u1)/2, cv:(rc.v0+rc.v1)/2,
+          r: Math.min(GLASS_R_MM, Math.min(rc.u1-rc.u0, rc.v1-rc.v0)*0.42), fill:'rgba(127,200,220,0.30)'});
+      }
+      if(!p.eleman) labels.push({u:(rc.u0+rc.u1)/2, v:(rc.v0+rc.v1)/2, text: p.bos ? 'BOŞ' : FACE_CODE[fi]+'-B'+(ci+1)+'K'+(pi+1)});
+      pc += pm;
+      if(pi<cRes.panels.length-1 && col.innerGaps[pi]){
+        if(ci===0) bandsMm.push(pc);
+        if(!contAra3){
+          const tr = orient==='H'
+            ? {u0:cur,v0:pc,u1:cur+colMm,v1:pc+tk}
+            : {u0:pc,v0:cur,u1:pc+tk,v1:cur+colMm};
+          tr.fill=innerFill3; innerBarR.push(tr);
+          if(tp3>0){
+            if(orient==='H'){
+              innerBarR.push({u0:tr.u0,v0:tr.v0,u1:tr.u0+tp3,v1:tr.v1, fill:PL3});
+              innerBarR.push({u0:tr.u1-tp3,v0:tr.v0,u1:tr.u1,v1:tr.v1, fill:PL3});
+            } else {
+              innerBarR.push({u0:tr.u0,v0:tr.v0,u1:tr.u1,v1:tr.v0+tp3, fill:PL3});
+              innerBarR.push({u0:tr.u0,v0:tr.v1-tp3,u1:tr.u1,v1:tr.v1, fill:PL3});
+            }
+          }
+        }
+        pc+=tk;
+      }
+    });
+    cur += colMm;
+    if(ci<r.colResults.length-1 && face.colGaps[ci]){
+      if(contAra3){
+        // Segmentli: kesişimlerde bölünür, her segment ucunda plastik
+        const aEnd = (orient==='H') ? FH-k : FW-k;
+        let segStart = k;
+        const bounds = [];
+        bandsMm.forEach(b=>{ bounds.push([segStart,b]); segStart = b+tk; });
+        bounds.push([segStart, aEnd]);
+        bounds.forEach(bd=>{
+          const s0=bd[0], s1=bd[1];
+          if(s1-s0 < 1) return;
+          const tr = orient==='H'
+            ? {u0:cur,v0:s0,u1:cur+tk,v1:s1}
+            : {u0:s0,v0:cur,u1:s1,v1:cur+tk};
+          tr.fill=colFill3; colBarR.push(tr);
+          if(tp3>0){
+            if(orient==='H'){
+              colBarR.push({u0:tr.u0,v0:s0,u1:tr.u1,v1:s0+tp3, fill:PL3});
+              colBarR.push({u0:tr.u0,v0:s1-tp3,u1:tr.u1,v1:s1, fill:PL3});
+            } else {
+              colBarR.push({u0:s0,v0:tr.v0,u1:s0+tp3,v1:tr.v1, fill:PL3});
+              colBarR.push({u0:s1-tp3,v0:tr.v0,u1:s1,v1:tr.v1, fill:PL3});
+            }
+          }
+        });
+      } else {
+        const tr = orient==='H'
+          ? {u0:cur,v0:k,u1:cur+tk,v1:FH-k}
+          : {u0:k,v0:cur,u1:FW-k,v1:cur+tk};
+        tr.fill=colFill3; colBarR.push(tr);
+        if(tp3>0){
+          if(orient==='H'){
+            colBarR.push({u0:tr.u0,v0:tr.v0,u1:tr.u1,v1:tr.v0+tp3, fill:PL3});
+            colBarR.push({u0:tr.u0,v0:tr.v1-tp3,u1:tr.u1,v1:tr.v1, fill:PL3});
+          } else {
+            colBarR.push({u0:tr.u0,v0:tr.v0,u1:tr.u0+tp3,v1:tr.v1, fill:PL3});
+            colBarR.push({u0:tr.u1-tp3,v0:tr.v0,u1:tr.u1,v1:tr.v1, fill:PL3});
+          }
+        }
+      }
+      cur+=tk;
+    }
+  });
+  if(contAra3){
+    // Boydan boya sürekli ara takviyeler: tek parça, yalnız iki uçta plastik
+    bandsMm.forEach(b=>{
+      const tr = orient==='H'
+        ? {u0:k,v0:b,u1:FW-k,v1:b+tk}
+        : {u0:b,v0:k,u1:b+tk,v1:FH-k};
+      tr.fill=innerFill3; innerBarR.push(tr);
+      if(tp3>0){
+        if(orient==='H'){
+          innerBarR.push({u0:k,v0:b,u1:k+tp3,v1:b+tk, fill:PL3});
+          innerBarR.push({u0:FW-k-tp3,v0:b,u1:FW-k,v1:b+tk, fill:PL3});
+        } else {
+          innerBarR.push({u0:b,v0:k,u1:b+tk,v1:k+tp3, fill:PL3});
+          innerBarR.push({u0:b,v0:FH-k-tp3,u1:b+tk,v1:FH-k, fill:PL3});
+        }
+      }
+    });
+  }
+  if(contAra3) rects.push(...colBarR, ...innerBarR);   // sürekli: bölüm içi (ara) üstte
+  else rects.push(...innerBarR, ...colBarR);           // sürekli: bölümler arası (ana) üstte
+  return {FW,FH,rects,labels};
+}
+
+// Yüz-yerel (u,v) → cihaz XYZ (X=L ekseni, Y=H ekseni, Z=W ekseni); dışarıdan bakış yönelimi
+function faceUVtoXYZ(fi, u, v, L, H, W){
+  switch(fi){
+    case 0: return [u,   H-v, W  ];  // ÖN   (z=W)
+    case 1: return [L-u, H-v, 0  ];  // ARKA (z=0)
+    case 2: return [u,   H,   v  ];  // ÜST  (y=H)
+    case 3: return [u,   0,   W-v];  // ALT  (y=0)
+    case 4: return [0,   H-v, u  ];  // SOL  (x=0)
+    case 5: return [L,   H-v, W-u];  // SAĞ  (x=L)
+  }
+}
+
+function draw3DSVG(){
+  const mods = state.modules.map((md,m)=>({
+    m,
+    L: modExt(md,'x'), H: modExt(md,'y'), W: modExt(md,'z'),
+    pos: md.pos
+  }));
+  // Sınır kutusu → merkez ve ölçek (döndürmede titremesiz)
+  let minx=1e9,miny=1e9,minz=1e9,maxx=-1e9,maxy=-1e9,maxz=-1e9;
+  mods.forEach(md=>{
+    minx=Math.min(minx,md.pos.x); maxx=Math.max(maxx,md.pos.x+md.L);
+    miny=Math.min(miny,md.pos.y); maxy=Math.max(maxy,md.pos.y+md.H);
+    minz=Math.min(minz,md.pos.z); maxz=Math.max(maxz,md.pos.z+md.W);
+  });
+  const cx3=(minx+maxx)/2, cy3=(miny+maxy)/2, cz3=(minz+maxz)/2;
+  const DX=maxx-minx, DY=maxy-miny, DZ=maxz-minz;
+
+  const cy=Math.cos(view3d.yaw), sy=Math.sin(view3d.yaw);
+  const cp=Math.cos(view3d.pitch), sp=Math.sin(view3d.pitch);
+  function rot(x,y,z){
+    x-=cx3; y-=cy3; z-=cz3;
+    const x1 =  x*cy + z*sy;
+    const z1 = -x*sy + z*cy;
+    const y2 =  y*cp - z1*sp;
+    const z2 =  y*sp + z1*cp;
+    return [x1, y2, z2];
+  }
+  function rotN(n){
+    const x1 =  n[0]*cy + n[2]*sy;
+    const z1 = -n[0]*sy + n[2]*cy;
+    const y2 =  n[1]*cp - z1*sp;
+    const z2 =  n[1]*sp + z1*cp;
+    return [x1, y2, z2];
+  }
+
+  const SW=900, SH=560, PAD=36;
+  const R = 0.5*Math.sqrt(DX*DX+DY*DY+DZ*DZ);
+  const sc = Math.min(SW-2*PAD, SH-2*PAD)/(2*Math.max(R,1)) * view3d.zoom;
+  const CX = SW/2 + view3d.panX, CY = SH/2 + view3d.panY;
+  const pt = (x,y,z)=>{ const p=rot(x,y,z); return (CX+p[0]*sc).toFixed(1)+','+(CY-p[1]*sc).toFixed(1); };
+
+  const NORMALS = [[0,0,1],[0,0,-1],[0,1,0],[0,-1,0],[-1,0,0],[1,0,0]];
+  const nz = NORMALS.map(n=>rotN(n)[2]);
+  const normVis = nz.map(v=>v>1e-6);
+  const faceVis = (m,fi)=> normVis[fi] && !faceMated(m, fi);
+  const collSet = new Set(detectCollisions().flat());
+
+  // Ressam sıralaması: uzaktaki modül önce (ayrık kutular + paralel projeksiyon için yeterli)
+  const order = mods.map(md=>({m:md.m, z: rot(md.pos.x+md.L/2, md.pos.y+md.H/2, md.pos.z+md.W/2)[2]}))
+                    .sort((a,b)=>a.z-b.z).map(o=>o.m);
+
+  let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${SW}" height="${SH}" viewBox="0 0 ${SW} ${SH}">`;
+  let protSvg = '';
+
+  order.forEach(m=>{
+    const md = mods[m];
+    const Lm=md.L, Hm=md.H, Wm=md.W, P0=md.pos;
+    const F = (fi,u,v)=>{ const p=faceUVtoXYZ(fi,u,v,Lm,Hm,Wm); return [p[0]+P0.x, p[1]+P0.y, p[2]+P0.z]; };
+    let bestFi = -1, bestNz = 0.22;   // modül adı, kameraya en dik bakan yüze bir kez yazılır
+
+    NORMALS.forEach((_,fi)=>{
+      if(!faceVis(m,fi)) return;
+      const lay = withModule(m, ()=>faceLayoutRects(fi));
+      lay.rects.forEach(rc=>{
+        if(rc.circle){
+          const pts = [];
+          for(let a=0;a<16;a++){
+            const ang = a*Math.PI/8;
+            const p = F(fi, rc.cu+Math.cos(ang)*rc.r, rc.cv+Math.sin(ang)*rc.r);
+            pts.push(pt(p[0],p[1],p[2]));
+          }
+          svg += `<polygon points="${pts.join(' ')}" fill="${rc.fill}" stroke="#7fc8dc" stroke-width="0.8"/>`;
+          return;
+        }
+        const q = [[rc.u0,rc.v0],[rc.u1,rc.v0],[rc.u1,rc.v1],[rc.u0,rc.v1]]
+          .map(uv=>{ const p=F(fi,uv[0],uv[1]); return pt(p[0],p[1],p[2]); }).join(' ');
+        svg += `<polygon points="${q}" fill="${rc.fill}" stroke="#0a1118" stroke-width="0.6"${rc.bos?' stroke-dasharray="6,5"':''}/>`;
+      });
+      const qFull = [[0,0],[lay.FW,0],[lay.FW,lay.FH],[0,lay.FH]]
+        .map(uv=>{ const p=F(fi,uv[0],uv[1]); return pt(p[0],p[1],p[2]); }).join(' ');
+      const shadeOp = Math.min(Math.max((1-nz[fi])*0.35, 0), 0.35);
+      if(shadeOp>0.02){
+        svg += `<polygon points="${qFull}" fill="rgba(0,0,0,${shadeOp.toFixed(2)})" pointer-events="none"/>`;
+      }
+      if(nz[fi]>0.22){
+        lay.labels.forEach(lb=>{
+          const p3 = F(fi, lb.u, lb.v);
+          const p = rot(p3[0],p3[1],p3[2]);
+          const txt = /-B\d/.test(lb.text) ? 'M'+(m+1)+'·'+lb.text : lb.text;
+          svg += `<text x="${(CX+p[0]*sc).toFixed(1)}" y="${(CY-p[1]*sc).toFixed(1)}" fill="#cfe3dd" font-size="10" font-weight="600" text-anchor="middle" pointer-events="none">${txt}</text>`;
+        });
+        if(nz[fi] > bestNz){ bestNz = nz[fi]; bestFi = fi; }
+      }
+      // Tıkla-ekle katmanı: bu yüzün dış tarafına yeni modül
+      svg += `<polygon points="${qFull}" class="face-hit3" data-m3="${m}" data-f3="${fi}" fill="transparent"><title>M${m+1} ${FACE_DEFS[fi].name} — bu yöne modül eklemek için tıklayın</title></polygon>`;
+
+      // Damper/Boğaz — 150 mm dışa çıkıntı
+      lay.rects.forEach(rc=>{
+        if(!rc.eleman) return;
+        const N = NORMALS[fi];
+        const off = p=>[p[0]+N[0]*EL3_DEPTH, p[1]+N[1]*EL3_DEPTH, p[2]+N[2]*EL3_DEPTH];
+        const base = [[rc.u0,rc.v0],[rc.u1,rc.v0],[rc.u1,rc.v1],[rc.u0,rc.v1]].map(uv=>F(fi,uv[0],uv[1]));
+        const top = base.map(off);
+        const o3=F(fi,0,0), pu=F(fi,1,0), pv=F(fi,0,1);
+        const du=[pu[0]-o3[0],pu[1]-o3[1],pu[2]-o3[2]], dv=[pv[0]-o3[0],pv[1]-o3[1],pv[2]-o3[2]];
+        const isDamper = rc.elType==='Damper';
+        const sideFill = isDamper ? '#352c47' : '#22282d';
+        [
+          {q:[base[0],base[1],top[1],top[0]], n:[-dv[0],-dv[1],-dv[2]]},
+          {q:[base[1],base[2],top[2],top[1]], n:[ du[0], du[1], du[2]]},
+          {q:[base[2],base[3],top[3],top[2]], n:[ dv[0], dv[1], dv[2]]},
+          {q:[base[3],base[0],top[0],top[3]], n:[-du[0],-du[1],-du[2]]}
+        ].forEach(w=>{
+          if(rotN(w.n)[2] <= 1e-6) return;
+          protSvg += `<polygon points="${w.q.map(p=>pt(p[0],p[1],p[2])).join(' ')}" fill="${sideFill}" stroke="#0a1118" stroke-width="0.7"/>`;
+        });
+        protSvg += `<polygon points="${top.map(p=>pt(p[0],p[1],p[2])).join(' ')}" fill="${isDamper?'#4a3f63':'#2b3036'}" stroke="#0a1118" stroke-width="0.9"/>`;
+        if(isDamper){
+          const nSlat = Math.max(4, Math.min(10, Math.round((rc.v1-rc.v0)/120)));
+          for(let i2=1;i2<nSlat;i2++){
+            const t = i2/nSlat;
+            const a3=[top[0][0]+(top[3][0]-top[0][0])*t, top[0][1]+(top[3][1]-top[0][1])*t, top[0][2]+(top[3][2]-top[0][2])*t];
+            const b3=[top[1][0]+(top[2][0]-top[1][0])*t, top[1][1]+(top[2][1]-top[1][1])*t, top[1][2]+(top[2][2]-top[1][2])*t];
+            const A=rot(a3[0],a3[1],a3[2]), B=rot(b3[0],b3[1],b3[2]);
+            protSvg += `<line x1="${(CX+A[0]*sc).toFixed(1)}" y1="${(CY-A[1]*sc).toFixed(1)}" x2="${(CX+B[0]*sc).toFixed(1)}" y2="${(CY-B[1]*sc).toFixed(1)}" stroke="#150f22" stroke-width="1.6"/>`;
+          }
+        } else {
+          const ins = 0.16;
+          const inner = [[rc.u0+(rc.u1-rc.u0)*ins, rc.v0+(rc.v1-rc.v0)*ins],
+                         [rc.u1-(rc.u1-rc.u0)*ins, rc.v0+(rc.v1-rc.v0)*ins],
+                         [rc.u1-(rc.u1-rc.u0)*ins, rc.v1-(rc.v1-rc.v0)*ins],
+                         [rc.u0+(rc.u1-rc.u0)*ins, rc.v1-(rc.v1-rc.v0)*ins]]
+            .map(uv=>off(F(fi,uv[0],uv[1])));
+          protSvg += `<polygon points="${inner.map(p=>pt(p[0],p[1],p[2])).join(' ')}" fill="#05080c" stroke="#3a4750" stroke-width="0.8"/>`;
+        }
+        const cp3 = off(F(fi,(rc.u0+rc.u1)/2,(rc.v0+rc.v1)/2));
+        const cp = rot(cp3[0],cp3[1],cp3[2]);
+        protSvg += `<text x="${(CX+cp[0]*sc).toFixed(1)}" y="${(CY-cp[1]*sc).toFixed(1)}" fill="#cfe3dd" font-size="10" font-weight="600" text-anchor="middle" pointer-events="none">M${m+1}·${rc.lbl} — ${rc.elType}</text>`;
+      });
+    });
+
+    // Modül adı — yalnızca en dik görünen yüzde bir kez
+    if(bestFi >= 0){
+      const dk = {L:Lm, H:Hm, W:Wm};
+      const fw = dk[FACE_DEFS[bestFi].wKey], fh = dk[FACE_DEFS[bestFi].hKey];
+      const t3 = F(bestFi, fw/2, fh*0.09);
+      const tp = rot(t3[0],t3[1],t3[2]);
+      svg += `<text x="${(CX+tp[0]*sc).toFixed(1)}" y="${(CY-tp[1]*sc).toFixed(1)}" fill="#4fb8a8" font-size="13" font-weight="700" text-anchor="middle" pointer-events="none">M${m+1}</text>`;
+    }
+
+    // Modül ayrıtları
+    const x0=P0.x, x1=P0.x+Lm, y0=P0.y, y1=P0.y+Hm, z0=P0.z, z1=P0.z+Wm;
+    const EDGES = [
+      [[x0,y0,z0],[x1,y0,z0], 3,1], [[x0,y1,z0],[x1,y1,z0], 2,1], [[x0,y0,z1],[x1,y0,z1], 3,0], [[x0,y1,z1],[x1,y1,z1], 2,0],
+      [[x0,y0,z0],[x0,y1,z0], 4,1], [[x1,y0,z0],[x1,y1,z0], 5,1], [[x0,y0,z1],[x0,y1,z1], 4,0], [[x1,y0,z1],[x1,y1,z1], 5,0],
+      [[x0,y0,z0],[x0,y0,z1], 4,3], [[x1,y0,z0],[x1,y0,z1], 5,3], [[x0,y1,z0],[x0,y1,z1], 4,2], [[x1,y1,z0],[x1,y1,z1], 5,2]
+    ];
+    EDGES.forEach(e=>{
+      if(!faceVis(m,e[2]) && !faceVis(m,e[3])) return;
+      const a=rot(e[0][0],e[0][1],e[0][2]), b=rot(e[1][0],e[1][1],e[1][2]);
+      const eStroke = collSet.has(m) ? '#d9534f' : '#37485a';
+      const eW = collSet.has(m) ? '2' : '1.1';
+      svg += `<line x1="${(CX+a[0]*sc).toFixed(1)}" y1="${(CY-a[1]*sc).toFixed(1)}" x2="${(CX+b[0]*sc).toFixed(1)}" y2="${(CY-b[1]*sc).toFixed(1)}" stroke="${eStroke}" stroke-width="${eW}" pointer-events="none"/>`;
+    });
+  });
+
+  svg += protSvg;
+
+  const am = state.modules[state.active];
+  svg += `<text x="${PAD}" y="${SH-14}" fill="#33424e" font-size="11">Modül: ${state.modules.length} adet   |   Aktif M${state.active+1}: L=${am.L||'?'} H=${am.H||'?'} W=${am.W||'?'} mm   |   Yüze tıklayınca o yöne modül eklenir</text>`;
+  svg += `<text x="${SW-PAD}" y="${SH-14}" fill="#9aa8b2" font-size="9.5" text-anchor="end" font-style="italic">Cenk Altınay</text>`;
+
+  svg += `</svg>`;
+  return svg;
+}
+
+function render3D(){
+  const el = document.getElementById('canvas3d');
+  if(el) el.innerHTML = draw3DSVG();
+  const cw = document.getElementById('coll_warn');
+  if(cw){
+    const pairs = detectCollisions();
+    if(pairs.length){
+      cw.style.display = 'block';
+      cw.textContent = '⚠ ÇAKIŞMA: ' + pairs.map(p=>'M'+(p[0]+1)+' ↔ M'+(p[1]+1)).join(', ')
+        + ' — modüller iç içe geçiyor. Kırmızı çerçeveli modüllerin ölçülerini düzeltin; kesim listeleri çakışmayı bilmez, çıktı bu haliyle güvenilmez.';
+    } else cw.style.display = 'none';
+  }
+}
+
+// ---------- EXCEL DIŞA AKTARMA ----------
+function svgToPng(svgString, w, h){
+  return new Promise((resolve, reject)=>{
+    // Bağımsız SVG görüntüsü katı XML ister: xmlns zorunlu, HTML entiteleri geçersiz
+    let src = svgString.replace(/&nbsp;/g, ' ');
+    if(!/xmlns=/.test(src)) src = src.replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" ');
+    const img = new Image();
+    const blob = new Blob([src], {type:'image/svg+xml;charset=utf-8'});
+    const url = URL.createObjectURL(blob);
+    img.onload = ()=>{
+      const canvas = document.createElement('canvas');
+      canvas.width = w*2; canvas.height = h*2;   // 2× çözünürlük
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0,0,canvas.width,canvas.height);
+      ctx.scale(2,2);
+      ctx.drawImage(img,0,0);
+      URL.revokeObjectURL(url);
+      resolve(canvas.toDataURL('image/png'));
+    };
+    img.onerror = ()=>{ URL.revokeObjectURL(url); reject(new Error('SVG render hatası')); };
+    img.src = url;
+  });
+}
+
+async function exportExcel(){
+  const note = document.getElementById('excel_note');
+  if(typeof ExcelJS==='undefined'){
+    note.textContent = '⚠ ExcelJS kütüphanesi yüklenemedi — internet bağlantısı gereklidir (cdnjs).';
+    return;
+  }
+  note.textContent = 'Excel dosyası hazırlanıyor…';
+  try{
+    const V = getV();
+    const wb = new ExcelJS.Workbook();
+    wb.creator = 'Cenk Altınay';
+    wb.lastModifiedBy = 'Cenk Altınay';
+    wb.created = new Date();
+
+    const FONT = {name:'Arial', size:10};
+    const thin = {style:'thin', color:{argb:'FF8899AA'}};
+    const border = {top:thin,left:thin,bottom:thin,right:thin};
+    const headFill = {type:'pattern', pattern:'solid', fgColor:{argb:'FF2A3B4A'}};
+    const headFont = {name:'Arial', size:10, bold:true, color:{argb:'FFFFFFFF'}};
+    const titleFont = {name:'Arial', size:12, bold:true, color:{argb:'FF1F6F63'}};
+    const devFont = {name:'Arial', size:9, italic:true, color:{argb:'FF7A8A96'}};
+
+    function setDevFooter(ws){
+      ws.headerFooter = {
+        oddFooter: '&C&8Cenk Altınay',
+        evenFooter: '&C&8Cenk Altınay'
+      };
+    }
+
+    function addTable(ws, startRow, title, headers, rows){
+      let rr = startRow;
+      const t = ws.getCell(rr,1); t.value = title; t.font = titleFont; rr++;
+      headers.forEach((h,ci)=>{ const c = ws.getCell(rr,ci+1); c.value=h; c.fill=headFill; c.font=headFont; c.border=border; c.alignment={horizontal:'center'}; });
+      rr++;
+      if(rows.length===0){
+        const c = ws.getCell(rr,1); c.value='—'; c.font=FONT; c.border=border; rr++;
+      } else rows.forEach(row=>{
+        row.forEach((v,ci)=>{ const c=ws.getCell(rr,ci+1); c.value=v; c.font=FONT; c.border=border;
+          c.alignment={horizontal: typeof v==='number' ? 'right':'left'}; });
+        rr++;
+      });
+      return rr+1;
+    }
+
+    // ---- ÖZET SAYFASI ----
+    const wsO = wb.addWorksheet('ÖZET');
+    wsO.columns = [{width:30},{width:22},{width:16},{width:16},{width:16}];
+    setDevFooter(wsO);
+    wsO.getCell(1,1).value = 'Cenk Altınay';
+    wsO.getCell(1,1).font = devFont;
+    let rr = addTable(wsO, 2, 'ANA ÖLÇÜLER VE VARSAYIMLAR', ['Alan','Değer'], [
+      ['W — Genişlik (mm)', state.dims.W||'—'],
+      ['H — Yükseklik (mm)', state.dims.H||'—'],
+      ['L — Uzunluk (mm)', state.dims.L||'—'],
+      ['Profil Serisi', V.seri],
+      ['Kenar Kalınlık (mm)', V.kenar],
+      ['Takviye Kalınlık (mm)', V.takviye],
+      ['İş Numarası', state.proje.isNo || '—'],
+      ['Santral Adı', state.proje.ad || '—'],
+      ['Modül Sayısı', state.modules.length],
+      ['Modüller (L×H×W @ x,y,z)', state.modules.map((md,i)=>`M${i+1}: ${md.L||'?'}×${md.H||'?'}×${md.W||'?'} @(${md.pos.x},${md.pos.y},${md.pos.z})`).join(' | ')]
+    ]);
+
+    const NM = state.modules.length;
+    const pmapX = new Map();
+    let missX = 0;
+    state.modules.forEach(md=>{
+      ['L','H','W'].forEach(k=>{
+        if(md[k]>0){ const boy = md[k]-2*V.kose; pmapX.set(boy,(pmapX.get(boy)||0)+4); }
+        else missX += 4;
+      });
+    });
+    const frameRows = [...pmapX.entries()].sort((a,b)=>b[0]-a[0]).map(([boy,adet])=>['İskelet Profili', adet, Math.round(boy)]);
+    if(missX>0) frameRows.push(['İskelet Profili', missX, 'ÖLÇÜ EKSİK']);
+    frameRows.push(['Köşe Plastiği (3 yönlü)', 8*NM, '—']);
+    rr = addTable(wsO, rr, 'CİHAZ İSKELETİ — MODÜL BAŞINA 12 AYRIT', ['Eleman','Adet','Boy (mm)'], frameRows);
+
+    // Kapak ölçüleri — tüm modüller ve yüzler, yalnızca SABİT değerler
+    const allKapakRows = [];
+    state.modules.forEach((md,m)=>{
+      withModule(m, ()=>{
+        FACE_DEFS.forEach((def,fi)=>{
+          const r = computeFace(fi);
+          if(r.kapaksiz) return;
+          getSabitRows(r).forEach(row=>allKapakRows.push(['M'+(m+1)+' '+def.name, ...row]));
+        });
+      });
+    });
+    rr = addTable(wsO, rr, 'KAPAK KESİM LİSTESİ — TÜM MODÜLLER', ['Modül/Yüz','Kapak','Tip','Genişlik (mm)','Yükseklik (mm)'], allKapakRows);
+
+    const {rows: takRows} = collectTakviyeRows();
+    rr = addTable(wsO, rr, 'TAKVİYE DETAY — TÜM YÜZLER', ['Yüz','Takviye','Kaynak','Adet','Boy (mm)'],
+      takRows.map(x=>[x.face, x.yon+' '+x.tip, x.kaynak, x.adet, x.boy!==null?Math.round(x.boy):'ÖLÇÜ EKSİK']));
+
+    const gmap = new Map();
+    takRows.forEach(x=>{
+      if(x.boy===null) return;
+      const key = x.tip+'|'+x.boy.toFixed(0);
+      if(!gmap.has(key)) gmap.set(key,{tip:x.tip, boy:Math.round(x.boy), adet:0});
+      gmap.get(key).adet += x.adet;
+    });
+    const groups = [...gmap.values()].sort((a,b)=> a.tip.localeCompare(b.tip) || b.boy-a.boy);
+    rr = addTable(wsO, rr, 'TOPLU SİPARİŞ LİSTESİ (BOYA GÖRE GRUPLU)', ['Profil','Boy (mm)','Toplam Adet'],
+      groups.map(g=>[g.tip, g.boy, g.adet]));
+
+    // Kapak toplamları (tip bazında, Boş Alan hariç)
+    const kapakMap = new Map();
+    state.modules.forEach((md,m)=>{
+      withModule(m, ()=>{
+        FACE_DEFS.forEach((_,fi)=>{
+          const r = computeFace(fi);
+          if(r.kapaksiz) return;
+          r.colResults.forEach(c=>c.panels.forEach(p=>{
+            if(p.bos) return;
+            kapakMap.set(p.type, (kapakMap.get(p.type)||0)+1);
+          }));
+        });
+      });
+    });
+    rr = addTable(wsO, rr, 'KAPAK TOPLAMLARI (TİP BAZINDA)', ['Panel Tipi','Toplam Adet'],
+      [...kapakMap.entries()].map(([t,a])=>[t,a]));
+
+    // 3B görünüm — özet sayfasına gömülü
+    try{
+      const png3 = await svgToPng(draw3DSVG(), 900, 560);
+      const img3 = wb.addImage({base64: png3, extension:'png'});
+      const t3 = wsO.getCell(rr,1); t3.value = '3B GÖRÜNÜM'; t3.font = titleFont;
+      wsO.addImage(img3, {tl:{col:0, row:rr}, ext:{width:900, height:560}});
+    }catch(err){
+      const t3 = wsO.getCell(rr,1); t3.value = '⚠ 3B görsel eklenemedi: '+err.message; t3.font = FONT;
+    }
+
+    // ---- MODÜL × YÜZ SAYFALARI ----
+    for(let m=0; m<state.modules.length; m++){
+      for(let fi=0; fi<FACE_DEFS.length; fi++){
+        const r = withModule(m, ()=>computeFace(fi));
+        const face = state.modules[m].faces[fi];
+        const sheetName = 'M'+(m+1)+' '+FACE_DEFS[fi].name;
+        const ws = wb.addWorksheet(sheetName);
+        ws.columns = [{width:14},{width:20},{width:14},{width:16},{width:14},{width:14}];
+        setDevFooter(ws);
+
+        let row = addTable(ws, 1, sheetName+' — YÜZ BİLGİSİ', ['Alan','Değer'], [
+          ['Modül', 'M'+(m+1)+' ('+(state.modules[m].L||'?')+'×'+(state.modules[m].H||'?')+'×'+(state.modules[m].W||'?')+' mm @ '+state.modules[m].pos.x+','+state.modules[m].pos.y+','+state.modules[m].pos.z+')'],
+          ['Kullanılan eksenler', r.def.wKey+' × '+r.def.hKey],
+          ['Çalışma ölçüleri (mm)', (r.faceW||'—')+' × '+(r.faceH||'—')],
+          ['Yerleşim yönü', face.orient==='H'?'Soldan Sağa':'Yukarıdan Aşağıya'],
+          ['Boydan boya takviye', face.cont==='ana'?'Bölümler arası (ana)':'Bölüm içi (ara)'+(r.contInfo && r.contInfo.requested && !r.contInfo.valid ? ' — UYGULANAMADI: '+r.contInfo.msg : '')],
+          ['Kapaksız yüz', face.kapaksiz?'EVET':'HAYIR'],
+          ['Bölüm / Kapak adedi', face.kapaksiz?'—':(face.columns.length+' / '+r.toplamKapak)],
+          ['Durum', r.status.text]
+        ]);
+
+        if(!r.kapaksiz){
+          row = addTable(ws, row, 'KESİM LİSTESİ — KAPAKLAR', ['Kapak','Tip','Genişlik (mm)','Yükseklik (mm)'], getSabitRows(r));
+          row = addTable(ws, row, 'TAKVİYELER', ['Takviye','Adet','Boy (mm)','Kaynak'],
+            r.takviyeRecords.map(t=>[t.yon+' '+t.tip, t.adet, t.boy!==null?Math.round(t.boy):'ÖLÇÜ EKSİK', t.kaynak]));
+        }
+
+        try{
+          const png = await svgToPng(withModule(m, ()=>drawFaceSVG(fi)), 880, 480);
+          const imgId = wb.addImage({base64: png, extension:'png'});
+          const t = ws.getCell(row,1); t.value = 'GÖRSEL YERLEŞİM'; t.font = titleFont;
+          ws.addImage(imgId, {tl:{col:0, row:row}, ext:{width:880, height:480}});
+        }catch(err){
+          const t = ws.getCell(row,1); t.value = '⚠ Görsel eklenemedi: '+err.message; t.font = FONT;
+        }
+      }
+    }
+
+    const buf = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buf], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+    const a = document.createElement('a');
+    const ts = new Date().toISOString().slice(0,10);
+    a.href = URL.createObjectURL(blob);
+    const sanitize = s => s.replace(/[\\/:*?"<>|]/g,'').replace(/\s+/g,'_');
+    const parts = [];
+    if(state.proje.isNo) parts.push(sanitize(state.proje.isNo));
+    if(state.proje.ad) parts.push(sanitize(state.proje.ad));
+    parts.push('KAPAK_HESABI');
+    if(parts.length===1) parts.push(ts);   // proje bilgisi yoksa zaman damgası ayırt edici olur
+    a.download = parts.join('_')+'.xlsx';
+    a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href), 5000);
+    note.textContent = '✓ Excel dosyası indirildi: 1 özet + '+(state.modules.length*6)+' modül-yüz sayfası, görsel yerleşimler dahil.';
+  }catch(err){
+    note.textContent = '⚠ Excel oluşturma hatası: '+err.message;
+  }
+}
+
+// ---------- OLAYLAR ----------
+function attachListeners(){
+  document.getElementById('btn_excel').addEventListener('click', exportExcel);
+
+  // Tema
+  const ts = document.getElementById('theme_sel');
+  ts.addEventListener('change', e=>{
+    document.body.dataset.theme = e.target.value;
+    try{ localStorage.setItem('kh_theme', e.target.value); }catch(_){}
+  });
+  try{
+    const t = localStorage.getItem('kh_theme');
+    if(t){ document.body.dataset.theme = t; ts.value = t; }
+  }catch(_){}
+
+  // Görünüm sekmeleri
+  document.querySelectorAll('.vbtn').forEach(b=>b.addEventListener('click', ()=>{
+    document.querySelectorAll('.vbtn').forEach(x=>x.classList.remove('active'));
+    document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    document.getElementById('view-'+b.dataset.view).classList.add('active');
+  }));
+
+  document.getElementById('prj_isno').addEventListener('input', e=>{ state.proje.isNo = e.target.value.trim(); });
+  document.getElementById('prj_ad').addEventListener('input', e=>{ state.proje.ad = e.target.value.trim(); });
+
+  // Yeni / özel profil düzenleyicisi
+  const pe = document.getElementById('profil_editor');
+  document.getElementById('btn_newprofil').addEventListener('click', ()=>{
+    const cur = String(state.varsayimlar.seri);
+    const isCustom = PROFILES[cur] && !PROFILES[cur].builtin;
+    document.getElementById('pe_ad').value = isCustom ? cur : '';
+    if(PROFILES[cur]){
+      document.getElementById('pe_kenar').value = PROFILES[cur].kenar;
+      document.getElementById('pe_takviye').value = PROFILES[cur].takviye;
+      document.getElementById('pe_kose').value = PROFILES[cur].kose;
+      document.getElementById('pe_tp').value = PROFILES[cur].takviyePlastik;
+    }
+    document.getElementById('pe_sil').style.display = isCustom ? 'inline-block' : 'none';
+    pe.style.display = pe.style.display==='none' ? 'block' : 'none';
+  });
+  document.getElementById('pe_iptal').addEventListener('click', ()=>{ pe.style.display='none'; });
+  document.getElementById('pe_kaydet').addEventListener('click', ()=>{
+    const ad = document.getElementById('pe_ad').value.trim();
+    if(!ad){ document.getElementById('pe_ad').focus(); return; }
+    if(PROFILES[ad] && PROFILES[ad].builtin){ alert('50 ve 60 gömülü profillerdir, üzerine yazılamaz. Farklı bir ad kullanın.'); return; }
+    PROFILES[ad] = {
+      kenar: Number(document.getElementById('pe_kenar').value)||0,
+      takviye: Number(document.getElementById('pe_takviye').value)||0,
+      kose: Number(document.getElementById('pe_kose').value)||0,
+      takviyePlastik: Number(document.getElementById('pe_tp').value)||0,
+      builtin: false
+    };
+    saveCustomProfiles();
+    state.varsayimlar.seri = ad;
+    pe.style.display = 'none';
+    renderAll();
+  });
+  document.getElementById('pe_sil').addEventListener('click', ()=>{
+    const cur = String(state.varsayimlar.seri);
+    if(PROFILES[cur] && !PROFILES[cur].builtin){
+      delete PROFILES[cur];
+      saveCustomProfiles();
+      state.varsayimlar.seri = '60';
+      pe.style.display = 'none';
+      renderAll();
+    }
+  });
+
+  document.getElementById('btn_addmod').addEventListener('click', ()=>{
+    addModuleAt(state.active, 5); // SAĞ
+    document.getElementById('dim_L').focus();
+  });
+  document.getElementById('modtabs').addEventListener('click', e=>{
+    const del = e.target.closest('[data-moddel]');
+    if(del){
+      const i = Number(del.dataset.moddel);
+      if(state.modules.length>1){
+        const D = state.modules[i];
+        // Boşluk kapatma: silinen modülün bağlanma ekseninde, ötesindeki modüller geri kayar
+        const ax = D.attAxis || 'x';
+        const dExt = modExt(D, ax);
+        const eps = 0.5;
+        if((D.attDir||1) > 0){
+          const farPlane = D.pos[ax] + dExt;
+          state.modules.forEach(B=>{ if(B!==D && B.pos[ax] >= farPlane - eps) B.pos[ax] -= dExt; });
+        } else {
+          state.modules.forEach(B=>{
+            const bExt = modExt(B, ax);
+            if(B!==D && B.pos[ax] + bExt <= D.pos[ax] + eps) B.pos[ax] += dExt;
+          });
+        }
+        state.modules.splice(i,1);
+        if(state.active>=state.modules.length) state.active = state.modules.length-1;
+        renderAll();
+      }
+      e.stopPropagation(); return;
+    }
+    const tab = e.target.closest('[data-modtab]');
+    if(tab){
+      state.active = Number(tab.dataset.modtab);
+      renderAll();
+    }
+  });
+  document.getElementById('v3_reset').addEventListener('click', ()=>{
+    view3d.yaw=-0.55; view3d.pitch=0.42; view3d.zoom=1; view3d.panX=0; view3d.panY=0; render3D();
+  });
+  const c3 = document.getElementById('canvas3d');
+  c3.addEventListener('wheel', e=>{
+    e.preventDefault();
+    view3d.zoom = Math.max(0.3, Math.min(5, view3d.zoom * (e.deltaY<0 ? 1.1 : 0.9)));
+    render3D();
+  }, {passive:false});
+  c3.addEventListener('pointerdown', e=>{
+    view3d.drag = {x:e.clientX, y:e.clientY};
+    view3d.moved = false;
+    view3d.downTarget = e.target;
+    c3.setPointerCapture(e.pointerId);
+    c3.style.cursor = 'grabbing';
+  });
+  c3.addEventListener('pointermove', e=>{
+    if(!view3d.drag) return;
+    const dx = e.clientX - view3d.drag.x, dy = e.clientY - view3d.drag.y;
+    if(Math.abs(dx)+Math.abs(dy) > 3) view3d.moved = true;
+    if(e.shiftKey){                       // Shift + sürükleme: kaydırma
+      view3d.panX += dx;
+      view3d.panY += dy;
+    } else {                              // Sürükleme: döndürme
+      view3d.yaw   += dx * 0.008;
+      view3d.pitch += dy * 0.008;
+      view3d.pitch  = Math.max(-1.45, Math.min(1.45, view3d.pitch)); // tepe/dip kilidi
+    }
+    view3d.drag = {x:e.clientX, y:e.clientY};
+    render3D();
+  });
+  ['pointerup','pointercancel','pointerleave'].forEach(ev=>c3.addEventListener(ev, e=>{
+    // Sürüklenmemiş tıklama + yüz hedefi → o yöne modül ekle
+    if(ev==='pointerup' && view3d.drag && !view3d.moved && view3d.downTarget){
+      const hit = view3d.downTarget.closest ? view3d.downTarget.closest('[data-m3]') : null;
+      if(hit){
+        addModuleAt(Number(hit.dataset.m3), Number(hit.dataset.f3));
+      }
+    }
+    view3d.drag = null; view3d.downTarget = null; c3.style.cursor = 'grab';
+  }));
+  ['dim_W','dim_H','dim_L'].forEach(id=>{
+    document.getElementById(id).addEventListener('input', e=>{
+      state.dims[id.split('_')[1]] = Number(e.target.value)||0;
+      FACE_DEFS.forEach((_,i)=>renderFace(i));
+      // Konumlar kaymış olabilir: sekme etiketlerini tazele (giriş alanlarına dokunmadan)
+      const bar = document.getElementById('modtabs');
+      if(bar) state.modules.forEach((md,i)=>{
+        const sp = bar.children[i] && bar.children[i].querySelector('span');
+        if(sp) sp.textContent = `@(${md.pos.x},${md.pos.y},${md.pos.z})`;
+      });
+    });
+  });
+  document.getElementById('seri').addEventListener('change', e=>{
+    state.varsayimlar.seri = e.target.value; renderAll();
+  });
+  ['v_tolw','v_tolh'].forEach(id=>{
+    document.getElementById(id).addEventListener('input', e=>{
+      state.varsayimlar[id==='v_tolw'?'tolW':'tolH'] = Number(e.target.value)||0; renderAll();
+    });
+  });
+
+  document.body.addEventListener('click', e=>{
+    // [+ BÖLÜM]
+    const addBtn = e.target.closest('.svg-addbtn');
+    if(addBtn){
+      const fi = Number(addBtn.dataset.addface);
+      const face = state.faces[fi];
+      face.columns.push(newColumn());
+      syncStructure(face);
+      face.selected = {col: face.columns.length-1, idx: 0};
+      renderFace(fi);
+      const inp = document.getElementById(`f${fi}_ed_colsize`);
+      if(inp) inp.focus();
+      return;
+    }
+    // Bölüme kapak ekle
+    const addP = e.target.closest('.svg-addpanel');
+    if(addP){
+      const fi = Number(addP.dataset.face);
+      const ci = Number(addP.dataset.col);
+      const face = state.faces[fi];
+      face.columns[ci].panels.push({size:0, type:"Normal Panel"});
+      syncStructure(face);
+      face.selected = {col: ci, idx: face.columns[ci].panels.length-1};
+      renderFace(fi);
+      const inp = document.getElementById(`f${fi}_ed_psize`);
+      if(inp) inp.focus();
+      return;
+    }
+    // Ana takviye toggle
+    const gapG = e.target.closest('.svg-gap');
+    if(gapG){
+      const fi = Number(gapG.dataset.face);
+      const gi = Number(gapG.dataset.gap);
+      const face = state.faces[fi];
+      if(!colGapLocked(face, gi)){
+        face.colGaps[gi] = !face.colGaps[gi];
+        renderFace(fi);
+      }
+      return;
+    }
+    // Ara takviye toggle
+    const inG = e.target.closest('.svg-innergap');
+    if(inG){
+      const fi = Number(inG.dataset.face);
+      const gi = Number(inG.dataset.gap);
+      const face = state.faces[fi];
+      if(inG.dataset.col==='all'){
+        // Boydan boya sürekli takviye: kaldırma tüm bölümlerde uygulanır (hizalama korunur)
+        const cur = face.columns[0].innerGaps[gi];
+        face.columns.forEach(c=>{ if(gi < c.innerGaps.length) c.innerGaps[gi] = !cur; });
+      } else {
+        const ci = Number(inG.dataset.col);
+        face.columns[ci].innerGaps[gi] = !face.columns[ci].innerGaps[gi];
+      }
+      renderFace(fi);
+      return;
+    }
+    // Panel seç
+    const panelG = e.target.closest('.svg-panel');
+    if(panelG){
+      const fi = Number(panelG.dataset.face);
+      const ci = Number(panelG.dataset.col);
+      const pi = Number(panelG.dataset.panel);
+      const face = state.faces[fi];
+      const already = face.selected && face.selected.col===ci && face.selected.idx===pi;
+      face.selected = already ? null : {col:ci, idx:pi};
+      renderFace(fi);
+      if(face.selected){
+        const inp = document.getElementById(`f${fi}_ed_colsize`);
+        if(inp) inp.focus();
+      }
+      return;
+    }
+    // Kapak sil
+    const m = e.target.id && e.target.id.match(/^f(\d+)_ed_del$/);
+    if(m){
+      const fi = Number(m[1]);
+      const face = state.faces[fi];
+      if(!face.selected) return;
+      const {col:ci, idx:pi} = face.selected;
+      const col = face.columns[ci];
+      if(col.panels.length>1){
+        col.panels.splice(pi,1);
+      } else if(face.columns.length>1){
+        face.columns.splice(ci,1);
+      } else return;
+      syncStructure(face);
+      face.selected = null;
+      renderFace(fi);
+      return;
+    }
+  });
+
+  document.body.addEventListener('input', e=>{
+    let m = e.target.id && e.target.id.match(/^f(\d+)_ed_colsize$/);
+    if(m){
+      const fi = Number(m[1]);
+      const face = state.faces[fi];
+      if(face.selected){
+        face.columns[face.selected.col].size = Number(e.target.value)||0;
+        partialRender(fi);
+      }
+      return;
+    }
+    m = e.target.id && e.target.id.match(/^f(\d+)_ed_psize$/);
+    if(m){
+      const fi = Number(m[1]);
+      const face = state.faces[fi];
+      if(face.selected){
+        face.columns[face.selected.col].panels[face.selected.idx].size = Number(e.target.value)||0;
+        partialRender(fi);
+      }
+      return;
+    }
+  });
+
+  document.body.addEventListener('change', e=>{
+    let m = e.target.id && e.target.id.match(/^f(\d+)_ed_type$/);
+    if(m){
+      const fi = Number(m[1]);
+      const face = state.faces[fi];
+      if(face.selected){
+        face.columns[face.selected.col].panels[face.selected.idx].type = e.target.value;
+        syncStructure(face); // boğaz seçilirse bitişik ana takviyeler kalkar
+        renderFace(fi);
+      }
+      return;
+    }
+    if(e.target.matches('[data-orientface]')){
+      const fi = Number(e.target.dataset.orientface);
+      state.faces[fi].orient = e.target.value;
+      state.faces[fi].selected = null;
+      renderFace(fi);
+      return;
+    }
+    if(e.target.matches('[data-contface]')){
+      const fi = Number(e.target.dataset.contface);
+      state.faces[fi].cont = e.target.value;
+      renderFace(fi);
+      return;
+    }
+    if(e.target.matches('[data-kapaksizface]')){
+      const fi = Number(e.target.dataset.kapaksizface);
+      state.faces[fi].kapaksiz = e.target.checked;
+      state.faces[fi].selected = null;
+      renderFace(fi);
+      return;
+    }
+  });
+}
+
+function buildTabs(){
+  const tabsEl = document.getElementById('tabs');
+  const container = document.getElementById('faces-container');
+  FACE_DEFS.forEach((def, idx)=>{
+    const tab = document.createElement('div');
+    tab.className = 'tab'+(idx===0?' active':'');
+    tab.textContent = def.name;
+    tab.addEventListener('click', ()=>{
+      document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+      tab.classList.add('active');
+      document.querySelectorAll('.face-panel').forEach(p=>p.style.display='none');
+      document.getElementById('face-'+idx).style.display='block';
+    });
+    tabsEl.appendChild(tab);
+
+    const panel = document.createElement('div');
+    panel.id = 'face-'+idx;
+    panel.className = 'face-panel';
+    panel.style.display = idx===0?'block':'none';
+    panel.innerHTML = buildFaceHTML(idx);
+    container.appendChild(panel);
+  });
+}
+
+buildTabs();
+attachListeners();
+renderAll();
+</script>
+</body>
+</html>
