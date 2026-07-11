@@ -371,7 +371,7 @@ const FACE_DEFS = [
 ];
 const SABIT_TYPES = ["Üst Panel","Normal Panel","Boğaz Uzun","Boğaz 2 Uzun"];
 const ACILIR_TYPES = ["Camlı Açılır","Camsız Açılır"];
-const ELEMAN_TYPES = ["Damper","Boğaz"];                    // panel değil: 0 tolerans, girilen ölçü = kesim ölçüsü
+const ELEMAN_TYPES = ["Damper","Boğaz","Tava"];               // panel değil: 0 tolerans, girilen ölçü = kesim ölçüsü
 const BOS_TYPES = ["Boş Alan"];                             // bilinçli boşluk: yer kaplar, kesim listesine girmez
 const BOGAZ_TYPES = ["Boğaz Uzun","Boğaz 2 Uzun","Boğaz"];
 const isAcilir = t => ACILIR_TYPES.includes(t);
@@ -383,7 +383,7 @@ const TYPE_COLORS = {
   "Üst Panel":"#2c3e50", "Normal Panel":"#34495e",
   "Boğaz Uzun":"#5d4a1f", "Boğaz 2 Uzun":"#6b4423",
   "Camlı Açılır":"#1f4e5f", "Camsız Açılır":"#27556b",
-  "Damper":"#4b5158", "Boğaz":"#5c3a1e",
+  "Damper":"#4b5158", "Boğaz":"#5c3a1e", "Tava":"#111315",
   "Boş Alan":"#0d141b"
 };
 
@@ -867,14 +867,18 @@ function drawFaceSVG(fi){
             const sealH = Math.max(bh*0.22, 2);
             svg += `<rect x="${bInX}" y="${(by+bh-sealH).toFixed(1)}" width="${bInW}" height="${sealH.toFixed(1)}" fill="#c1272d"/>`;
           }
+        } else if(p.type==='Tava'){
+          // Tava (frontal) — düz panel görünümü, sadece küçük bir tahliye deliği
+          const hr = Math.max(Math.min(pw,ph)*0.09, 4);
+          svg += `<circle cx="${(px+pw/2).toFixed(1)}" cy="${(py+ph*0.72).toFixed(1)}" r="${hr.toFixed(1)}" fill="#05080c" stroke="#3a4750" stroke-width="1"/>`;
         } else {
           // Boğaz (frontal) — flanş çerçevesi + koyu kanal açıklığı
           svg += `<rect x="${px+4}" y="${py+4}" width="${pw-8}" height="${ph-8}" fill="none" stroke="#7a6a4a" stroke-width="1.4"/>`;
           const iw=(pw-8)*0.68, ih=(ph-8)*0.68;
           svg += `<rect x="${(px+pw/2-iw/2).toFixed(1)}" y="${(py+ph/2-ih/2).toFixed(1)}" width="${iw.toFixed(1)}" height="${ih.toFixed(1)}" fill="#05080c" stroke="#3a4750" stroke-width="1"/>`;
         }
-        // +150 mm çıkıntı notu (frontal görünümde derinlik gösterilemez)
-        svg += `<text x="${px+pw/2}" y="${py+12}" fill="#8ba3b5" font-size="8.5" text-anchor="middle">+${'150'} mm çıkıntı</text>`;
+        // +150 mm çıkıntı notu (Tava düz/çıkıntısız olduğundan hariç tutulur)
+        if(p.type!=='Tava') svg += `<text x="${px+pw/2}" y="${py+12}" fill="#8ba3b5" font-size="8.5" text-anchor="middle">+${'150'} mm çıkıntı</text>`;
       }
       const shortT = p.type.length>12 ? p.type.slice(0,11)+'…' : p.type;
       const cx=px+pw/2, cy=py+ph/2;
@@ -1070,6 +1074,7 @@ function buildFaceHTML(fi){
       <span><i style="background:#1f4e5f;"></i> Açılır panel</span>
       <span><i style="background:#4b5158;"></i> Damper (0 tolerans)</span>
       <span><i style="background:#5c3a1e;"></i> Boğaz (0 tolerans)</span>
+      <span><i style="background:#111315;"></i> Tava (0 tolerans)</span>
       <span><i style="background:#3d5568;"></i> Takviye — segmentli (tıkla: iptal)</span>
       <span><i style="background:#547a96;"></i> Takviye — boydan boya (sürekli yön)</span>
       <span><i style="background:#10161d;"></i> Köşe / takviye plastiği</span>
@@ -1680,6 +1685,23 @@ function draw3DSVG(){
       // nz[fi]>0 şartına bağlı kalır.
       lay.rects.forEach(rc=>{
         if(!rc.eleman) return;
+        if(rc.elType==='Tava'){
+          // Tava: düz panel gibi, 150mm çıkıntısı yok — sadece küçük bir tahliye deliği (kendi normaline bağlı)
+          if(nz[fi] <= 1e-6) return;
+          const hcu=(rc.u0+rc.u1)/2, hcv=rc.v0+(rc.v1-rc.v0)*0.72;
+          const hr = Math.min(rc.u1-rc.u0, rc.v1-rc.v0)*0.09;
+          const hpts = [];
+          for(let a=0;a<16;a++){
+            const ang = a*Math.PI/8;
+            const p = F(fi, hcu+Math.cos(ang)*hr, hcv+Math.sin(ang)*hr);
+            hpts.push(pt(p[0],p[1],p[2]));
+          }
+          svg += `<polygon points="${hpts.join(' ')}" fill="#05080c" stroke="#3a4750" stroke-width="0.8"/>`;
+          const cp3t = F(fi,(rc.u0+rc.u1)/2,(rc.v0+rc.v1)/2);
+          const cpt = rot(cp3t[0],cp3t[1],cp3t[2]);
+          svg += `<text x="${(CX+cpt[0]*sc).toFixed(1)}" y="${(CY-cpt[1]*sc).toFixed(1)}" fill="#cfe3dd" font-size="10" font-weight="600" text-anchor="middle" pointer-events="none">M${m+1}·${rc.lbl} — ${rc.elType}</text>`;
+          return;
+        }
         const N = NORMALS[fi];
         const off = p=>[p[0]+N[0]*EL3_DEPTH, p[1]+N[1]*EL3_DEPTH, p[2]+N[2]*EL3_DEPTH];
         const base = [[rc.u0,rc.v0],[rc.u1,rc.v0],[rc.u1,rc.v1],[rc.u0,rc.v1]].map(uv=>F(fi,uv[0],uv[1]));
