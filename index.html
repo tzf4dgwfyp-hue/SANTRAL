@@ -6,6 +6,14 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/"
+  }
+}
+</script>
 <style>
   /* ---------- TEMALAR ---------- */
   :root{
@@ -171,6 +179,12 @@
 
   /* ---------- ÇİZİM ALANLARI (tema bağımsız açık görünüm penceresi) ---------- */
   .canvas-wrap{background:#ffffff;border:1px solid var(--border);border-radius:var(--r-m);padding:16px;overflow-x:auto;box-shadow:var(--shadow-card);}
+  #canvas3d{position:relative;width:100%;aspect-ratio:900/560;overflow:hidden;border-radius:8px;}
+  #canvas3d canvas{display:block;width:100%;height:100%;}
+  #canvas3d .label3d{position:absolute;pointer-events:none;font-family:inherit;white-space:nowrap;text-align:center;transform:translate(-50%,-50%);}
+  #canvas3d .label3d .l1{font-size:9px;font-weight:600;color:#cfe3dd;text-shadow:0 1px 2px rgba(0,0,0,.6);}
+  #canvas3d .label3d .l2{font-size:13px;font-weight:700;color:#4fb8a8;text-shadow:0 1px 2px rgba(0,0,0,.5);}
+  #canvas3d .label3d.modname{font-size:13px;font-weight:700;color:#4fb8a8;text-shadow:0 1px 2px rgba(0,0,0,.5);}
   .app-footer{text-align:center;color:var(--muted);font-size:11px;font-weight:600;letter-spacing:.4px;padding:20px 20px 26px;opacity:.6;}
   svg{display:block;margin:0 auto;}
   .svg-panel{cursor:pointer;}
@@ -1406,11 +1420,10 @@ function renderAll(){
   renderGlobalSummary();
 }
 
-// ---------- 3B GÖRÜNÜM ----------
-// Serbest döndürme: yaw (dikey eksen) + pitch (yatay eksen), ortografik projeksiyon.
-// Tekerlek: yakınlaş/uzaklaş | Shift+sürükleme: kaydırma | Sürükleme: döndürme.
-// Arkaya bakan yüzler ve yalnızca arka yüzlere ait ayrıtlar çizilmez.
-const view3d = {yaw:-0.55, pitch:0.42, zoom:1, panX:0, panY:0, drag:null};
+// ---------- 3B GÖRÜNÜM VERİSİ ----------
+// Bu bölüm yalnızca geometri/veri üretir (faceLayoutRects, faceUVtoXYZ). Gerçek 3B render
+// (kamera, ışık, derinlik testi, tıklama) sayfa sonundaki Three.js modülünde yapılır — bkz.
+// <script type="module"> bloğu. window.APP üzerinden bu fonksiyonlara erişir.
 const EL3_DEPTH = 150; // Damper/Boğaz dışa çıkıntısı (mm) — yalnızca görsel
 const PH3 = {W:800, H:1200, L:1400}; // ölçü girilmemişse temsili prizma
 
@@ -1577,223 +1590,10 @@ function faceUVtoXYZ(fi, u, v, L, H, W){
   }
 }
 
-function draw3DSVG(){
-  const mods = state.modules.map((md,m)=>({
-    m,
-    L: modExt(md,'x'), H: modExt(md,'y'), W: modExt(md,'z'),
-    pos: md.pos
-  }));
-  // Sınır kutusu → merkez ve ölçek (döndürmede titremesiz)
-  let minx=1e9,miny=1e9,minz=1e9,maxx=-1e9,maxy=-1e9,maxz=-1e9;
-  mods.forEach(md=>{
-    minx=Math.min(minx,md.pos.x); maxx=Math.max(maxx,md.pos.x+md.L);
-    miny=Math.min(miny,md.pos.y); maxy=Math.max(maxy,md.pos.y+md.H);
-    minz=Math.min(minz,md.pos.z); maxz=Math.max(maxz,md.pos.z+md.W);
-  });
-  const cx3=(minx+maxx)/2, cy3=(miny+maxy)/2, cz3=(minz+maxz)/2;
-  const DX=maxx-minx, DY=maxy-miny, DZ=maxz-minz;
-
-  const cy=Math.cos(view3d.yaw), sy=Math.sin(view3d.yaw);
-  const cp=Math.cos(view3d.pitch), sp=Math.sin(view3d.pitch);
-  function rot(x,y,z){
-    x-=cx3; y-=cy3; z-=cz3;
-    const x1 =  x*cy + z*sy;
-    const z1 = -x*sy + z*cy;
-    const y2 =  y*cp - z1*sp;
-    const z2 =  y*sp + z1*cp;
-    return [x1, y2, z2];
-  }
-  function rotN(n){
-    const x1 =  n[0]*cy + n[2]*sy;
-    const z1 = -n[0]*sy + n[2]*cy;
-    const y2 =  n[1]*cp - z1*sp;
-    const z2 =  n[1]*sp + z1*cp;
-    return [x1, y2, z2];
-  }
-
-  const SW=900, SH=560, PAD=36;
-  const R = 0.5*Math.sqrt(DX*DX+DY*DY+DZ*DZ);
-  const sc = Math.min(SW-2*PAD, SH-2*PAD)/(2*Math.max(R,1)) * view3d.zoom;
-  const CX = SW/2 + view3d.panX, CY = SH/2 + view3d.panY;
-  const pt = (x,y,z)=>{ const p=rot(x,y,z); return (CX+p[0]*sc).toFixed(1)+','+(CY-p[1]*sc).toFixed(1); };
-
-  const NORMALS = [[0,0,1],[0,0,-1],[0,1,0],[0,-1,0],[-1,0,0],[1,0,0]];
-  const nz = NORMALS.map(n=>rotN(n)[2]);
-  const normVis = nz.map(v=>v>1e-6);
-  const faceVis = (m,fi)=> normVis[fi] && !faceMated(m, fi);
-  const collSet = new Set(detectCollisions().flat());
-
-  // Ressam sıralaması: uzaktaki modül önce (ayrık kutular + paralel projeksiyon için yeterli)
-  const order = mods.map(md=>({m:md.m, z: rot(md.pos.x+md.L/2, md.pos.y+md.H/2, md.pos.z+md.W/2)[2]}))
-                    .sort((a,b)=>a.z-b.z).map(o=>o.m);
-
-  let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${SW}" height="${SH}" viewBox="0 0 ${SW} ${SH}">`;
-
-  order.forEach(m=>{
-    const md = mods[m];
-    const Lm=md.L, Hm=md.H, Wm=md.W, P0=md.pos;
-    const F = (fi,u,v)=>{ const p=faceUVtoXYZ(fi,u,v,Lm,Hm,Wm); return [p[0]+P0.x, p[1]+P0.y, p[2]+P0.z]; };
-    let bestFi = -1, bestNz = 0.22;   // modül adı, kameraya en dik bakan yüze bir kez yazılır
-
-    NORMALS.forEach((_,fi)=>{
-      const lay = withModule(m, ()=>faceLayoutRects(fi));
-      if(faceVis(m,fi)){
-      lay.rects.forEach(rc=>{
-        if(rc.circle){
-          const pts = [];
-          for(let a=0;a<16;a++){
-            const ang = a*Math.PI/8;
-            const p = F(fi, rc.cu+Math.cos(ang)*rc.r, rc.cv+Math.sin(ang)*rc.r);
-            pts.push(pt(p[0],p[1],p[2]));
-          }
-          svg += `<polygon points="${pts.join(' ')}" fill="${rc.fill}" stroke="#7fc8dc" stroke-width="0.8"/>`;
-          return;
-        }
-        const q = [[rc.u0,rc.v0],[rc.u1,rc.v0],[rc.u1,rc.v1],[rc.u0,rc.v1]]
-          .map(uv=>{ const p=F(fi,uv[0],uv[1]); return pt(p[0],p[1],p[2]); }).join(' ');
-        svg += `<polygon points="${q}" fill="${rc.fill}" stroke="#0a1118" stroke-width="0.6"${rc.bos?' stroke-dasharray="6,5"':''}/>`;
-      });
-      const qFull = [[0,0],[lay.FW,0],[lay.FW,lay.FH],[0,lay.FH]]
-        .map(uv=>{ const p=F(fi,uv[0],uv[1]); return pt(p[0],p[1],p[2]); }).join(' ');
-      const shadeOp = Math.min(Math.max((1-nz[fi])*0.35, 0), 0.35);
-      if(shadeOp>0.02){
-        svg += `<polygon points="${qFull}" fill="rgba(0,0,0,${shadeOp.toFixed(2)})" pointer-events="none"/>`;
-      }
-      if(nz[fi]>0.22){
-        lay.labels.forEach(lb=>{
-          const p3 = F(fi, lb.u, lb.v);
-          const p = rot(p3[0],p3[1],p3[2]);
-          const txt = /-B\d/.test(lb.text) ? 'M'+(m+1)+'·'+lb.text : lb.text;
-          const px = (CX+p[0]*sc).toFixed(1), py = (CY-p[1]*sc).toFixed(1);
-          if(lb.size){
-            svg += `<text x="${px}" y="${py-11}" fill="#cfe3dd" font-size="9" font-weight="600" text-anchor="middle" pointer-events="none">${txt}</text>`;
-            svg += `<text x="${px}" y="${py+12}" fill="#4fb8a8" font-size="13" font-weight="700" text-anchor="middle" pointer-events="none">${lb.size}</text>`;
-          } else {
-            svg += `<text x="${px}" y="${py}" fill="#cfe3dd" font-size="10" font-weight="600" text-anchor="middle" pointer-events="none">${txt}</text>`;
-          }
-        });
-        if(nz[fi] > bestNz){ bestNz = nz[fi]; bestFi = fi; }
-      }
-      // Tıkla-ekle katmanı: bu yüzün dış tarafına yeni modül
-      svg += `<polygon points="${qFull}" class="face-hit3" data-m3="${m}" data-f3="${fi}" fill="transparent"><title>M${m+1} ${FACE_DEFS[fi].name} — bu yöne modül eklemek için tıklayın</title></polygon>`;
-      }
-
-      // Damper/Boğaz — 150 mm dışa çıkıntı. Bu, ait olduğu düz yüzden AYRI bir hacimdir:
-      // düz yüz kameradan görünmese bile (nz[fi]<=0), çıkıntının kendi yan yüzeyleri farklı
-      // normale sahip olduğundan hâlâ kameraya dönük olabilir — bu yüzden faceVis şartından
-      // bağımsız işlenir; yalnız üst kapak/detaylar host yüzle aynı normali paylaştığından
-      // nz[fi]>0 şartına bağlı kalır.
-      lay.rects.forEach(rc=>{
-        if(!rc.eleman) return;
-        if(rc.elType==='Tava'){
-          // Tava: düz panel gibi, 150mm çıkıntısı yok — sadece küçük bir tahliye deliği (kendi normaline bağlı)
-          if(nz[fi] <= 1e-6) return;
-          const hcu=(rc.u0+rc.u1)/2, hcv=rc.v0+(rc.v1-rc.v0)*0.72;
-          const hr = Math.min(rc.u1-rc.u0, rc.v1-rc.v0)*0.09;
-          const hpts = [];
-          for(let a=0;a<16;a++){
-            const ang = a*Math.PI/8;
-            const p = F(fi, hcu+Math.cos(ang)*hr, hcv+Math.sin(ang)*hr);
-            hpts.push(pt(p[0],p[1],p[2]));
-          }
-          svg += `<polygon points="${hpts.join(' ')}" fill="#05080c" stroke="#3a4750" stroke-width="0.8"/>`;
-          const cp3t = F(fi,(rc.u0+rc.u1)/2,(rc.v0+rc.v1)/2);
-          const cpt = rot(cp3t[0],cp3t[1],cp3t[2]);
-          svg += `<text x="${(CX+cpt[0]*sc).toFixed(1)}" y="${(CY-cpt[1]*sc).toFixed(1)}" fill="#cfe3dd" font-size="10" font-weight="600" text-anchor="middle" pointer-events="none">M${m+1}·${rc.lbl} — ${rc.elType}</text>`;
-          return;
-        }
-        const N = NORMALS[fi];
-        const off = p=>[p[0]+N[0]*EL3_DEPTH, p[1]+N[1]*EL3_DEPTH, p[2]+N[2]*EL3_DEPTH];
-        const base = [[rc.u0,rc.v0],[rc.u1,rc.v0],[rc.u1,rc.v1],[rc.u0,rc.v1]].map(uv=>F(fi,uv[0],uv[1]));
-        const top = base.map(off);
-        const o3=F(fi,0,0), pu=F(fi,1,0), pv=F(fi,0,1);
-        const du=[pu[0]-o3[0],pu[1]-o3[1],pu[2]-o3[2]], dv=[pv[0]-o3[0],pv[1]-o3[1],pv[2]-o3[2]];
-        const isDamper = rc.elType==='Damper';
-        const sideFill = isDamper ? '#363b40' : '#22282d';
-        [
-          {q:[base[0],base[1],top[1],top[0]], n:[-dv[0],-dv[1],-dv[2]]},
-          {q:[base[1],base[2],top[2],top[1]], n:[ du[0], du[1], du[2]]},
-          {q:[base[2],base[3],top[3],top[2]], n:[ dv[0], dv[1], dv[2]]},
-          {q:[base[3],base[0],top[0],top[3]], n:[-du[0],-du[1],-du[2]]}
-        ].forEach(w=>{
-          if(rotN(w.n)[2] <= 1e-6) return;
-          svg += `<polygon points="${w.q.map(p=>pt(p[0],p[1],p[2])).join(' ')}" fill="${sideFill}" stroke="#0a1118" stroke-width="0.7"/>`;
-        });
-        if(nz[fi] <= 1e-6) return;
-        svg += `<polygon points="${top.map(p=>pt(p[0],p[1],p[2])).join(' ')}" fill="${isDamper?'#4b5158':'#2b3036'}" stroke="#0a1118" stroke-width="0.9"/>`;
-        if(isDamper){
-          const nSlat = Math.max(3, Math.min(7, Math.round((rc.v1-rc.v0)/140)));
-          const mkLine = (tt, color, width) => {
-            const a3=[top[0][0]+(top[3][0]-top[0][0])*tt, top[0][1]+(top[3][1]-top[0][1])*tt, top[0][2]+(top[3][2]-top[0][2])*tt];
-            const b3=[top[1][0]+(top[2][0]-top[1][0])*tt, top[1][1]+(top[2][1]-top[1][1])*tt, top[1][2]+(top[2][2]-top[1][2])*tt];
-            const A=rot(a3[0],a3[1],a3[2]), B=rot(b3[0],b3[1],b3[2]);
-            svg += `<line x1="${(CX+A[0]*sc).toFixed(1)}" y1="${(CY-A[1]*sc).toFixed(1)}" x2="${(CX+B[0]*sc).toFixed(1)}" y2="${(CY-B[1]*sc).toFixed(1)}" stroke="${color}" stroke-width="${width}"/>`;
-          };
-          for(let i2=1;i2<nSlat;i2++){
-            const t = i2/nSlat;
-            mkLine(t - Math.min(0.05, 0.4/nSlat), '#c1272d', 2.2);
-            mkLine(t, '#2c3136', 1.4);
-          }
-        } else {
-          const ins = 0.16;
-          const inner = [[rc.u0+(rc.u1-rc.u0)*ins, rc.v0+(rc.v1-rc.v0)*ins],
-                         [rc.u1-(rc.u1-rc.u0)*ins, rc.v0+(rc.v1-rc.v0)*ins],
-                         [rc.u1-(rc.u1-rc.u0)*ins, rc.v1-(rc.v1-rc.v0)*ins],
-                         [rc.u0+(rc.u1-rc.u0)*ins, rc.v1-(rc.v1-rc.v0)*ins]]
-            .map(uv=>off(F(fi,uv[0],uv[1])));
-          svg += `<polygon points="${inner.map(p=>pt(p[0],p[1],p[2])).join(' ')}" fill="#05080c" stroke="#3a4750" stroke-width="0.8"/>`;
-        }
-        const cp3 = off(F(fi,(rc.u0+rc.u1)/2,(rc.v0+rc.v1)/2));
-        const cp = rot(cp3[0],cp3[1],cp3[2]);
-        svg += `<text x="${(CX+cp[0]*sc).toFixed(1)}" y="${(CY-cp[1]*sc).toFixed(1)}" fill="#cfe3dd" font-size="10" font-weight="600" text-anchor="middle" pointer-events="none">M${m+1}·${rc.lbl} — ${rc.elType}</text>`;
-      });
-    });
-
-    // Modül adı — yalnızca en dik görünen yüzde bir kez
-    if(bestFi >= 0){
-      const dk = {L:Lm, H:Hm, W:Wm};
-      const fw = dk[FACE_DEFS[bestFi].wKey], fh = dk[FACE_DEFS[bestFi].hKey];
-      const t3 = F(bestFi, fw/2, fh*0.09);
-      const tp = rot(t3[0],t3[1],t3[2]);
-      svg += `<text x="${(CX+tp[0]*sc).toFixed(1)}" y="${(CY-tp[1]*sc).toFixed(1)}" fill="#4fb8a8" font-size="13" font-weight="700" text-anchor="middle" pointer-events="none">M${m+1}</text>`;
-    }
-
-    // Modül ayrıtları
-    const x0=P0.x, x1=P0.x+Lm, y0=P0.y, y1=P0.y+Hm, z0=P0.z, z1=P0.z+Wm;
-    const EDGES = [
-      [[x0,y0,z0],[x1,y0,z0], 3,1], [[x0,y1,z0],[x1,y1,z0], 2,1], [[x0,y0,z1],[x1,y0,z1], 3,0], [[x0,y1,z1],[x1,y1,z1], 2,0],
-      [[x0,y0,z0],[x0,y1,z0], 4,1], [[x1,y0,z0],[x1,y1,z0], 5,1], [[x0,y0,z1],[x0,y1,z1], 4,0], [[x1,y0,z1],[x1,y1,z1], 5,0],
-      [[x0,y0,z0],[x0,y0,z1], 4,3], [[x1,y0,z0],[x1,y0,z1], 5,3], [[x0,y1,z0],[x0,y1,z1], 4,2], [[x1,y1,z0],[x1,y1,z1], 5,2]
-    ];
-    EDGES.forEach(e=>{
-      if(!faceVis(m,e[2]) && !faceVis(m,e[3])) return;
-      const a=rot(e[0][0],e[0][1],e[0][2]), b=rot(e[1][0],e[1][1],e[1][2]);
-      const eStroke = collSet.has(m) ? '#d9534f' : '#37485a';
-      const eW = collSet.has(m) ? '2' : '1.1';
-      svg += `<line x1="${(CX+a[0]*sc).toFixed(1)}" y1="${(CY-a[1]*sc).toFixed(1)}" x2="${(CX+b[0]*sc).toFixed(1)}" y2="${(CY-b[1]*sc).toFixed(1)}" stroke="${eStroke}" stroke-width="${eW}" pointer-events="none"/>`;
-    });
-  });
-
-  const am = state.modules[state.active];
-  svg += `<text x="${PAD}" y="${SH-14}" fill="#33424e" font-size="11">Modül: ${state.modules.length} adet   |   Aktif M${state.active+1}: L=${am.L||'?'} H=${am.H||'?'} W=${am.W||'?'} mm   |   Yüze tıklayınca o yöne modül eklenir</text>`;
-  svg += `<text x="${SW-PAD}" y="${SH-14}" fill="#9aa8b2" font-size="9.5" text-anchor="end" font-style="italic">Cenk Altınay</text>`;
-
-  svg += `</svg>`;
-  return svg;
-}
-
 function render3D(){
-  const el = document.getElementById('canvas3d');
-  if(el) el.innerHTML = draw3DSVG();
-  const cw = document.getElementById('coll_warn');
-  if(cw){
-    const pairs = detectCollisions();
-    if(pairs.length){
-      cw.style.display = 'block';
-      cw.textContent = '⚠ ÇAKIŞMA: ' + pairs.map(p=>'M'+(p[0]+1)+' ↔ M'+(p[1]+1)).join(', ')
-        + ' — modüller iç içe geçiyor. Kırmızı çerçeveli modüllerin ölçülerini düzeltin; kesim listeleri çakışmayı bilmez, çıktı bu haliyle güvenilmez.';
-    } else cw.style.display = 'none';
-  }
+  // Gerçek render işini, sayfa sonundaki <script type="module"> içindeki Three.js motoru üstlenir.
+  // O modül yüklenince window.render3D kendi gerçek uygulamasıyla DEĞİŞTİRİR (overwrite eder).
+  // Bu, modül henüz yüklenmeden önce (ilk senkron renderAll() çağrısında) güvenli bir yer tutucudur.
 }
 
 // ---------- EXCEL DIŞA AKTARMA ----------
@@ -1947,9 +1747,9 @@ async function exportExcel(){
     rr = addTable(wsO, rr, 'BOĞAZ VE DAMPERLER', ['Tip','Toplam Adet'],
       [...bogazDamperMap.entries()].map(([t,a])=>[t,a]));
 
-    // 3B görünüm — özet sayfasına gömülü
+    // 3B görünüm — özet sayfasına gömülü (mevcut kamera açısı)
     try{
-      const png3 = await svgToPng(draw3DSVG(), 900, 560);
+      const png3 = await window.capture3DView(null, null, 900, 560);
       const img3 = wb.addImage({base64: png3, extension:'png'});
       const t3 = wsO.getCell(rr,1); t3.value = '3B GÖRÜNÜM (mevcut açı)'; t3.font = titleFont;
       wsO.addImage(img3, {tl:{col:0, row:rr}, ext:{width:900, height:560}});
@@ -1961,30 +1761,23 @@ async function exportExcel(){
 
     // 3B toplu montaj — ön/arka/üst/alt cephe görünümleri (tüm modüller bir arada)
     {
-      const savedView = {yaw:view3d.yaw, pitch:view3d.pitch, zoom:view3d.zoom, panX:view3d.panX, panY:view3d.panY};
       const cepheViews = [
         {label:'ÖN CEPHE',  yaw:0,        pitch:0},
         {label:'ARKA CEPHE',yaw:Math.PI,  pitch:0},
         {label:'ÜST CEPHE', yaw:0,        pitch: Math.PI/2},
         {label:'ALT CEPHE', yaw:0,        pitch:-Math.PI/2}
       ];
-      try{
-        for(const cv of cepheViews){
-          view3d.yaw = cv.yaw; view3d.pitch = cv.pitch; view3d.zoom = 1; view3d.panX = 0; view3d.panY = 0;
-          try{
-            const pngC = await svgToPng(draw3DSVG(), 900, 560);
-            const imgC = wb.addImage({base64: pngC, extension:'png'});
-            const tC = wsO.getCell(rr,1); tC.value = '3B TOPLU MONTAJ — '+cv.label; tC.font = titleFont;
-            wsO.addImage(imgC, {tl:{col:0, row:rr}, ext:{width:900, height:560}});
-            rr += Math.ceil(560/20) + 2;
-          }catch(err){
-            const tC = wsO.getCell(rr,1); tC.value = '⚠ '+cv.label+' eklenemedi: '+err.message; tC.font = FONT;
-            rr += 2;
-          }
+      for(const cv of cepheViews){
+        try{
+          const pngC = await window.capture3DView(cv.yaw, cv.pitch, 900, 560);
+          const imgC = wb.addImage({base64: pngC, extension:'png'});
+          const tC = wsO.getCell(rr,1); tC.value = '3B TOPLU MONTAJ — '+cv.label; tC.font = titleFont;
+          wsO.addImage(imgC, {tl:{col:0, row:rr}, ext:{width:900, height:560}});
+          rr += Math.ceil(560/20) + 2;
+        }catch(err){
+          const tC = wsO.getCell(rr,1); tC.value = '⚠ '+cv.label+' eklenemedi: '+err.message; tC.font = FONT;
+          rr += 2;
         }
-      }finally{
-        view3d.yaw = savedView.yaw; view3d.pitch = savedView.pitch; view3d.zoom = savedView.zoom;
-        view3d.panX = savedView.panX; view3d.panY = savedView.panY;
       }
     }
 
@@ -2163,47 +1956,8 @@ function attachListeners(){
       renderAll();
     }
   });
-  document.getElementById('v3_reset').addEventListener('click', ()=>{
-    view3d.yaw=-0.55; view3d.pitch=0.42; view3d.zoom=1; view3d.panX=0; view3d.panY=0; render3D();
-  });
-  const c3 = document.getElementById('canvas3d');
-  c3.addEventListener('wheel', e=>{
-    e.preventDefault();
-    view3d.zoom = Math.max(0.3, Math.min(5, view3d.zoom * (e.deltaY<0 ? 1.1 : 0.9)));
-    render3D();
-  }, {passive:false});
-  c3.addEventListener('pointerdown', e=>{
-    view3d.drag = {x:e.clientX, y:e.clientY};
-    view3d.moved = false;
-    view3d.downTarget = e.target;
-    c3.setPointerCapture(e.pointerId);
-    c3.style.cursor = 'grabbing';
-  });
-  c3.addEventListener('pointermove', e=>{
-    if(!view3d.drag) return;
-    const dx = e.clientX - view3d.drag.x, dy = e.clientY - view3d.drag.y;
-    if(Math.abs(dx)+Math.abs(dy) > 3) view3d.moved = true;
-    if(e.shiftKey){                       // Shift + sürükleme: kaydırma
-      view3d.panX += dx;
-      view3d.panY += dy;
-    } else {                              // Sürükleme: döndürme
-      view3d.yaw   += dx * 0.008;
-      view3d.pitch += dy * 0.008;
-      view3d.pitch  = Math.max(-1.45, Math.min(1.45, view3d.pitch)); // tepe/dip kilidi
-    }
-    view3d.drag = {x:e.clientX, y:e.clientY};
-    render3D();
-  });
-  ['pointerup','pointercancel','pointerleave'].forEach(ev=>c3.addEventListener(ev, e=>{
-    // Sürüklenmemiş tıklama + yüz hedefi → o yöne modül ekle
-    if(ev==='pointerup' && view3d.drag && !view3d.moved && view3d.downTarget){
-      const hit = view3d.downTarget.closest ? view3d.downTarget.closest('[data-m3]') : null;
-      if(hit){
-        addModuleAt(Number(hit.dataset.m3), Number(hit.dataset.f3));
-      }
-    }
-    view3d.drag = null; view3d.downTarget = null; c3.style.cursor = 'grab';
-  }));
+  // "Görünümü Sıfırla" butonu ve fare/tekerlek/tıkla-ekle etkileşimi artık sayfa sonundaki
+  // Three.js modülünde (gerçek kamera + raycaster ile) yönetiliyor.
   ['dim_W','dim_H','dim_L'].forEach(id=>{
     document.getElementById(id).addEventListener('input', e=>{
       state.dims[id.split('_')[1]] = Number(e.target.value)||0;
@@ -2405,6 +2159,654 @@ function buildTabs(){
 buildTabs();
 attachListeners();
 renderAll();
+
+// ---------- THREE.JS 3B MOTORU İÇİN KÖPRÜ ----------
+// Sayfa sonundaki <script type="module"> bu nesne üzerinden mevcut veri modeline
+// ve fonksiyonlara erişir. Modüller (ES module) klasik <script> içindeki const/function
+// tanımlarını doğrudan göremediğinden, ihtiyaç duyulan her şey burada açıkça köprülenir.
+window.APP = {
+  state, FACE_DEFS, TYPE_COLORS, ELEMAN_TYPES, isEleman,
+  EL3_DEPTH, PH3, FACE_ATT, EXT_KEY, GLASS_R_MM,
+  modExt, withModule, computeFace, faceLayoutRects, faceUVtoXYZ,
+  faceMated, detectCollisions, addModuleAt
+};
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+
+// ============================================================================
+// GERÇEK 3B RENDER MOTORU (Three.js / WebGL)
+// ----------------------------------------------------------------------------
+// Önceki sürüm elle yazılmış bir projeksiyon + "ressam algoritması" (painter's
+// algorithm) kullanıyordu: nesneler uzaklığa göre sıralanıp sırayla çiziliyordu.
+// Bu yaklaşım, bitişik/çıkıntılı geometrilerde (damper, boğaz, komşu modüller)
+// yanlış üst-üste-binme hatalarına açıktı, çünkü gerçek bir derinlik testi
+// (Z-Buffer) yoktu. Bu motor onun yerine GPU'nun donanımsal derinlik tamponunu
+// kullanır: her piksel için "kameraya en yakın yüzey" otomatik ve kesin olarak
+// belirlenir; çizim sırası artık görünürlüğü etkilemez.
+// ============================================================================
+
+function boot(){
+  if(!window.APP){ setTimeout(boot, 30); return; }
+  const APP = window.APP;
+  const {
+    state, FACE_DEFS, modExt, withModule, faceLayoutRects,
+    faceUVtoXYZ, faceMated, detectCollisions, addModuleAt, EL3_DEPTH
+  } = APP;
+
+  const NORMALS = [[0,0,1],[0,0,-1],[0,1,0],[0,-1,0],[-1,0,0],[1,0,0]];
+  const DARK_EDGE = 0x0a1118, COLL_EDGE = 0xd9534f;
+
+  const container = document.getElementById('canvas3d');
+  const warnEl = document.getElementById('coll_warn');
+  const resetBtn = document.getElementById('v3_reset');
+  if(!container) return;
+
+  function containerSize(){
+    // Sekme gizliyken (display:none) clientWidth 0 döner — 900x560 sabit oranına düş.
+    const w = container.clientWidth || 900;
+    const h = container.clientHeight || Math.round(w*560/900);
+    return {w, h: h||560};
+  }
+
+  // ---------- Sahne / Kamera / Render ----------
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0xffffff);
+
+  const camera = new THREE.OrthographicCamera(-1,1,1,-1, 1, 200000);
+
+  const renderer = new THREE.WebGLRenderer({antialias:true, preserveDrawingBuffer:true});
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio||1, 2));
+  container.innerHTML = '';
+  container.appendChild(renderer.domElement);
+
+  const labelRenderer = new CSS2DRenderer();
+  Object.assign(labelRenderer.domElement.style, {position:'absolute', top:'0', left:'0', pointerEvents:'none'});
+  container.appendChild(labelRenderer.domElement);
+
+  // Not: ışıklandırma/gölgelendirme kasıtlı olarak kullanılmıyor — tüm malzemeler unlit
+  // (MeshBasicMaterial). Bu hem titreme/pırpır sorununu ortadan kaldırır hem de her rengin
+  // her açıdan birebir aynı, düz göründüğü bir teknik çizim görünümü verir.
+
+  const controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.12;
+  controls.screenSpacePanning = true;
+  controls.minZoom = 0.22; controls.maxZoom = 6;
+  controls.mouseButtons = { LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.PAN };
+  controls.touches = { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN };
+
+  const modelGroup = new THREE.Group();
+  scene.add(modelGroup);
+
+  let defaultCam = null;      // "Görünümü Sıfırla" için
+  let faceHitMeshes = [];     // tıkla-ekle vuruş düzlemleri
+  let solidMeshes = [];       // opak paneller/eklentiler — tıklama engelleme (occlusion) testi için
+  let labelEntries = [];      // {obj, normal} — kamera açısına göre görünürlük güncellemesi için
+  let modNameGroups = [];     // her modül için aday "M#" etiketleri — her karede en dönük yüzdeki gösterilir
+
+  // ---------- Yardımcı: yüz düzleminde kutu parametreleri ----------
+  // fi'nin normali doğrultusunda ('outward': yüzden dışa taşan | 'center': yüz düzleminde ortalanmış)
+  // u0..v1 aralığını gerçek dünya (mm) kutusuna çevirir. Diğer 6 yüz için de aynı genel mantık
+  // çalışır — yüze özel kod dallanmasına gerek yoktur.
+  // Sıfır kalınlıklı düz yüzey: panel gibi "ince kutu" yerine gerçek bir düzlem kullanır.
+  // Bir kutunun kendi ön/arka/yan yüzeyleri arasında büyük düz alanlarda oluşabilecek
+  // z-fighting'i kökten ortadan kaldırır (kalınlık kavramı hiç yok). outward: yüz düzleminden
+  // normal yönünde dışa doğru ofset (mm) — komşu geometriyle (çerçeve, vuruş düzlemi) net
+  // ayrışma için.
+  function facePlaneQuad(fi, u0,v0,u1,v1, L,H,W, pos, outward){
+    const n = NORMALS[fi];
+    const pts = [[u0,v0],[u1,v0],[u1,v1],[u0,v1]].map(([u,v])=>{
+      const p = faceUVtoXYZ(fi,u,v,L,H,W);
+      return new THREE.Vector3(p[0]+pos.x+n[0]*outward, p[1]+pos.y+n[1]*outward, p[2]+pos.z+n[2]*outward);
+    });
+    const geo = new THREE.BufferGeometry();
+    const positions = new Float32Array(12);
+    pts.forEach((p,i)=>{ positions[i*3]=p.x; positions[i*3+1]=p.y; positions[i*3+2]=p.z; });
+    geo.setAttribute('position', new THREE.BufferAttribute(positions,3));
+    geo.setIndex([0,1,2, 0,2,3]);
+    return {geo, pts};
+  }
+
+  // 4 köşeden DOĞRUDAN kapalı bir dörtgen çerçeve çizer — EdgesGeometry'nin otomatik
+  // köşegen algılamasına (sayısal hassasiyet nedeniyle yanlışlıkla "kenar" sayılıp görünür
+  // bir çizgi/artefakt oluşturabilir) hiç gerek bırakmaz; sadece bilinen 4 gerçek kenar çizilir.
+  function addQuadOutline(grp, pts, colorHex){
+    const positions = new Float32Array(24); // 4 kenar × 2 nokta × 3 eksen
+    const pairs = [[0,1],[1,2],[2,3],[3,0]];
+    pairs.forEach(([a,b], i)=>{
+      positions[i*6]   = pts[a].x; positions[i*6+1] = pts[a].y; positions[i*6+2] = pts[a].z;
+      positions[i*6+3] = pts[b].x; positions[i*6+4] = pts[b].y; positions[i*6+5] = pts[b].z;
+    });
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(positions,3));
+    const ln = new THREE.LineSegments(geo, new THREE.LineBasicMaterial({color:colorHex, transparent:true, opacity:0.85}));
+    grp.add(ln);
+  }
+
+  function facePlaneBox(fi, u0,v0,u1,v1, L,H,W, pos, depth, mode){
+    const corners = [[u0,v0],[u1,v0],[u1,v1],[u0,v1]].map(([u,v])=>{
+      const p = faceUVtoXYZ(fi,u,v,L,H,W);
+      return [p[0]+pos.x, p[1]+pos.y, p[2]+pos.z];
+    });
+    let mn=[Infinity,Infinity,Infinity], mx=[-Infinity,-Infinity,-Infinity];
+    corners.forEach(c=>{ for(let k=0;k<3;k++){ mn[k]=Math.min(mn[k],c[k]); mx[k]=Math.max(mx[k],c[k]); } });
+    const n = NORMALS[fi];
+    for(let k=0;k<3;k++){
+      if(mx[k]-mn[k] > 1e-6) continue; // bu eksen yüzeyin genişliği/yüksekliği — dokunma
+      if(mode==='outward'){
+        if(n[k]>0) mx[k]+=depth; else mn[k]-=depth;
+      } else {
+        mn[k]-=depth/2; mx[k]+=depth/2;
+      }
+    }
+    return {
+      center: new THREE.Vector3((mn[0]+mx[0])/2, (mn[1]+mx[1])/2, (mn[2]+mx[2])/2),
+      size:   new THREE.Vector3(Math.max(mx[0]-mn[0],0.02), Math.max(mx[1]-mn[1],0.02), Math.max(mx[2]-mn[2],0.02))
+    };
+  }
+
+  function addBoxEdges(mesh, colorHex){
+    const eg = new THREE.EdgesGeometry(mesh.geometry, 1);
+    const ln = new THREE.LineSegments(eg, new THREE.LineBasicMaterial({color:colorHex, transparent:true, opacity:0.85}));
+    mesh.add(ln);
+  }
+
+  // Silindir eksenini (varsayılan Y) verilen yüzey normaline hizalar
+  function orientAlongNormal(mesh, n){
+    const from = new THREE.Vector3(0,1,0);
+    const to = new THREE.Vector3(n[0],n[1],n[2]).normalize();
+    mesh.quaternion.copy(new THREE.Quaternion().setFromUnitVectors(from, to));
+  }
+
+  // lines: [{text, cls}] — hem CSS2D DOM görünümü hem de Excel'e aktarırken canvas'a elle
+  // yeniden çizim için gereken yapılandırılmış veri burada birlikte tutulur (bkz. capture3DView).
+  function makeLabel(lines, extraClass){
+    const div = document.createElement('div');
+    div.className = 'label3d' + (extraClass? ' '+extraClass : '');
+    div.innerHTML = lines.map(l=>`<span class="${l.cls}">${l.text}</span>`).join('<br>');
+    const obj = new CSS2DObject(div);
+    obj.userData.lines = lines;
+    return obj;
+  }
+
+  function addLabel(grp, lines, worldPos, faceNormal, extraClass){
+    const label = makeLabel(lines, extraClass);
+    label.position.copy(worldPos);
+    grp.add(label);
+    labelEntries.push({obj:label, normal:new THREE.Vector3(faceNormal[0],faceNormal[1],faceNormal[2])});
+    return label;
+  }
+
+  // ---------- Bir modülün tüm geometrisini kur ----------
+  function buildModule(m, collides){
+    const md = state.modules[m];
+    const L = modExt(md,'x'), H = modExt(md,'y'), W = modExt(md,'z');
+    const pos = md.pos;
+    const grp = new THREE.Group();
+    grp.name = 'module'+m;
+
+    // Gövde çerçevesi: normalde ÇİZİLMEZ ("kenar" panel katmanları zaten aynı görseli
+    // sağlıyor — bu çizgi onlara ek, gereksiz bir tekrardı). Yalnızca modüller ÇAKIŞTIĞINDA
+    // kırmızı bir uyarı çerçevesi olarak çizilir.
+    if(collides){
+      const frameGeo = new THREE.BoxGeometry(L,H,W);
+      const frameLine = new THREE.LineSegments(new THREE.EdgesGeometry(frameGeo),
+        new THREE.LineBasicMaterial({color: COLL_EDGE, linewidth: 2}));
+      frameLine.position.set(pos.x+L/2, pos.y+H/2, pos.z+W/2);
+      grp.add(frameLine);
+      frameGeo.dispose();
+    }
+
+    const modNameCandidates = [];
+
+    NORMALS.forEach((n, fi)=>{
+      if(faceMated(m, fi)) return; // komşu modülle birleşen iç yüz — çizilmez
+      const lay = withModule(m, ()=>faceLayoutRects(fi));
+
+      // Modül adı için bu yüzde de bir aday etiket oluşturulur; hangisi gösterileceğine
+      // (o anki kamera açısına göre hangi yüz en dönük duruyorsa) her karede karar verilir —
+      // böylece modülün HERHANGİ bir yüzü görünürken adı da mutlaka görünür.
+      {
+        const dk = {L, H, W};
+        const fw = dk[FACE_DEFS[fi].wKey], fh = dk[FACE_DEFS[fi].hKey];
+        const p = faceUVtoXYZ(fi, fw/2, fh*0.09, L,H,W);
+        const wp = new THREE.Vector3(p[0]+pos.x, p[1]+pos.y, p[2]+pos.z)
+          .addScaledVector(new THREE.Vector3(n[0],n[1],n[2]), 14);
+        const label = makeLabel([{text:`M${m+1}`, cls:'modname'}], 'modname');
+        label.position.copy(wp);
+        label.visible = false;
+        grp.add(label);
+        modNameCandidates.push({obj:label, normal:new THREE.Vector3(n[0],n[1],n[2])});
+      }
+
+      lay.rects.forEach((rc, idx)=>{
+        if(rc.eleman) return; // damper/boğaz/tava ayrı işlenir (aşağıda)
+        // faceLayoutRects, 2D SVG mantığıyla ÜST ÜSTE binen rect'ler üretir (arka plan → kenar
+        // şeritleri → köşe plastikleri → gerçek paneller — dizideki SONRAKİ rect 2D'de otomatik
+        // üstte görünürdü). 3B'de bunların hepsini AYNI derinlikte çizmek z-fighting'e yol açar;
+        // bu yüzden dizideki sırayı gerçek derinliğe çeviriyoruz. Fark, GÖZLE FARK EDİLMEYECEK
+        // kadar küçük tutulur (mm'nin onda biri) — z-fighting'i önlemeye yeter ama katmanlar
+        // arasında görünür bir "basamak/boşluk" oluşturmaz.
+        const outward = 1.2 + idx*0.12;
+        if(rc.circle){
+          // Camlı Açılır gözetleme camı — u/v eksenleri dünya mm ile 1:1 olduğundan rc.r doğrudan yarıçaptır
+          const c3 = faceUVtoXYZ(fi, rc.cu, rc.cv, L,H,W);
+          const glass = new THREE.Mesh(
+            new THREE.CylinderGeometry(rc.r, rc.r, 16, 24),
+            new THREE.MeshBasicMaterial({color:0x2a6b78, transparent:true, opacity:0.75})
+          );
+          orientAlongNormal(glass, n);
+          glass.position.set(c3[0]+pos.x+n[0]*(outward+1), c3[1]+pos.y+n[1]*(outward+1), c3[2]+pos.z+n[2]*(outward+1));
+          grp.add(glass);
+          solidMeshes.push(glass);
+          return;
+        }
+        const {geo:quadGeo, pts:quadPts} = facePlaneQuad(fi, rc.u0, rc.v0, rc.u1, rc.v1, L,H,W, pos, outward);
+        const mesh = new THREE.Mesh(
+          quadGeo,
+          new THREE.MeshBasicMaterial({color: rc.fill, side:THREE.DoubleSide, transparent: !!rc.bos, opacity: rc.bos?0.55:1})
+        );
+        grp.add(mesh);
+        // Arka plan ve köşe-plastiği dekoratif katmanlarına kenarlık çizilmez. Ama KENAR
+        // şeridine (gerçek panellerle aynı şekilde) çizilir — bu, iki modül yan yana geldiğinde
+        // her modülün kendi çerçevesini ayırt edilebilir kılan çizgidir.
+        if(rc.fill!=='#131d27' && rc.fill!=='#10161d'){
+          addQuadOutline(grp, quadPts, DARK_EDGE);
+        }
+        solidMeshes.push(mesh);
+      });
+
+      // Etiketler: panel kodu + gerçek mm ölçüsü (KAPAKSIZ / BOŞ dahil)
+      lay.labels.forEach(lb=>{
+        const p = faceUVtoXYZ(fi, lb.u, lb.v, L,H,W);
+        const wp = new THREE.Vector3(p[0]+pos.x, p[1]+pos.y, p[2]+pos.z)
+          .addScaledVector(new THREE.Vector3(n[0],n[1],n[2]), 14);
+        const isPanelCode = /-B\d/.test(lb.text);
+        const txt = isPanelCode ? 'M'+(m+1)+'·'+lb.text : lb.text;
+        const lines = lb.size
+          ? [{text:txt, cls:'l1'}, {text:lb.size, cls:'l2'}]
+          : [{text:txt, cls:'l1'}];
+        addLabel(grp, lines, wp, n);
+      });
+
+      // Tıkla-modül-ekle: görünmez vuruş düzlemi — bu yüzün KENDİ tüm katmanlarının (arka plan,
+      // kenar şeridi, gerçek panel, Tava) önünde durur ki panelin ortasına tıklamak da kenarına
+      // tıklamak kadar kolay olsun. Yine de gerçekten önde duran BAŞKA bir modülün gövdesi
+      // tarafından (ayrı raycaster hedefi olarak) doğru şekilde engellenmeye devam eder.
+      const hitBox = facePlaneBox(fi, 0, 0, lay.FW, lay.FH, L,H,W, pos, 14, 'outward');
+      const hitMesh = new THREE.Mesh(
+        new THREE.BoxGeometry(hitBox.size.x, hitBox.size.y, hitBox.size.z),
+        new THREE.MeshBasicMaterial({color:0x4fb8a8, transparent:true, opacity:0, side:THREE.FrontSide, depthWrite:false, depthTest:false})
+      );
+      hitMesh.position.copy(hitBox.center);
+      hitMesh.userData = {faceHit:true, m, fi};
+      grp.add(hitMesh);
+      faceHitMeshes.push(hitMesh);
+
+      // Damper / Boğaz / Tava — kendi eklerini kur
+      lay.rects.filter(rc=>rc.eleman).forEach(rc=>{
+        buildElemanMesh(grp, fi, rc, L,H,W, pos, n, m);
+      });
+    });
+
+    if(modNameCandidates.length) modNameGroups.push(modNameCandidates);
+
+    return grp;
+  }
+
+  // Damper: metal kanat gövdesi + kırmızı conta şeridi (150mm dışa çıkıntı)
+  // Boğaz : flanş kutusu + koyu kanal açıklığı (150mm dışa çıkıntı)
+  // Tava  : çıkıntısız düz panel + küçük tahliye deliği
+  function buildElemanMesh(grp, fi, rc, L,H,W, pos, n, m){
+    const isDamper = rc.elType==='Damper';
+    const isTava = rc.elType==='Tava';
+    const nrm = new THREE.Vector3(n[0],n[1],n[2]);
+
+    if(isTava){
+      const {geo:quadGeo, pts:quadPts} = facePlaneQuad(fi, rc.u0, rc.v0, rc.u1, rc.v1, L,H,W, pos, 9);
+      const mesh = new THREE.Mesh(quadGeo,
+        new THREE.MeshBasicMaterial({color:0x111315, side:THREE.DoubleSide, polygonOffset:true, polygonOffsetFactor:2, polygonOffsetUnits:2}));
+      grp.add(mesh);
+      addQuadOutline(grp, quadPts, DARK_EDGE);
+      solidMeshes.push(mesh);
+
+      // tahliye deliği (u/v dünya mm ile 1:1 olduğundan holeR doğrudan yarıçaptır)
+      const holeU = (rc.u0+rc.u1)/2, holeV = rc.v0+(rc.v1-rc.v0)*0.72;
+      const holeR = Math.max(Math.min(rc.u1-rc.u0, rc.v1-rc.v0)*0.09, 3);
+      const hc3 = faceUVtoXYZ(fi, holeU, holeV, L,H,W);
+      const hole = new THREE.Mesh(new THREE.CylinderGeometry(holeR, holeR, 6, 20),
+        new THREE.MeshBasicMaterial({color:0x05080c}));
+      orientAlongNormal(hole, n);
+      hole.position.set(hc3[0]+pos.x, hc3[1]+pos.y, hc3[2]+pos.z);
+      hole.position.addScaledVector(nrm, 10.5);
+      grp.add(hole);
+
+      const centerTava = faceUVtoXYZ(fi, (rc.u0+rc.u1)/2, (rc.v0+rc.v1)/2, L,H,W);
+      const labelPos = new THREE.Vector3(centerTava[0]+pos.x, centerTava[1]+pos.y, centerTava[2]+pos.z)
+        .addScaledVector(nrm, 12);
+      addElemanLabel(grp, rc, m, labelPos, n);
+      return;
+    }
+
+    // Damper / Boğaz: 150mm dışa çıkıntılı İÇİ BOŞ ÇERÇEVE (dolu kutu değil — aksi halde
+    // ön yüzü, içine konacak kanatları/kanalı tamamen gizler; tıpkı orijinal 2D SVG'deki
+    // gibi burada da sadece kenar çerçevesi katı, orta kısım açık bırakılır).
+    const bodyColor = isDamper ? 0x4b5158 : 0x5c3a1e;
+    const frameMat = new THREE.MeshBasicMaterial({color:bodyColor, polygonOffset:true, polygonOffsetFactor:2, polygonOffsetUnits:2});
+    const frameT = Math.max(Math.min(rc.u1-rc.u0, rc.v1-rc.v0) * 0.09, 14);
+    const uMid0 = rc.u0+frameT, uMid1 = rc.u1-frameT, vMid0 = rc.v0+frameT, vMid1 = rc.v1-frameT;
+    const frameStrips = [
+      [uMid0, rc.v0, uMid1, rc.v0+frameT],   // üst (orta genişlik — köşeler sol/sağ şeride ait)
+      [uMid0, rc.v1-frameT, uMid1, rc.v1],   // alt
+      [rc.u0, rc.v0, rc.u0+frameT, rc.v1],   // sol (tam yükseklik)
+      [rc.u1-frameT, rc.v0, rc.u1, rc.v1]    // sağ (tam yükseklik)
+    ];
+    frameStrips.forEach(([su0,sv0,su1,sv1])=>{
+      const sbox = facePlaneBox(fi, su0,sv0,su1,sv1, L,H,W, pos, EL3_DEPTH, 'outward');
+      const smesh = new THREE.Mesh(new THREE.BoxGeometry(sbox.size.x, sbox.size.y, sbox.size.z), frameMat);
+      smesh.position.copy(sbox.center);
+      grp.add(smesh);
+      addBoxEdges(smesh, DARK_EDGE);
+      solidMeshes.push(smesh);
+    });
+
+    if(isDamper){
+      // Kanatlar: çerçeve açıklığı içinde v ekseni boyunca dizilmiş yatay bloklar + her
+      // kanadın dış (kameraya en yakın) kenarında ince kırmızı conta şeridi — referans görsele göre.
+      const nSlat = Math.max(3, Math.min(7, Math.round((vMid1-vMid0)/140)));
+      for(let i=0;i<nSlat;i++){
+        const t0 = i/nSlat, t1 = (i+0.86)/nSlat; // aralarda küçük boşluk
+        const bv0 = vMid0 + (vMid1-vMid0)*t0, bv1 = vMid0 + (vMid1-vMid0)*t1;
+        const bladeBox = facePlaneBox(fi, uMid0, bv0, uMid1, bv1, L,H,W, pos, EL3_DEPTH*0.86, 'outward');
+        const blade = new THREE.Mesh(new THREE.BoxGeometry(bladeBox.size.x, bladeBox.size.y, bladeBox.size.z),
+          new THREE.MeshBasicMaterial({color:0xaeb4ba}));
+        blade.position.copy(bladeBox.center);
+        grp.add(blade);
+        solidMeshes.push(blade);
+
+        const sealBox = facePlaneBox(fi, uMid0, bv0+(bv1-bv0)*0.78, uMid1, bv1, L,H,W, pos, EL3_DEPTH*0.88, 'outward');
+        const seal = new THREE.Mesh(new THREE.BoxGeometry(sealBox.size.x, sealBox.size.y, sealBox.size.z),
+          new THREE.MeshBasicMaterial({color:0xc1272d}));
+        seal.position.copy(sealBox.center);
+        grp.add(seal);
+        solidMeshes.push(seal);
+      }
+    } else {
+      // Boğaz: çerçeve açıklığı içinde, hafif geride (içeri çekilmiş) koyu kanal yüzeyi
+      const innerBox = facePlaneBox(fi, uMid0, vMid0, uMid1, vMid1, L,H,W, pos, EL3_DEPTH*0.65, 'outward');
+      const inner = new THREE.Mesh(new THREE.BoxGeometry(innerBox.size.x, innerBox.size.y, innerBox.size.z),
+        new THREE.MeshBasicMaterial({color:0x05080c}));
+      inner.position.copy(innerBox.center);
+      grp.add(inner);
+      solidMeshes.push(inner);
+    }
+
+    const centerP = faceUVtoXYZ(fi, (rc.u0+rc.u1)/2, (rc.v0+rc.v1)/2, L,H,W);
+    const labelPos = new THREE.Vector3(centerP[0]+pos.x, centerP[1]+pos.y, centerP[2]+pos.z)
+      .addScaledVector(nrm, EL3_DEPTH*0.95);
+    addElemanLabel(grp, rc, m, labelPos, n);
+  }
+
+  function addElemanLabel(grp, rc, m, worldPos, n){
+    const lines = [
+      {text:`M${m+1}·${rc.lbl} — ${rc.elType}`, cls:'l1'},
+      {text:`${Math.round(rc.u1-rc.u0)}×${Math.round(rc.v1-rc.v0)}`, cls:'l2'}
+    ];
+    addLabel(grp, lines, worldPos, n);
+  }
+
+  // ---------- Sahneyi tamamen yeniden kur ----------
+  function disposeGroup(g){
+    g.traverse(obj=>{
+      if(obj.geometry) obj.geometry.dispose();
+      if(obj.material){
+        if(Array.isArray(obj.material)) obj.material.forEach(mm=>mm.dispose());
+        else obj.material.dispose();
+      }
+      if(obj.isCSS2DObject && obj.element && obj.element.parentNode){
+        obj.element.parentNode.removeChild(obj.element);
+      }
+    });
+  }
+
+  function rebuildScene(){
+    disposeGroup(modelGroup);
+    while(modelGroup.children.length) modelGroup.remove(modelGroup.children[0]);
+    faceHitMeshes = []; solidMeshes = []; labelEntries = []; modNameGroups = [];
+
+    const pairs = detectCollisions();
+    const collSet = new Set(pairs.flat());
+    state.modules.forEach((md, m)=>{
+      modelGroup.add(buildModule(m, collSet.has(m)));
+    });
+
+    // Sınır kutusu → kamera hedefi ve mesafesi
+    const box = new THREE.Box3().setFromObject(modelGroup);
+    const sphere = new THREE.Sphere();
+    box.getBoundingSphere(sphere);
+    const center = sphere.center.clone();
+    const radius = Math.max(sphere.radius, 200);
+
+    const {w, h} = containerSize();
+    const aspect = w/h;
+    const fitR = radius * 1.15;
+    camera.left = -fitR*aspect; camera.right = fitR*aspect;
+    camera.top = fitR; camera.bottom = -fitR;
+    camera.near = Math.max(radius*0.1, 1); camera.far = radius*8;
+
+    if(!defaultCam){
+      const dist = radius*3;
+      const dir = new THREE.Vector3(Math.sin(-0.55)*Math.cos(0.42), Math.sin(0.42), Math.cos(-0.55)*Math.cos(0.42));
+      const camPos = center.clone().addScaledVector(dir, dist);
+      defaultCam = {pos:camPos.clone(), target:center.clone(), zoom:1};
+      camera.position.copy(camPos);
+      camera.zoom = 1;
+      controls.target.copy(center);
+    } else {
+      // Mevcut bakış yönünü koru, sadece hedef merkezi güncelle
+      const offset = camera.position.clone().sub(controls.target);
+      controls.target.copy(center);
+      camera.position.copy(center.clone().add(offset));
+    }
+    camera.updateProjectionMatrix();
+    controls.update();
+
+    updateCollisionWarning(pairs);
+  }
+
+  function updateCollisionWarning(pairs){
+    if(!warnEl) return;
+    if(pairs.length){
+      warnEl.style.display = 'block';
+      warnEl.textContent = '⚠ ÇAKIŞMA: ' + pairs.map(p=>'M'+(p[0]+1)+' ↔ M'+(p[1]+1)).join(', ')
+        + ' — modüller iç içe geçiyor. Kırmızı çerçeveli modüllerin ölçülerini düzeltin; kesim listeleri çakışmayı bilmez, çıktı bu haliyle güvenilmez.';
+    } else warnEl.style.display = 'none';
+  }
+
+  // ---------- Boyutlandırma ----------
+  function resize(){
+    const {w, h} = containerSize();
+    renderer.setSize(w, h, false);
+    labelRenderer.setSize(w, h);
+    const aspect = w/h;
+    const r = (camera.top - camera.bottom)/2;
+    camera.left = -r*aspect; camera.right = r*aspect;
+    camera.updateProjectionMatrix();
+  }
+  new ResizeObserver(resize).observe(container);
+
+  // ---------- Tıkla → modül ekle (Raycaster, engel-farkında) ----------
+  // Vuruş düzlemleriyle BİRLİKTE opak panel/eklenti gövdeleri de ışın testine dahil edilir;
+  // böylece önünde başka bir modülün gövdesi varsa (kameraya daha yakınsa) tıklama o modüle
+  // çarpar ve arkadaki yüz — doğru şekilde — tıklanabilir sayılmaz.
+  const raycaster = new THREE.Raycaster();
+  const pointerNDC = new THREE.Vector2();
+  let downPt = null, moved = false;
+
+  function updateNDC(e){
+    const rect = renderer.domElement.getBoundingClientRect();
+    pointerNDC.x = ((e.clientX-rect.left)/rect.width)*2-1;
+    pointerNDC.y = -((e.clientY-rect.top)/rect.height)*2+1;
+  }
+  function castTargets(){ return [...faceHitMeshes, ...solidMeshes]; }
+
+  renderer.domElement.addEventListener('pointerdown', e=>{
+    downPt = {x:e.clientX, y:e.clientY}; moved = false;
+  });
+  renderer.domElement.addEventListener('pointermove', e=>{
+    if(downPt){
+      const dx=e.clientX-downPt.x, dy=e.clientY-downPt.y;
+      if(Math.abs(dx)+Math.abs(dy) > 4) moved = true;
+      return; // sürükleme/döndürme sırasında hover vurgusu için ışın taraması yapma
+    }
+    updateNDC(e);
+    raycaster.setFromCamera(pointerNDC, camera);
+    const hits = raycaster.intersectObjects(castTargets(), false);
+    faceHitMeshes.forEach(hm=>{ hm.material.opacity = 0; });
+    if(hits.length && hits[0].object.userData.faceHit) hits[0].object.material.opacity = 0.16;
+  });
+  renderer.domElement.addEventListener('pointerup', e=>{
+    if(downPt && !moved){
+      updateNDC(e);
+      raycaster.setFromCamera(pointerNDC, camera);
+      const hits = raycaster.intersectObjects(castTargets(), false);
+      if(hits.length && hits[0].object.userData.faceHit){
+        const {m, fi} = hits[0].object.userData;
+        addModuleAt(m, fi); // renderAll() → render3D() zinciriyle sahne otomatik güncellenir
+      }
+    }
+    downPt = null; moved = false;
+  });
+
+  if(resetBtn){
+    resetBtn.addEventListener('click', ()=>{
+      if(!defaultCam) return;
+      camera.position.copy(defaultCam.pos);
+      controls.target.copy(defaultCam.target);
+      camera.zoom = defaultCam.zoom;
+      camera.updateProjectionMatrix();
+      controls.update();
+    });
+  }
+
+  // ---------- Render döngüsü ----------
+  const camDir = new THREE.Vector3();
+  function updateLabelVisibility(){
+    camera.getWorldDirection(camDir);
+    labelEntries.forEach(({obj,normal})=>{ obj.visible = normal.dot(camDir) < -0.05; });
+    // Modül adı: her modülde, o anki kamera açısına göre en dönük duran yüzdeki aday
+    // gösterilir, diğerleri gizlenir — modülün herhangi bir yüzü görünürken adı da görünür.
+    modNameGroups.forEach(group=>{
+      let best = null, bestDot = -0.05;
+      group.forEach(({obj,normal})=>{
+        const d = normal.dot(camDir);
+        obj.visible = false;
+        if(d < bestDot){ bestDot = d; best = obj; }
+      });
+      if(best) best.visible = true;
+    });
+  }
+  renderer.setAnimationLoop(()=>{
+    controls.update();
+    // Etiket görünürlüğü: yalnızca kameraya dönük yüzeylerin etiketleri gösterilir —
+    // aksi halde CSS2D metni, derinlik testine girmediği için katı geometrinin arkasından sızar.
+    updateLabelVisibility();
+    renderer.render(scene, camera);
+    labelRenderer.render(scene, camera);
+  });
+
+  // ---------- Dışa aktarım: sabit açıdan / mevcut açıdan PNG yakala ----------
+  window.capture3DView = function(yaw, pitch, w, h){
+    return new Promise((resolve, reject)=>{
+      try{
+        const savedPos = camera.position.clone();
+        const savedTarget = controls.target.clone();
+        const savedZoom = camera.zoom;
+        const savedCamL=camera.left, savedCamR=camera.right, savedCamT=camera.top, savedCamB=camera.bottom;
+
+        const box = new THREE.Box3().setFromObject(modelGroup);
+        const sphere = new THREE.Sphere();
+        box.getBoundingSphere(sphere);
+        const center = sphere.center.clone();
+        const radius = Math.max(sphere.radius, 200);
+
+        if(yaw!==null && pitch!==null){
+          const dir = new THREE.Vector3(Math.sin(yaw)*Math.cos(pitch), Math.sin(pitch), Math.cos(yaw)*Math.cos(pitch));
+          camera.position.copy(center.clone().addScaledVector(dir, radius*3));
+          controls.target.copy(center);
+          camera.zoom = 1;
+        }
+        const aspect = w/h;
+        const fitR = radius*1.15;
+        camera.left=-fitR*aspect; camera.right=fitR*aspect; camera.top=fitR; camera.bottom=-fitR;
+        camera.updateProjectionMatrix();
+        controls.update();
+
+        const prevPR = renderer.getPixelRatio();
+        renderer.setPixelRatio(1);
+        renderer.setSize(w*2, h*2, false);
+        updateLabelVisibility();
+        renderer.render(scene, camera);
+
+        // CSS2DRenderer etiketleri gerçek DOM elemanlarıdır — WebGL canvas'ının pikseline dahil
+        // değildir, bu yüzden toDataURL() onları hiç yakalamaz. Görünür etiketleri burada elle,
+        // 2B canvas metni olarak WebGL görüntüsünün üstüne besteliyoruz (composite).
+        const outCanvas = document.createElement('canvas');
+        outCanvas.width = w*2; outCanvas.height = h*2;
+        const ctx = outCanvas.getContext('2d');
+        ctx.drawImage(renderer.domElement, 0, 0);
+        const allLabelObjs = [
+          ...labelEntries.map(e=>e.obj),
+          ...modNameGroups.flatMap(g=>g.map(e=>e.obj))
+        ];
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.shadowColor = 'rgba(0,0,0,0.55)';
+        ctx.shadowBlur = 3;
+        allLabelObjs.forEach(obj=>{
+          if(!obj.visible) return;
+          const ndc = obj.position.clone().project(camera);
+          if(ndc.z<-1 || ndc.z>1) return;
+          const sx = (ndc.x*0.5+0.5)*w*2, sy = (-ndc.y*0.5+0.5)*h*2;
+          const lines = obj.userData.lines || [];
+          const lineH = 26;
+          let y = sy - (lines.length-1)*lineH/2;
+          lines.forEach(line=>{
+            const isL1 = line.cls==='l1';
+            ctx.font = (isL1?'600 18px ':'700 26px ')+'Inter, Arial, sans-serif';
+            ctx.fillStyle = isL1 ? '#cfe3dd' : '#4fb8a8';
+            ctx.fillText(line.text, sx, y);
+            y += lineH;
+          });
+        });
+        const dataURL = outCanvas.toDataURL('image/png');
+
+        renderer.setPixelRatio(prevPR);
+        camera.position.copy(savedPos);
+        controls.target.copy(savedTarget);
+        camera.zoom = savedZoom;
+        camera.left=savedCamL; camera.right=savedCamR; camera.top=savedCamT; camera.bottom=savedCamB;
+        camera.updateProjectionMatrix();
+        controls.update();
+        resize();
+
+        resolve(dataURL);
+      }catch(err){ reject(err); }
+    });
+  };
+
+  // ---------- Dışarıya (klasik script'e) bağlan ----------
+  window.render3D = function(){ rebuildScene(); };
+
+  resize();
+  rebuildScene();
+}
+
+boot();
 </script>
 </body>
 </html>
