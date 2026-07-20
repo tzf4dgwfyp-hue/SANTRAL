@@ -467,7 +467,7 @@ function newColumn(){ return { size:0, panels:[{size:0, type:&quot;Normal Panel&
 function newFaceSet(){
   return FACE_DEFS.map(()=>({
     kapaksiz: false,
-    orient: 'V',
+    orient: 'H',
     cont: 'ana',
     selected: null,
     columns: [ newColumn() ],
@@ -1178,8 +1178,8 @@ function buildFaceHTML(fi){
         <div class=&quot;orient-select&quot;>
           <label>Ana Yerleşim Yönü</label>
           <select data-orientface=&quot;${fi}&quot;>
-            <option value=&quot;H&quot;>Soldan Sağa</option>
-            <option value=&quot;V&quot; selected>Yukarıdan Aşağıya</option>
+            <option value=&quot;H&quot; selected>Soldan Sağa</option>
+            <option value=&quot;V&quot;>Yukarıdan Aşağıya</option>
           </select>
         </div>
         <div class=&quot;checkbox-row&quot;>
@@ -1277,14 +1277,16 @@ function renderEditor(fi){
   const orient = face.orient;
 
   document.getElementById(`f${fi}_editor_title`).textContent = orient==='V' ? `Satır ${ci+1} / Kapak ${pi+1}` : `Bölüm ${ci+1} / Kapak ${pi+1}`;
-  const colLbl = orient==='H' ? 'Bu Kapak Genişliği w (mm)' : 'Satır Yüksekliği h (mm)';
+  const colLbl = orient==='H' ? 'Bu Kapak Genişliği w (mm)' : 'Kapak Yüksekliği h (mm)';
   const pLbl = orient==='H' ? 'Kapak Yüksekliği h (mm)' : 'Kapak Genişliği w (mm)';
   const single = col.panels.length===1;
   const colInputVal = orient==='H' ? (p.colSize||'') : (col.size||'');
   const colInputPh  = orient==='H' ? (col.size||'') : 'oto';
+  const colField = `<div><label>${colLbl}</label><input type=&quot;number&quot; id=&quot;f${fi}_ed_colsize&quot; value=&quot;${colInputVal}&quot; placeholder=&quot;${colInputPh}&quot;></div>`;
+  const pField = `<div><label>${pLbl}${single?' — boş = otomatik tam':''}</label><input type=&quot;number&quot; id=&quot;f${fi}_ed_psize&quot; value=&quot;${p.size||''}&quot; placeholder=&quot;${single?'oto':''}&quot;></div>`;
+  const dimFields = orient==='V' ? pField + colField : colField + pField;
   body.innerHTML = `<div class=&quot;grid&quot;>
-    <div><label>${colLbl}</label><input type=&quot;number&quot; id=&quot;f${fi}_ed_colsize&quot; value=&quot;${colInputVal}&quot; placeholder=&quot;${colInputPh}&quot;></div>
-    <div><label>${pLbl}${single?' — boş = otomatik tam':''}</label><input type=&quot;number&quot; id=&quot;f${fi}_ed_psize&quot; value=&quot;${p.size||''}&quot; placeholder=&quot;${single?'oto':''}&quot;></div>
+    ${dimFields}
     <div><label>Panel Tipi</label><select id=&quot;f${fi}_ed_type&quot;>${typeOptions(p.type)}</select></div>
     <div style=&quot;display:flex;align-items:flex-end;gap:8px;&quot;>
       <button class=&quot;del-btn&quot; id=&quot;f${fi}_ed_del&quot; ${(face.columns.length<=1 && single)?'disabled':''}>Kapağı Sil</button>
@@ -1761,7 +1763,7 @@ function render3D(){
 function svgToPng(svgString, w, h){
   return new Promise((resolve, reject)=>{
     // Bağımsız SVG görüntüsü katı XML ister: xmlns zorunlu, HTML entiteleri geçersiz
-    let src = svgString.replace(/&nbsp;/g, ' ');
+    let src = svgString.replace(/&amp;nbsp;/g, ' ');
     if(!/xmlns=/.test(src)) src = src.replace('<svg ', '<svg xmlns=&quot;http://www.w3.org/2000/svg&quot; ');
     const img = new Image();
     const blob = new Blob([src], {type:'image/svg+xml;charset=utf-8'});
@@ -4984,7 +4986,7 @@ function _pasEdgePositions(p0, p1, maxSp, dir, fixed, dividers, vL) {
     var n = Math.ceil(span / maxSp);
     for (var i = 1; i < n; i++) {
       var pos = a + i * span / n;
-      pos = _pasClr(dir, fixed, pos, 2.1, vL);
+      pos = _pasClr(dir, fixed, pos, 2.3, vL);
       if (pos < p0) pos = p0;
       if (pos > p1) pos = p1;
       out.push(pos);
@@ -5563,14 +5565,14 @@ function drawDis60Pas(dxf, ox, oy, B, K, kod, percinOffsets) {
   // Sabit percin O4.2 - simetrik ofset 40.285 (paslanmaz simetri)
   var CN = 40.285;
   var lsp = 'PAS_60_DP_SABIT_PERCIN';
-  dxf.addCircle(ox + CN,     oy - 51.7,     2.1, lsp);
-  dxf.addCircle(ox + B - CN, oy - 51.7,     2.1, lsp);
-  dxf.addCircle(ox + CN,     oy + K + 51.7, 2.1, lsp);
-  dxf.addCircle(ox + B - CN, oy + K + 51.7, 2.1, lsp);
-  dxf.addCircle(ox - 51.7,     oy + CN,     2.1, lsp);
-  dxf.addCircle(ox - 51.7,     oy + K - CN, 2.1, lsp);
-  dxf.addCircle(ox + B + 51.7, oy + CN,     2.1, lsp);
-  dxf.addCircle(ox + B + 51.7, oy + K - CN, 2.1, lsp);
+  dxf.addCircle(ox + CN,     oy - 51.7,     2.3, lsp);
+  dxf.addCircle(ox + B - CN, oy - 51.7,     2.3, lsp);
+  dxf.addCircle(ox + CN,     oy + K + 51.7, 2.3, lsp);
+  dxf.addCircle(ox + B - CN, oy + K + 51.7, 2.3, lsp);
+  dxf.addCircle(ox - 51.7,     oy + CN,     2.3, lsp);
+  dxf.addCircle(ox - 51.7,     oy + K - CN, 2.3, lsp);
+  dxf.addCircle(ox + B + 51.7, oy + CN,     2.3, lsp);
+  dxf.addCircle(ox + B + 51.7, oy + K - CN, 2.3, lsp);
 
   // Sabit vida O16.2 + eklenen vida (800/1600) + clearance listesi
   var lsv = 'PAS_60_DP_SABIT_VIDA';
@@ -5603,16 +5605,16 @@ function drawDis60Pas(dxf, ox, oy, B, K, kod, percinOffsets) {
   if (!percinOffsets) percinOffsets = computePasPercinOffsets(B, K, '60');
   var lp = 'PAS_60_DP_PERCIN';
   percinOffsets.bottom.forEach(function (off) {
-    dxf.addCircle(ox + CN + off, oy - 51.7, 2.1, lp);
+    dxf.addCircle(ox + CN + off, oy - 51.7, 2.3, lp);
   });
   percinOffsets.top.forEach(function (off) {
-    dxf.addCircle(ox + CN + off, oy + K + 51.7, 2.1, lp);
+    dxf.addCircle(ox + CN + off, oy + K + 51.7, 2.3, lp);
   });
   percinOffsets.left.forEach(function (off) {
-    dxf.addCircle(ox - 51.7, oy + CN + off, 2.1, lp);
+    dxf.addCircle(ox - 51.7, oy + CN + off, 2.3, lp);
   });
   percinOffsets.right.forEach(function (off) {
-    dxf.addCircle(ox + B + 51.7, oy + CN + off, 2.1, lp);
+    dxf.addCircle(ox + B + 51.7, oy + CN + off, 2.3, lp);
   });
 
   // Kodlama
@@ -5628,14 +5630,14 @@ function drawIc60Pas(dxf, ox, oy, B, K, kod, percinOffsets) {
   // Sabit percin O4.2 - simetrik ofset 19.785
   var CN = 19.785;
   var lsp = 'PAS_60_IC_SABIT_PERCIN';
-  dxf.addCircle(ox + CN,      oy - 28.5,      2.1, lsp);
-  dxf.addCircle(ox + BI - CN, oy - 28.5,      2.1, lsp);
-  dxf.addCircle(ox + CN,      oy + KI + 28.5, 2.1, lsp);
-  dxf.addCircle(ox + BI - CN, oy + KI + 28.5, 2.1, lsp);
-  dxf.addCircle(ox - 28.5,      oy + CN,      2.1, lsp);
-  dxf.addCircle(ox - 28.5,      oy + KI - CN, 2.1, lsp);
-  dxf.addCircle(ox + BI + 28.5, oy + CN,      2.1, lsp);
-  dxf.addCircle(ox + BI + 28.5, oy + KI - CN, 2.1, lsp);
+  dxf.addCircle(ox + CN,      oy - 28.5,      2.3, lsp);
+  dxf.addCircle(ox + BI - CN, oy - 28.5,      2.3, lsp);
+  dxf.addCircle(ox + CN,      oy + KI + 28.5, 2.3, lsp);
+  dxf.addCircle(ox + BI - CN, oy + KI + 28.5, 2.3, lsp);
+  dxf.addCircle(ox - 28.5,      oy + CN,      2.3, lsp);
+  dxf.addCircle(ox - 28.5,      oy + KI - CN, 2.3, lsp);
+  dxf.addCircle(ox + BI + 28.5, oy + CN,      2.3, lsp);
+  dxf.addCircle(ox + BI + 28.5, oy + KI - CN, 2.3, lsp);
 
   // Vida slotlari + eklenen + clearance listesi
   // IC slot konumlari (inner coords): kose 8 + eklenen 800/1600
@@ -5668,16 +5670,16 @@ function drawIc60Pas(dxf, ox, oy, B, K, kod, percinOffsets) {
   if (!percinOffsets) percinOffsets = computePasPercinOffsets(B, K, '60');
   var lp = 'PAS_60_IC_PERCIN';
   percinOffsets.bottom.forEach(function (off) {
-    dxf.addCircle(ox + CN + off, oy - 28.5, 2.1, lp);
+    dxf.addCircle(ox + CN + off, oy - 28.5, 2.3, lp);
   });
   percinOffsets.top.forEach(function (off) {
-    dxf.addCircle(ox + CN + off, oy + KI + 28.5, 2.1, lp);
+    dxf.addCircle(ox + CN + off, oy + KI + 28.5, 2.3, lp);
   });
   percinOffsets.left.forEach(function (off) {
-    dxf.addCircle(ox - 28.5, oy + CN + off, 2.1, lp);
+    dxf.addCircle(ox - 28.5, oy + CN + off, 2.3, lp);
   });
   percinOffsets.right.forEach(function (off) {
-    dxf.addCircle(ox + BI + 28.5, oy + CN + off, 2.1, lp);
+    dxf.addCircle(ox + BI + 28.5, oy + CN + off, 2.3, lp);
   });
 
   // Kodlama
@@ -5706,14 +5708,14 @@ function drawBogazDis60Pas(dxf, ox, oy, B, K, bogazTip, kod, percinOffsets) {
   // Sabit percin O4.2 - paslanmaz simetrik ofset 40.285
   var CN = 40.285;
   var lsp = 'PAS_60_BG_SABIT_PERCIN';
-  dxf.addCircle(ox + CN,     oy - 51.7,     2.1, lsp);
-  dxf.addCircle(ox + B - CN, oy - 51.7,     2.1, lsp);
-  dxf.addCircle(ox + CN,     oy + K + 51.7, 2.1, lsp);
-  dxf.addCircle(ox + B - CN, oy + K + 51.7, 2.1, lsp);
-  dxf.addCircle(ox - 51.7,     oy + CN,     2.1, lsp);
-  dxf.addCircle(ox - 51.7,     oy + K - CN, 2.1, lsp);
-  dxf.addCircle(ox + B + 51.7, oy + CN,     2.1, lsp);
-  dxf.addCircle(ox + B + 51.7, oy + K - CN, 2.1, lsp);
+  dxf.addCircle(ox + CN,     oy - 51.7,     2.3, lsp);
+  dxf.addCircle(ox + B - CN, oy - 51.7,     2.3, lsp);
+  dxf.addCircle(ox + CN,     oy + K + 51.7, 2.3, lsp);
+  dxf.addCircle(ox + B - CN, oy + K + 51.7, 2.3, lsp);
+  dxf.addCircle(ox - 51.7,     oy + CN,     2.3, lsp);
+  dxf.addCircle(ox - 51.7,     oy + K - CN, 2.3, lsp);
+  dxf.addCircle(ox + B + 51.7, oy + CN,     2.3, lsp);
+  dxf.addCircle(ox + B + 51.7, oy + K - CN, 2.3, lsp);
 
   // Vida kurallari (normal drawBogazDis60 ile ayni mantik)
   var rmYanCorner60 = K < 150;
@@ -5769,16 +5771,16 @@ function drawBogazDis60Pas(dxf, ox, oy, B, K, bogazTip, kod, percinOffsets) {
   if (!percinOffsets) percinOffsets = computePasPercinOffsets(B, K, '60', 'BOGAZ', tip);
   var lp = 'PAS_60_BG_PERCIN';
   percinOffsets.bottom.forEach(function (off) {
-    dxf.addCircle(ox + CN + off, oy - 51.7, 2.1, lp);
+    dxf.addCircle(ox + CN + off, oy - 51.7, 2.3, lp);
   });
   percinOffsets.top.forEach(function (off) {
-    dxf.addCircle(ox + CN + off, oy + K + 51.7, 2.1, lp);
+    dxf.addCircle(ox + CN + off, oy + K + 51.7, 2.3, lp);
   });
   percinOffsets.left.forEach(function (off) {
-    dxf.addCircle(ox - 51.7, oy + CN + off, 2.1, lp);
+    dxf.addCircle(ox - 51.7, oy + CN + off, 2.3, lp);
   });
   percinOffsets.right.forEach(function (off) {
-    dxf.addCircle(ox + B + 51.7, oy + CN + off, 2.1, lp);
+    dxf.addCircle(ox + B + 51.7, oy + CN + off, 2.3, lp);
   });
 
   // Kodlama
@@ -5795,14 +5797,14 @@ function drawIc60BogazPas(dxf, ox, oy, B, K, bogazTip, kod, percinOffsets) {
   // Sabit percin O4.2 - simetrik ofset 19.785
   var CN = 19.785;
   var lsp = 'PAS_60_IC_BG_SABIT_PERCIN';
-  dxf.addCircle(ox + CN,      oy - 28.5,      2.1, lsp);
-  dxf.addCircle(ox + BI - CN, oy - 28.5,      2.1, lsp);
-  dxf.addCircle(ox + CN,      oy + KI + 28.5, 2.1, lsp);
-  dxf.addCircle(ox + BI - CN, oy + KI + 28.5, 2.1, lsp);
-  dxf.addCircle(ox - 28.5,      oy + CN,      2.1, lsp);
-  dxf.addCircle(ox - 28.5,      oy + KI - CN, 2.1, lsp);
-  dxf.addCircle(ox + BI + 28.5, oy + CN,      2.1, lsp);
-  dxf.addCircle(ox + BI + 28.5, oy + KI - CN, 2.1, lsp);
+  dxf.addCircle(ox + CN,      oy - 28.5,      2.3, lsp);
+  dxf.addCircle(ox + BI - CN, oy - 28.5,      2.3, lsp);
+  dxf.addCircle(ox + CN,      oy + KI + 28.5, 2.3, lsp);
+  dxf.addCircle(ox + BI - CN, oy + KI + 28.5, 2.3, lsp);
+  dxf.addCircle(ox - 28.5,      oy + CN,      2.3, lsp);
+  dxf.addCircle(ox - 28.5,      oy + KI - CN, 2.3, lsp);
+  dxf.addCircle(ox + BI + 28.5, oy + CN,      2.3, lsp);
+  dxf.addCircle(ox + BI + 28.5, oy + KI - CN, 2.3, lsp);
 
   // Vida slotlari (BOGAZ kurallari)
   var lvs = 'PAS_60_IC_BG_VIDA';
@@ -5841,16 +5843,16 @@ function drawIc60BogazPas(dxf, ox, oy, B, K, bogazTip, kod, percinOffsets) {
   if (!percinOffsets) percinOffsets = computePasPercinOffsets(B, K, '60', 'BOGAZ', tip);
   var lp = 'PAS_60_IC_BG_PERCIN';
   percinOffsets.bottom.forEach(function (off) {
-    dxf.addCircle(ox + CN + off, oy - 28.5, 2.1, lp);
+    dxf.addCircle(ox + CN + off, oy - 28.5, 2.3, lp);
   });
   percinOffsets.top.forEach(function (off) {
-    dxf.addCircle(ox + CN + off, oy + KI + 28.5, 2.1, lp);
+    dxf.addCircle(ox + CN + off, oy + KI + 28.5, 2.3, lp);
   });
   percinOffsets.left.forEach(function (off) {
-    dxf.addCircle(ox - 28.5, oy + CN + off, 2.1, lp);
+    dxf.addCircle(ox - 28.5, oy + CN + off, 2.3, lp);
   });
   percinOffsets.right.forEach(function (off) {
-    dxf.addCircle(ox + BI + 28.5, oy + CN + off, 2.1, lp);
+    dxf.addCircle(ox + BI + 28.5, oy + CN + off, 2.3, lp);
   });
 
   // Kodlama
@@ -6379,8 +6381,8 @@ function draw50(dxf, panelList, satirN, gapCol, gapRow) {
 // Yatay percin sirasi
 // vidaXs: paralel siradaki vidalarin mutlak X konumlari. Cakisma varsa percin 13mm kayar.
 function addPH(dxf, x0, x1, y, yofs, cn, cf, layer, vidaXs) {
-  dxf.addCircle(x0 + cn, y + yofs, 2.1, layer);
-  dxf.addCircle(x1 - cf, y + yofs, 2.1, layer);
+  dxf.addCircle(x0 + cn, y + yofs, 2.3, layer);
+  dxf.addCircle(x1 - cf, y + yofs, 2.3, layer);
   var sp = (x1 - x0) - cn - cf;
   if (sp > 0.001) {
     var n = Math.ceil(sp / 390);
@@ -6393,7 +6395,7 @@ function addPH(dxf, x0, x1, y, yofs, cn, cf, layer, vidaXs) {
         for (var j = 0; j < vidaXs.length; j++) {
           if (Math.abs(px - vidaXs[j]) < 1) { shift = 13; break; } // hiza tol. 1mm (asimetrik uc ofseti)
         }
-        dxf.addCircle(px + shift, y + yofs, 2.1, layer);
+        dxf.addCircle(px + shift, y + yofs, 2.3, layer);
       }
     }
   }
@@ -6402,8 +6404,8 @@ function addPH(dxf, x0, x1, y, yofs, cn, cf, layer, vidaXs) {
 // Dikey percin sutunu
 // vidaYs: paralel sutundaki vidalarin mutlak Y konumlari. Cakisma varsa percin 13mm kayar.
 function addPV(dxf, x, y0, y1, xofs, cn, cf, layer, vidaYs) {
-  dxf.addCircle(x + xofs, y0 + cn, 2.1, layer);
-  dxf.addCircle(x + xofs, y1 - cf, 2.1, layer);
+  dxf.addCircle(x + xofs, y0 + cn, 2.3, layer);
+  dxf.addCircle(x + xofs, y1 - cf, 2.3, layer);
   var sp = (y1 - y0) - cn - cf;
   if (sp > 0.001) {
     var n = Math.ceil(sp / 390);
@@ -6416,7 +6418,7 @@ function addPV(dxf, x, y0, y1, xofs, cn, cf, layer, vidaYs) {
         for (var j = 0; j < vidaYs.length; j++) {
           if (Math.abs(py - vidaYs[j]) < 1) { shift = 13; break; } // hiza tol. 1mm (asimetrik uc ofseti)
         }
-        dxf.addCircle(x + xofs, py + shift, 2.1, layer);
+        dxf.addCircle(x + xofs, py + shift, 2.3, layer);
       }
     }
   }
@@ -8128,8 +8130,8 @@ function updatePanelPreview() {
 
   function fotoEscapeHtml(s) {
     return String(s == null ? '' : s)
-      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-      .replace(/&quot;/g, '&quot;').replace(/'/g, '&#39;');
+      .replace(/&/g, '&amp;amp;').replace(/</g, '&amp;lt;').replace(/>/g, '&amp;gt;')
+      .replace(/&quot;/g, '&amp;quot;').replace(/'/g, '&amp;#39;');
   }
 
   function fotoShowKeyPrompt() {
@@ -8772,9 +8774,9 @@ function show(i){
   btns.forEach((b,j)=>{b.classList.toggle('active',i===j);});
 }
 window.addEventListener('message',e=>{
-  if(e.data&&e.data.type==='openDXF'){
+  if(e.data&&e.data.type==='dxfExport'){
     show(1);
-    setTimeout(()=>document.getElementById('f1').contentWindow.postMessage(e.data,'*'),300);
+    setTimeout(()=>document.getElementById('f1').contentWindow.postMessage({type:'dxfInject',payload:e.data.payload},'*'),300);
   }
 });
 </script>
