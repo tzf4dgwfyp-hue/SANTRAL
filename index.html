@@ -206,8 +206,10 @@ iframe.active{display:block;}
   #canvas3d{position:relative;width:100%;aspect-ratio:900/560;overflow:hidden;border-radius:8px;}
   #canvas3d canvas{display:block;width:100%;height:100%;}
   #canvas3d .label3d{position:absolute;pointer-events:none;font-family:inherit;white-space:nowrap;text-align:center;transform:translate(-50%,-50%);}
-  #canvas3d .label3d .l1{font-size:9px;font-weight:600;color:#cfe3dd;text-shadow:0 1px 2px rgba(0,0,0,.6);}
-  #canvas3d .label3d .l2{font-size:13px;font-weight:700;color:#4fb8a8;text-shadow:0 1px 2px rgba(0,0,0,.5);}
+  #canvas3d .label3d .l1{font-size:13px;font-weight:700;color:#000000;text-shadow:0 1px 2px rgba(255,255,255,.85),0 0 3px rgba(255,255,255,.7);}
+  #canvas3d .label3d .l3{font-size:11px;font-weight:600;color:#000000;text-shadow:0 1px 2px rgba(255,255,255,.85),0 0 3px rgba(255,255,255,.7);}
+  #canvas3d .label3d .l2{font-size:12px;font-weight:700;color:#000000;text-shadow:0 1px 2px rgba(255,255,255,.85),0 0 3px rgba(255,255,255,.7);}
+  #canvas3d .label3d .l1.bos,#canvas3d .label3d .l3.bos,#canvas3d .label3d .l2.bos{color:#ffffff;text-shadow:0 1px 2px rgba(0,0,0,.6);}
   #canvas3d .label3d.modname{font-size:13px;font-weight:700;color:#4fb8a8;text-shadow:0 1px 2px rgba(0,0,0,.5);}
   .app-footer{text-align:center;color:var(--muted);font-size:11px;font-weight:600;letter-spacing:.4px;padding:20px 20px 26px;opacity:.6;}
   svg{display:block;margin:0 auto;}
@@ -443,11 +445,11 @@ const isEleman = t => ELEMAN_TYPES.includes(t);
 const isBos = t => BOS_TYPES.includes(t);
 
 const TYPE_COLORS = {
-  &quot;Üst Panel&quot;:&quot;#2c3e50&quot;, &quot;Normal Panel&quot;:&quot;#34495e&quot;,
-  &quot;Boğaz Uzun&quot;:&quot;#5d4a1f&quot;, &quot;Boğaz 2 Uzun&quot;:&quot;#6b4423&quot;,
-  &quot;Camlı Açılır&quot;:&quot;#1f4e5f&quot;, &quot;Camsız Açılır&quot;:&quot;#27556b&quot;,
-  &quot;Damper&quot;:&quot;#4b5158&quot;, &quot;Boğaz&quot;:&quot;#5c3a1e&quot;, &quot;Tava&quot;:&quot;#111315&quot;,
-  &quot;Boş Alan&quot;:&quot;#0d141b&quot;
+  &quot;Üst Panel&quot;:&quot;#a8bdd1&quot;, &quot;Normal Panel&quot;:&quot;#afc2d4&quot;,
+  &quot;Boğaz Uzun&quot;:&quot;#e2cea2&quot;, &quot;Boğaz 2 Uzun&quot;:&quot;#e5c4a9&quot;,
+  &quot;Camlı Açılır&quot;:&quot;#99cde0&quot;, &quot;Camsız Açılır&quot;:&quot;#a4cce0&quot;,
+  &quot;Damper&quot;:&quot;#b7bcc2&quot;, &quot;Boğaz&quot;:&quot;#e2bfa1&quot;, &quot;Tava&quot;:&quot;#939ea9&quot;,
+  &quot;Boş Alan&quot;:&quot;#7499be&quot;
 };
 
 /*
@@ -869,6 +871,26 @@ function renderVarsayimlar(){
 }
 
 // ---------- SVG ----------
+// Kod/tür/ölçü etiketlerini panel genişliğine göre büyük-ama-taşırmayan boyuta sığdırır;
+// en küçük okunur boyutta (minSize) bile sığmıyorsa üç noktayla kısaltır. Canlı görünüm ve
+// Excel çıktısı aynı drawFaceSVG'yi kullandığından ikisinde de aynı sonucu verir.
+let __measureCtx = null;
+function fitLabelText(text, maxWidth, maxSize, minSize, weight){
+  if(!__measureCtx) __measureCtx = document.createElement('canvas').getContext('2d');
+  const fam = &quot;-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',Arial,sans-serif&quot;;
+  let size = maxSize;
+  __measureCtx.font = `${weight} ${size}px ${fam}`;
+  while(size > minSize && __measureCtx.measureText(text).width > maxWidth){
+    size -= 0.5;
+    __measureCtx.font = `${weight} ${size}px ${fam}`;
+  }
+  let out = text;
+  if(__measureCtx.measureText(out).width > maxWidth){
+    while(out.length > 1 && __measureCtx.measureText(out+'…').width > maxWidth) out = out.slice(0,-1);
+    if(out.length < text.length) out += '…';
+  }
+  return {text: out, size};
+}
 function drawFaceSVG(fi){
   const r = computeFace(fi);
   const face = state.faces[fi];
@@ -965,9 +987,9 @@ function drawFaceSVG(fi){
       svg += `<rect class=&quot;panel-rect${isSel?' selected':''}&quot; x=&quot;${px}&quot; y=&quot;${py}&quot; width=&quot;${pw}&quot; height=&quot;${ph}&quot; fill=&quot;${color}&quot; stroke=&quot;#4a5d6e&quot; stroke-width=&quot;1.5&quot; ${dash}/>`;
       if(p.type==='Camlı Açılır'){
         const gr = Math.max(Math.min(GLASS_R_MM*scale, Math.min(pw,ph)*0.42), 4);
-        svg += `<circle cx=&quot;${px+pw/2}&quot; cy=&quot;${py+ph/2}&quot; r=&quot;${gr.toFixed(1)}&quot; fill=&quot;rgba(127,200,220,0.22)&quot; stroke=&quot;#7fc8dc&quot; stroke-width=&quot;1.4&quot;/>`;
+        svg += `<circle cx=&quot;${px+pw/2}&quot; cy=&quot;${py+ph/2}&quot; r=&quot;${gr.toFixed(1)}&quot; fill=&quot;rgba(150,215,235,0.62)&quot; stroke=&quot;#2f8fae&quot; stroke-width=&quot;2.4&quot;/><circle cx=&quot;${px+pw/2}&quot; cy=&quot;${py+ph/2}&quot; r=&quot;${(gr*0.55).toFixed(1)}&quot; fill=&quot;none&quot; stroke=&quot;#eaf7fb&quot; stroke-width=&quot;1&quot; stroke-opacity=&quot;0.8&quot;/>`;
       }
-      if(p.acilir) svg += `<circle cx=&quot;${px+7}&quot; cy=&quot;${py+ph*0.3}&quot; r=&quot;2.5&quot; fill=&quot;#4fb8a8&quot;/><circle cx=&quot;${px+7}&quot; cy=&quot;${py+ph*0.7}&quot; r=&quot;2.5&quot; fill=&quot;#4fb8a8&quot;/>`;
+      if(p.acilir) svg += `<circle cx=&quot;${px+7}&quot; cy=&quot;${py+ph*0.3}&quot; r=&quot;2.5&quot; fill=&quot;#4fb8a8&quot;/><circle cx=&quot;${px+7}&quot; cy=&quot;${py+ph*0.7}&quot; r=&quot;2.5&quot; fill=&quot;#4fb8a8&quot;/><rect x=&quot;${(px+pw-15).toFixed(1)}&quot; y=&quot;${(py+ph/2-11).toFixed(1)}&quot; width=&quot;7&quot; height=&quot;22&quot; rx=&quot;3&quot; fill=&quot;#14212b&quot; stroke=&quot;#4fb8a8&quot; stroke-width=&quot;1.5&quot;/>`;
       if(p.eleman){
         if(p.type==='Damper'){
           // Jaluzi kanatlı damper (frontal) — metal kanat gövdesi + kırmızı conta şeridi, referans görsele göre
@@ -993,11 +1015,9 @@ function drawFaceSVG(fi){
           svg += `<rect x=&quot;${(px+pw/2-iw/2).toFixed(1)}&quot; y=&quot;${(py+ph/2-ih/2).toFixed(1)}&quot; width=&quot;${iw.toFixed(1)}&quot; height=&quot;${ih.toFixed(1)}&quot; fill=&quot;#05080c&quot; stroke=&quot;#3a4750&quot; stroke-width=&quot;1&quot;/>`;
         }
         // +150 mm çıkıntı notu (Tava düz/çıkıntısız olduğundan hariç tutulur)
-        if(p.type!=='Tava') svg += `<text x=&quot;${px+pw/2}&quot; y=&quot;${py+12}&quot; fill=&quot;#8ba3b5&quot; font-size=&quot;8.5&quot; text-anchor=&quot;middle&quot;>+${'150'} mm çıkıntı</text>`;
+        if(p.type!=='Tava') svg += `<text x=&quot;${px+pw/2}&quot; y=&quot;${py+12}&quot; fill=&quot;#000000&quot; font-size=&quot;8.5&quot; text-anchor=&quot;middle&quot;>+${'150'} mm çıkıntı</text>`;
       }
-      const shortT = p.type.length>12 ? p.type.slice(0,11)+'…' : p.type;
       const cx=px+pw/2, cy=py+ph/2;
-      const rot = `transform=&quot;rotate(-90 ${cx.toFixed(1)} ${cy.toFixed(1)})&quot;`;
       const colDisp = (p.pColSize||0) > 0 ? Math.round(p.pColSize) : Math.round(pColMm);
       const effDisp = p.eff>0 ? Math.round(p.eff) : Math.round(pMm);
       const colIsAuto = (p.pColSize||0) <= 0;
@@ -1005,12 +1025,28 @@ function drawFaceSVG(fi){
       const sizeTxt = orient==='H'
         ? `${colDisp}×${effDisp}${autoSfx}`
         : `${effDisp}×${colDisp}${autoSfx}`;
-      if(ph>44 && pw>30){
-        svg += `<text x=&quot;${cx}&quot; y=&quot;${cy-16}&quot; fill=&quot;#ffffff&quot; font-size=&quot;13&quot; font-weight=&quot;700&quot; text-anchor=&quot;middle&quot; ${rot}>${FACE_CODE[fi]}-B${ci+1}K${pi+1}</text>`;
-        svg += `<text x=&quot;${cx}&quot; y=&quot;${cy+1}&quot; fill=&quot;#ffffff&quot; font-size=&quot;11.5&quot; text-anchor=&quot;middle&quot; ${rot}>${shortT}</text>`;
-        svg += `<text x=&quot;${cx}&quot; y=&quot;${cy+17}&quot; fill=&quot;#ffffff&quot; font-size=&quot;12&quot; font-weight=&quot;700&quot; text-anchor=&quot;middle&quot; ${rot}>${sizeTxt}</text>`;
-      } else if(pw>20 && ph>20){
-        svg += `<text x=&quot;${cx}&quot; y=&quot;${cy+4}&quot; fill=&quot;#ffffff&quot; font-size=&quot;12&quot; font-weight=&quot;700&quot; text-anchor=&quot;middle&quot; ${rot}>${FACE_CODE[fi]}-B${ci+1}K${pi+1}</text>`;
+      const labelFill = p.bos ? '#ffffff' : '#000000';
+      const kodTxt = `${FACE_CODE[fi]}-B${ci+1}K${pi+1}`;
+      const padW = Math.max(pw-8, 10);
+      // ph'ye göre kaç satır sığar (kod / tür / ölçü — bu sırayla öncelikli); her satırın
+      // FONT BOYUTU ayrıca pw'ye göre fitLabelText ile küçültülür/kısaltılır, böylece yan
+      // yana duran kapakların yazıları asla birbirine taşmaz.
+      let lineCount = pw<18 ? 0 : ph>=46 ? 3 : ph>=30 ? 2 : ph>=18 ? 1 : 0;
+      if(lineCount>0){
+        const rows = [fitLabelText(kodTxt, padW, 13, 8, 700)];
+        rows[0].weight = 700;
+        if(lineCount>=2){ const t=fitLabelText(p.type, padW, 11, 8, 400); t.weight=400; rows.push(t); }
+        if(lineCount>=3){ const t=fitLabelText(sizeTxt, padW, 12, 8, 700); t.weight=700; rows.push(t); }
+        const lineGap = rows.length===3 ? 16 : rows.length===2 ? 13 : 0;
+        const totalH = (rows.length-1)*lineGap;
+        const clipId = `clip${fi}_${ci}_${pi}`;
+        svg += `<clipPath id=&quot;${clipId}&quot;><rect x=&quot;${(px+1).toFixed(1)}&quot; y=&quot;${(py+1).toFixed(1)}&quot; width=&quot;${Math.max(pw-2,1).toFixed(1)}&quot; height=&quot;${Math.max(ph-2,1).toFixed(1)}&quot;/></clipPath>`;
+        svg += `<g clip-path=&quot;url(#${clipId})&quot;>`;
+        rows.forEach((row,ri)=>{
+          const ly = cy - totalH/2 + ri*lineGap;
+          svg += `<text x=&quot;${cx}&quot; y=&quot;${ly.toFixed(1)}&quot; fill=&quot;${labelFill}&quot; font-size=&quot;${row.size}&quot; font-weight=&quot;${row.weight}&quot; text-anchor=&quot;middle&quot; dominant-baseline=&quot;middle&quot;>${row.text}</text>`;
+        });
+        svg += `</g>`;
       }
       svg += `</g>`;
 
@@ -1199,12 +1235,12 @@ function buildFaceHTML(fi){
         <div class=&quot;status info&quot; id=&quot;f${fi}_status&quot;>Ana ölçüler girilmedi</div>
         <div class=&quot;canvas-wrap&quot; id=&quot;f${fi}_canvas&quot;></div>
         <div class=&quot;legend&quot;>
-          <span><i style=&quot;background:#34495e;&quot;></i> Sabit panel</span>
-          <span><i style=&quot;background:#5d4a1f;&quot;></i> Boğaz panel</span>
-          <span><i style=&quot;background:#1f4e5f;&quot;></i> Açılır panel</span>
-          <span><i style=&quot;background:#4b5158;&quot;></i> Damper (0 tolerans)</span>
-          <span><i style=&quot;background:#5c3a1e;&quot;></i> Boğaz (0 tolerans)</span>
-          <span><i style=&quot;background:#111315;&quot;></i> Tava (0 tolerans)</span>
+          <span><i style=&quot;background:#afc2d4;&quot;></i> Sabit panel</span>
+          <span><i style=&quot;background:#e2cea2;&quot;></i> Boğaz panel</span>
+          <span><i style=&quot;background:#99cde0;&quot;></i> Açılır panel</span>
+          <span><i style=&quot;background:#b7bcc2;&quot;></i> Damper (0 tolerans)</span>
+          <span><i style=&quot;background:#e2bfa1;&quot;></i> Boğaz (0 tolerans)</span>
+          <span><i style=&quot;background:#939ea9;&quot;></i> Tava (0 tolerans)</span>
           <span><i style=&quot;background:#3d5568;&quot;></i> Takviye — segmentli (tıkla: iptal)</span>
           <span><i style=&quot;background:#547a96;&quot;></i> Takviye — boydan boya (sürekli yön)</span>
           <span><i style=&quot;background:#10161d;&quot;></i> Köşe / takviye plastiği</span>
@@ -1647,12 +1683,13 @@ function faceLayoutRects(fi){
       rc.fill = TYPE_COLORS[p.type]||'#34495e';
       if(p.eleman){ rc.eleman = true; rc.elType = p.type; rc.lbl = FACE_CODE[fi]+'-B'+(ci+1)+'K'+(pi+1); }
       if(p.bos) rc.bos = true;
+      if(p.acilir) rc.acilir = true;
       rects.push(rc);
       if(p.type==='Camlı Açılır'){
         rects.push({circle:true, cu:(rc.u0+rc.u1)/2, cv:(rc.v0+rc.v1)/2,
           r: Math.min(GLASS_R_MM, Math.min(rc.u1-rc.u0, rc.v1-rc.v0)*0.42), fill:'rgba(127,200,220,0.30)'});
       }
-      if(!p.eleman) labels.push({u:(rc.u0+rc.u1)/2, v:(rc.v0+rc.v1)/2, text: p.bos ? 'BOŞ' : FACE_CODE[fi]+'-B'+(ci+1)+'K'+(pi+1), size: `${Math.round(rc.u1-rc.u0)}×${Math.round(rc.v1-rc.v0)}`});
+      if(!p.eleman) labels.push({u:(rc.u0+rc.u1)/2, v:(rc.v0+rc.v1)/2, text: p.bos ? 'BOŞ' : FACE_CODE[fi]+'-B'+(ci+1)+'K'+(pi+1), size: `${Math.round(rc.u1-rc.u0)}×${Math.round(rc.v1-rc.v0)}`, type: p.type, bos: !!p.bos});
       pc += pm;
       if(pi<cRes.panels.length-1 && col.innerGaps[pi]){
         if(ci===0) bandsMm.push(pc);
@@ -2834,16 +2871,23 @@ function boot(){
         // arasında görünür bir &quot;basamak/boşluk&quot; oluşturmaz.
         const outward = 1.2 + idx*0.12;
         if(rc.circle){
-          // Camlı Açılır gözetleme camı — u/v eksenleri dünya mm ile 1:1 olduğundan rc.r doğrudan yarıçaptır
+          // Camlı Açılır gözetleme camı — Yüz Düzenleme (2B) görünümüyle aynı renk/çerçeve:
+          // açık mavi dolgu (rgba(150,215,235,.62)) + koyu mavi çerçeve (#2f8fae)
           const c3 = faceUVtoXYZ(fi, rc.cu, rc.cv, L,H,W);
-          const glass = new THREE.Mesh(
-            new THREE.CylinderGeometry(rc.r, rc.r, 16, 24),
-            new THREE.MeshBasicMaterial({color:0x2a6b78, transparent:true, opacity:0.75})
+          const rim = new THREE.Mesh(
+            new THREE.CylinderGeometry(rc.r, rc.r, 15, 24),
+            new THREE.MeshBasicMaterial({color:0x2f8fae, transparent:true, opacity:0.9})
           );
+          const glass = new THREE.Mesh(
+            new THREE.CylinderGeometry(rc.r*0.86, rc.r*0.86, 17, 24),
+            new THREE.MeshBasicMaterial({color:0x96d7eb, transparent:true, opacity:0.62})
+          );
+          orientAlongNormal(rim, n);
           orientAlongNormal(glass, n);
+          rim.position.set(c3[0]+pos.x+n[0]*(outward+0.9), c3[1]+pos.y+n[1]*(outward+0.9), c3[2]+pos.z+n[2]*(outward+0.9));
           glass.position.set(c3[0]+pos.x+n[0]*(outward+1), c3[1]+pos.y+n[1]*(outward+1), c3[2]+pos.z+n[2]*(outward+1));
-          grp.add(glass);
-          solidMeshes.push(glass);
+          grp.add(rim); grp.add(glass);
+          solidMeshes.push(rim); solidMeshes.push(glass);
           return;
         }
         const {geo:quadGeo, pts:quadPts} = facePlaneQuad(fi, rc.u0, rc.v0, rc.u1, rc.v1, L,H,W, pos, outward);
@@ -2859,6 +2903,38 @@ function boot(){
           addQuadOutline(grp, quadPts, DARK_EDGE);
         }
         solidMeshes.push(mesh);
+        // Açılır panel donanımı — Yüz Düzenleme (2B) görünümüyle aynı: 2 menteşe noktası
+        // (u0 kenarı) + kapı kolu (u1 kenarı), gerçek panel yüzeyine oturan düz dörtgenler.
+        if(rc.acilir){
+          const uSpan = rc.u1-rc.u0, vSpan = rc.v1-rc.v0;
+          const edgeOff = Math.min(15, uSpan*0.12);
+          [0.3, 0.7].forEach(fv=>{
+            const hv = rc.v0 + vSpan*fv;
+            const c3h = faceUVtoXYZ(fi, rc.u0+edgeOff, hv, L,H,W);
+            const dot = new THREE.Mesh(
+              new THREE.CylinderGeometry(7,7,6,16),
+              new THREE.MeshBasicMaterial({color:0x4fb8a8})
+            );
+            orientAlongNormal(dot, n);
+            dot.position.set(c3h[0]+pos.x+n[0]*(outward+3), c3h[1]+pos.y+n[1]*(outward+3), c3h[2]+pos.z+n[2]*(outward+3));
+            grp.add(dot);
+            solidMeshes.push(dot);
+          });
+          const handleW = Math.min(9, uSpan*0.1), handleHalf = Math.min(22, vSpan*0.18);
+          const hu1 = rc.u1-edgeOff-handleW/2, hu2 = rc.u1-edgeOff+handleW/2;
+          const hv1 = rc.v0+vSpan*0.5-handleHalf, hv2 = rc.v0+vSpan*0.5+handleHalf;
+          const bw = Math.max(handleW*0.22, 1.5);
+          const handleRim = new THREE.Mesh(
+            facePlaneQuad(fi, hu1-bw, hv1-bw, hu2+bw, hv2+bw, L,H,W, pos, outward+2.8).geo,
+            new THREE.MeshBasicMaterial({color:0x4fb8a8, side:THREE.DoubleSide})
+          );
+          const handle = new THREE.Mesh(
+            facePlaneQuad(fi, hu1, hv1, hu2, hv2, L,H,W, pos, outward+3).geo,
+            new THREE.MeshBasicMaterial({color:0x14212b, side:THREE.DoubleSide})
+          );
+          grp.add(handleRim); grp.add(handle);
+          solidMeshes.push(handleRim); solidMeshes.push(handle);
+        }
       });
 
       // Etiketler: panel kodu + gerçek mm ölçüsü (KAPAKSIZ / BOŞ dahil)
@@ -2868,9 +2944,10 @@ function boot(){
           .addScaledVector(new THREE.Vector3(n[0],n[1],n[2]), 14);
         const isPanelCode = /-B\d/.test(lb.text);
         const txt = isPanelCode ? 'M'+(m+1)+'·'+lb.text : lb.text;
-        const lines = lb.size
-          ? [{text:txt, cls:'l1'}, {text:lb.size, cls:'l2'}]
-          : [{text:txt, cls:'l1'}];
+        const boscls = lb.bos ? ' bos' : '';
+        const lines = [{text:txt, cls:'l1'+boscls}];
+        if(lb.type) lines.push({text: lb.type.length>12 ? lb.type.slice(0,11)+'…' : lb.type, cls:'l3'+boscls});
+        if(lb.size) lines.push({text:lb.size, cls:'l2'+boscls});
         addLabel(grp, lines, wp, n);
       });
 
@@ -3239,20 +3316,29 @@ function boot(){
         ];
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.shadowColor = 'rgba(0,0,0,0.55)';
-        ctx.shadowBlur = 3;
         allLabelObjs.forEach(obj=>{
           if(!obj.visible) return;
           const ndc = obj.position.clone().project(camera);
           if(ndc.z<-1 || ndc.z>1) return;
           const sx = (ndc.x*0.5+0.5)*w*2, sy = (-ndc.y*0.5+0.5)*h*2;
           const lines = obj.userData.lines || [];
-          const lineH = 26;
+          const lineH = 24;
           let y = sy - (lines.length-1)*lineH/2;
           lines.forEach(line=>{
-            const isL1 = line.cls==='l1';
-            ctx.font = (isL1?'600 18px ':'700 26px ')+'Inter, Arial, sans-serif';
-            ctx.fillStyle = isL1 ? '#cfe3dd' : '#4fb8a8';
+            // Yüz Düzenleme/Excel etiketleriyle aynı renk-boyut kuralı — burada CSS'e
+            // (.label3d .l1/.l3/.l2) sahip değiliz, canlı DOM stiliyle elle senkron tutulur:
+            // CSS font-size'ın 2 katı (bu canvas 2x pikselde yakalanıyor).
+            const clsParts = (line.cls||'').split(' ');
+            const base = clsParts[0], isBos = clsParts.indexOf('bos')>=0;
+            let fontSpec, color, shadowColor;
+            if(base==='modname'){ fontSpec = '700 26px'; color = '#4fb8a8'; shadowColor = 'rgba(0,0,0,0.5)'; }
+            else if(base==='l3'){ fontSpec = '600 22px'; color = isBos?'#ffffff':'#000000'; shadowColor = isBos?'rgba(0,0,0,0.6)':'rgba(255,255,255,0.85)'; }
+            else if(base==='l2'){ fontSpec = '700 24px'; color = isBos?'#ffffff':'#000000'; shadowColor = isBos?'rgba(0,0,0,0.6)':'rgba(255,255,255,0.85)'; }
+            else { fontSpec = '700 26px'; color = isBos?'#ffffff':'#000000'; shadowColor = isBos?'rgba(0,0,0,0.6)':'rgba(255,255,255,0.85)'; }
+            ctx.font = fontSpec+' Inter, Arial, sans-serif';
+            ctx.fillStyle = color;
+            ctx.shadowColor = shadowColor;
+            ctx.shadowBlur = 3;
             ctx.fillText(line.text, sx, y);
             y += lineH;
           });
