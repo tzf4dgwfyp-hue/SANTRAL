@@ -4759,6 +4759,24 @@ function addPercin(dxf, ox, oy, x1, y1, x2, y2, r, dir, maxSp, layer, vidaPos) {
       dxf.addCircle(ox + pos, oy + y1, r, layer);
     }
   }
+  return n; // cagiran, ayni sayiyi es (ic/dis) kapaga da uygulayabilsin diye
+}
+
+// addPercin ile AYNI kenara, ama vida cakisma kontrolu yapmadan, DISARIDAN VERILEN n
+// sayisinda percin dagitir. Dis kapakta vida cakismasi nedeniyle n artmissa, ic kapak
+// bunu (kendi vida deligi olmasa bile) AYNEN miras alsin diye kullanilir.
+function addPercinN(dxf, ox, oy, x1, y1, x2, y2, r, dir, n, layer) {
+  var span = dir === 'V' ? Math.abs(y2 - y1) : Math.abs(x2 - x1);
+  var sp = span / n;
+  var base = (dir === 'V' ? Math.min(y1, y2) : Math.min(x1, x2));
+  for (var i = 1; i < n; i++) {
+    var pos = base + i * sp;
+    if (dir === 'V') {
+      dxf.addCircle(ox + x1, oy + pos, r, layer);
+    } else {
+      dxf.addCircle(ox + pos, oy + y1, r, layer);
+    }
+  }
 }
 
 // Vida kurali: 800-1600 arasi 1 orta, 1600+ ise 2 tane (1/3 ve 2/3)
@@ -4870,10 +4888,10 @@ function drawDisSabit(dxf, ox, oy, B, K, kod) {
 
   // Degisken percin max 390mm
   var lp = 'DP_PERCIN';
-  addPercin(dxf, ox, oy, 10.8, 89.5, 10.8, H - 89.5, R_P, 'V', 390, lp, vidaYs);
-  addPercin(dxf, ox, oy, W - 10.8, 89.5, W - 10.8, H - 89.5, R_P, 'V', 390, lp, vidaYs);
-  addPercin(dxf, ox, oy, 89.5, 10.8, W - 89.5, 10.8, R_P, 'H', 390, lp, vidaXs);
-  addPercin(dxf, ox, oy, 89.5, H - 10.8, W - 89.5, H - 10.8, R_P, 'H', 390, lp, vidaXs);
+  var nLeft = addPercin(dxf, ox, oy, 10.8, 89.5, 10.8, H - 89.5, R_P, 'V', 390, lp, vidaYs);
+  var nRight = addPercin(dxf, ox, oy, W - 10.8, 89.5, W - 10.8, H - 89.5, R_P, 'V', 390, lp, vidaYs);
+  var nBottom = addPercin(dxf, ox, oy, 89.5, 10.8, W - 89.5, 10.8, R_P, 'H', 390, lp, vidaXs);
+  var nTop = addPercin(dxf, ox, oy, 89.5, H - 10.8, W - 89.5, H - 10.8, R_P, 'H', 390, lp, vidaXs);
 
   // Degisken vida 800/1600
   var lv = 'DP_VIDA';
@@ -4884,13 +4902,16 @@ function drawDisSabit(dxf, ox, oy, B, K, kod) {
 
   // Kodlama
   addKod(dxf, ox, oy, W - 90.5, H - 10.8, kod, 'DP_KODLAMA');
+
+  // Vida cakismasi nedeniyle artan percin sayisi ic kapaga da aktarilsin diye dondurulur
+  return { left: nLeft, right: nRight, bottom: nBottom, top: nTop };
 }
 
 // -------------------------------------------------------
 // IC SABIT PANEL (50'lik) - kulak yok, UST stili (kose notch + R1)
 // W = B+31, H = K+31
 // -------------------------------------------------------
-function drawIcSabit(dxf, ox, oy, B, K, kod) {
+function drawIcSabit(dxf, ox, oy, B, K, kod, percinN) {
   var W = B + 31, H = K + 31;
   var R_P = 2.3;
 
@@ -4934,12 +4955,20 @@ function drawIcSabit(dxf, ox, oy, B, K, kod) {
   dxf.addCircle(ox + W - 7.5, oy + 56, R_P, lsp);
   dxf.addCircle(ox + W - 7.5, oy + H - 56, R_P, lsp);
 
-  // Degisken percin max 390mm
+  // Degisken percin max 390mm — dis kapaktan (vida cakismasi nedeniyle artmis olabilecek)
+  // percin SAYISI miras alinir; boylece ic ve dis kapak ayni sayida percine sahip olur.
   var lp = 'IC_PERCIN';
-  addPercin(dxf, ox, oy, 7.5, 56, 7.5, H - 56, R_P, 'V', 390, lp);
-  addPercin(dxf, ox, oy, W - 7.5, 56, W - 7.5, H - 56, R_P, 'V', 390, lp);
-  addPercin(dxf, ox, oy, 56, 7.5, W - 56, 7.5, R_P, 'H', 390, lp);
-  addPercin(dxf, ox, oy, 56, H - 7.5, W - 56, H - 7.5, R_P, 'H', 390, lp);
+  if (percinN) {
+    addPercinN(dxf, ox, oy, 7.5, 56, 7.5, H - 56, R_P, 'V', percinN.left, lp);
+    addPercinN(dxf, ox, oy, W - 7.5, 56, W - 7.5, H - 56, R_P, 'V', percinN.right, lp);
+    addPercinN(dxf, ox, oy, 56, 7.5, W - 56, 7.5, R_P, 'H', percinN.bottom, lp);
+    addPercinN(dxf, ox, oy, 56, H - 7.5, W - 56, H - 7.5, R_P, 'H', percinN.top, lp);
+  } else {
+    addPercin(dxf, ox, oy, 7.5, 56, 7.5, H - 56, R_P, 'V', 390, lp);
+    addPercin(dxf, ox, oy, W - 7.5, 56, W - 7.5, H - 56, R_P, 'V', 390, lp);
+    addPercin(dxf, ox, oy, 56, 7.5, W - 56, 7.5, R_P, 'H', 390, lp);
+    addPercin(dxf, ox, oy, 56, H - 7.5, W - 56, H - 7.5, R_P, 'H', 390, lp);
+  }
 
   // Kodlama
   addKod(dxf, ox, oy, W - 56, H - 7.5, kod, 'IC_KODLAMA');
@@ -6359,10 +6388,10 @@ function drawBogazDis(dxf, ox, oy, B, K, bogazTip, kod) {
 
   // Degisken percin
   var lp = 'BG_PERCIN';
-  addPercin(dxf, ox, oy, 10.8, 90.5, 10.8, H - 90.5, R_P, 'V', 390, lp, vidaYs);
-  addPercin(dxf, ox, oy, W - 10.8, 90.5, W - 10.8, H - 90.5, R_P, 'V', 390, lp, vidaYs);
-  addPercin(dxf, ox, oy, 90.5, 10.8, W - 90.5, 10.8, R_P, 'H', 390, lp, vidaXsAlt);
-  addPercin(dxf, ox, oy, 90.5, H - 10.8, W - 90.5, H - 10.8, R_P, 'H', 390, lp, vidaXsUst);
+  var nLeft = addPercin(dxf, ox, oy, 10.8, 90.5, 10.8, H - 90.5, R_P, 'V', 390, lp, vidaYs);
+  var nRight = addPercin(dxf, ox, oy, W - 10.8, 90.5, W - 10.8, H - 90.5, R_P, 'V', 390, lp, vidaYs);
+  var nBottom = addPercin(dxf, ox, oy, 90.5, 10.8, W - 90.5, 10.8, R_P, 'H', 390, lp, vidaXsAlt);
+  var nTop = addPercin(dxf, ox, oy, 90.5, H - 10.8, W - 90.5, H - 10.8, R_P, 'H', 390, lp, vidaXsUst);
 
   // Beyaz vida
   dxf.addCircle(ox + 64, oy + vidaBeyazY, R_V, 'BG_VIDA_BEYAZ');
@@ -6390,6 +6419,9 @@ function drawBogazDis(dxf, ox, oy, B, K, bogazTip, kod) {
 
   // Kodlama
   addKod(dxf, ox, oy, W - 90.5, H - 10.8, kod, 'BG_KODLAMA');
+
+  // Vida cakismasi nedeniyle artan percin sayisi ic kapaga da aktarilsin diye dondurulur
+  return { left: nLeft, right: nRight, bottom: nBottom, top: nTop };
 }
 
 // -------------------------------------------------------
@@ -6415,8 +6447,8 @@ function draw50(dxf, panelList, satirN, gapCol, gapRow) {
     switch (tip) {
       case 'SABIT': {
         var Wdis = B + 98;
-        drawDisSabit(dxf, curX, curY, B, K, kod);
-        drawIcSabit(dxf, curX + Wdis + 400, curY + 33.5, B, K, kod);
+        var pN = drawDisSabit(dxf, curX, curY, B, K, kod);
+        drawIcSabit(dxf, curX + Wdis + 400, curY + 33.5, B, K, kod, pN);
         pairW = Wdis + 400 + B + 31;
         pairH = K + 98;
         break;
@@ -6438,8 +6470,8 @@ function draw50(dxf, panelList, satirN, gapCol, gapRow) {
       case 'BOGAZ': {
         var Wdis = B + 98;
         var bt = bogazTip || 'N';
-        drawBogazDis(dxf, curX, curY, B, K, bt, kod);
-        drawIcSabit(dxf, curX + Wdis + 400, curY + 33.5, B, K, kod);
+        var pN = drawBogazDis(dxf, curX, curY, B, K, bt, kod);
+        drawIcSabit(dxf, curX + Wdis + 400, curY + 33.5, B, K, kod, pN);
         pairW = Wdis + 400 + B + 31;
         pairH = K + 98;
         break;
@@ -8096,10 +8128,11 @@ function updatePanelPreview() {
     if (kalinlik === '50') {
       var Wdis = B + 98;
       switch (tip) {
-        case 'SABIT':
-          drawDisSabit(sw, 0, 0, B, K, kod);
-          drawIcSabit(sw, Wdis + 400, 33.5, B, K, kod);
+        case 'SABIT': {
+          var pN = drawDisSabit(sw, 0, 0, B, K, kod);
+          drawIcSabit(sw, Wdis + 400, 33.5, B, K, kod, pN);
           break;
+        }
         case 'ACILIR':
           drawDisAcilir(sw, 0, 0, B, K, cam || 'H', kod);
           drawIcAcilir(sw, Wdis + 400, 34.5, B, K, cam || 'H', kod);
@@ -8107,10 +8140,11 @@ function updatePanelPreview() {
         case 'UST':
           drawUst(sw, 0, 0, B, K, kod);
           break;
-        case 'BOGAZ':
-          drawBogazDis(sw, 0, 0, B, K, bogazTip || 'N', kod);
-          drawIcSabit(sw, Wdis + 400, 33.5, B, K, kod);
+        case 'BOGAZ': {
+          var pN = drawBogazDis(sw, 0, 0, B, K, bogazTip || 'N', kod);
+          drawIcSabit(sw, Wdis + 400, 33.5, B, K, kod, pN);
           break;
+        }
       }
     } else {
       switch (tip) {
