@@ -291,7 +291,7 @@ iframe.active{display:block;}
         </select>
       </div>
       <div>
-        <label>Profil Serisi</label>
+        <label>Profil Serisi <span style=&quot;color:var(--bad);font-size:12px;&quot;>* zorunlu</span></label>
         <select id=&quot;seri&quot; style=&quot;width:100%;&quot;></select>
       </div>
     </div>
@@ -477,7 +477,7 @@ function newFaceSet(){
   }));
 }
 function newModule(){ return { L:0, H:0, W:0, pos:{x:0,y:0,z:0}, faces: newFaceSet() }; }
-function newAhu(n){ return { ad:'AHU-'+(n||1), malzeme:'', active:0, modules:[newModule()], varsayimlar:{seri:60, tolW:3, tolH:3} }; }
+function newAhu(n){ return { ad:'AHU-'+(n||1), malzeme:'', active:0, modules:[newModule()], varsayimlar:{seri:'', tolW:3, tolH:3} }; }
 
 const GLASS_R_MM = 75; // gözetleme camı: sabit Ø150 mm (katalog değeri)
 
@@ -860,8 +860,10 @@ function renderVarsayimlar(){
   const V = getV();
   const sel = document.getElementById('seri');
   if(sel){
-    sel.innerHTML = Object.keys(PROFILES).map(k=>
-      `<option value=&quot;${k}&quot;${String(state.varsayimlar.seri)===k?' selected':''}>${k}${PROFILES[k].builtin?'':' (özel)'}</option>`).join('');
+    const curSeri = String(state.varsayimlar.seri||'');
+    sel.innerHTML = `<option value=&quot;&quot;${curSeri===''?' selected':''}>— Seçiniz —</option>` +
+      Object.keys(PROFILES).map(k=>
+      `<option value=&quot;${k}&quot;${curSeri===k?' selected':''}>${k}${PROFILES[k].builtin?'':' (özel)'}</option>`).join('');
   }
   document.getElementById('v_kenar').value = V.kenar;
   document.getElementById('v_takviye').value = V.takviye;
@@ -1821,6 +1823,30 @@ function svgToPng(svgString, w, h){
   });
 }
 
+// İki PNG data URL'ini (örn. SOL/SAĞ cephe) tek bir görselde yan yana birleştirir.
+function combineSideBySide(dataUrlLeft, dataUrlRight){
+  return new Promise((resolve, reject)=>{
+    const imgL = new Image(), imgR = new Image();
+    let loaded = 0;
+    function done(){
+      const canvas = document.createElement('canvas');
+      canvas.width = imgL.width + imgR.width;
+      canvas.height = Math.max(imgL.height, imgR.height);
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0,0,canvas.width,canvas.height);
+      ctx.drawImage(imgL, 0, 0);
+      ctx.drawImage(imgR, imgL.width, 0);
+      resolve(canvas.toDataURL('image/png'));
+    }
+    function onErr(){ reject(new Error('Görsel birleştirme hatası')); }
+    imgL.onload = ()=>{ loaded++; if(loaded===2) done(); };
+    imgR.onload = ()=>{ loaded++; if(loaded===2) done(); };
+    imgL.onerror = onErr; imgR.onerror = onErr;
+    imgL.src = dataUrlLeft; imgR.src = dataUrlRight;
+  });
+}
+
 async function exportExcel(){
   const note = document.getElementById('excel_note');
   if(typeof ExcelJS==='undefined'){
@@ -2001,6 +2027,20 @@ async function exportExcel(){
             const tC = wsO.getCell(rr,1); tC.value = '⚠ '+cv.label+' eklenemedi: '+err.message; tC.font = FONT;
             rr += 2;
           }
+        }
+        // SOL ve SAĞ CEPHE — iki ayrı görsel yerine tek görselde yan yana (SOL solda, SAĞ sağda)
+        wsO.rowBreaks.push({id: rr - 1, max: 16383, man: 1});
+        try{
+          const pngSol = await window.capture3DView(-Math.PI/2, 0, 450, 560);
+          const pngSag = await window.capture3DView(Math.PI/2, 0, 450, 560);
+          const pngSS = await combineSideBySide(pngSol, pngSag);
+          const imgSS = wb.addImage({base64: pngSS, extension:'png'});
+          const tSS = wsO.getCell(rr,1); tSS.value = '3B TOPLU MONTAJ — SOL CEPHE / SAĞ CEPHE'; tSS.font = titleFont;
+          wsO.addImage(imgSS, {tl:{col:0, row:rr}, ext:{width:900, height:560}});
+          rr += Math.ceil(560/20) + 2;
+        }catch(err){
+          const tSS = wsO.getCell(rr,1); tSS.value = '⚠ SOL/SAĞ CEPHE eklenemedi: '+err.message; tSS.font = FONT;
+          rr += 2;
         }
       }
     }
@@ -2506,6 +2546,16 @@ function exportToDxf() {
   });
   if(eksikMalzeme.length > 0){
     alert('DXF üretilemiyor — aşağıdaki AHU\'lar için İç Sac tipi seçilmedi:\n• ' + eksikMalzeme.join('\n• ') + '\n\nProje Bilgisi bölümünden Galvaniz veya Paslanmaz seçin.');
+    return;
+  }
+
+  // Tüm AHU'larda Profil Serisi seçili mi kontrol et
+  var eksikProfil = [];
+  state.ahus.forEach(function(ahu, ai) {
+    if(!ahu.varsayimlar || !ahu.varsayimlar.seri) eksikProfil.push(ahu.ad || ('AHU-'+(ai+1)));
+  });
+  if(eksikProfil.length > 0){
+    alert('DXF üretilemiyor — aşağıdaki AHU\'lar için Profil Serisi seçilmedi:\n• ' + eksikProfil.join('\n• ') + '\n\nProje Bilgisi bölümünden bir profil serisi seçin.');
     return;
   }
 
@@ -3287,9 +3337,14 @@ function boot(){
         });
         const aspect = w/h;
         const hrX=(vMaxX-vMinX)/2, hrY=(vMaxY-vMinY)/2;
+        // Sabit cephe görünümlerinde modül genişlik/yükseklik etiketleri kutunun hemen
+        // dışına taşar — kırpılmasınlar diye bu görünümlerde çerçeveye ekstra pay bırakılır.
+        // Dar (örn. SOL/SAĞ birleştirmesi için yarı genişlikte alınan) görünümlerde aynı
+        // mutlak metin genişliği orantılı olarak daha fazla yer kapladığından pay artırılır.
+        const fitMargin = (yaw!==null && pitch!==null) ? (w<600 ? 1.30 : 1.16) : 1.04;
         let halfW,halfH;
-        if(hrX/Math.max(hrY,0.001)>aspect){ halfW=hrX*1.04; halfH=halfW/aspect; }
-        else{ halfH=hrY*1.04; halfW=halfH*aspect; }
+        if(hrX/Math.max(hrY,0.001)>aspect){ halfW=hrX*fitMargin; halfH=halfW/aspect; }
+        else{ halfH=hrY*fitMargin; halfW=halfH*aspect; }
         halfW=Math.max(halfW,1); halfH=Math.max(halfH,1);
         const cxFit=(vMinX+vMaxX)/2, cyFit=(vMinY+vMaxY)/2;
         camera.left=cxFit-halfW; camera.right=cxFit+halfW;
@@ -3310,6 +3365,69 @@ function boot(){
         outCanvas.width = w*2; outCanvas.height = h*2;
         const ctx = outCanvas.getContext('2d');
         ctx.drawImage(renderer.domElement, 0, 0);
+
+        // Modül genişlik/yükseklik ölçü etiketleri — yalnızca sabit cephe görünümlerinde
+        // (yaw/pitch verilmişse) anlamlı; serbest açıda &quot;genişlik altta/üstte&quot; gibi bir
+        // yön tanımlanamaz. Komşu modülün izdüşümü bitişikse (başka modül doluysa) metin
+        // karşı tarafa kaydırılır; genişlikte hem üst hem alt, yükseklikte hem sol hem sağ
+        // doluysa o ölçü hiç yazılmaz.
+        if(yaw!==null && pitch!==null && state.modules.length){
+          const isTopBottom = Math.abs(Math.abs(pitch) - Math.PI/2) < 0.01;
+          const isSide = Math.abs(pitch) < 0.01 && Math.abs(Math.abs(yaw) - Math.PI/2) < 0.01;
+          const wAxis = isTopBottom ? 'x' : (isSide ? 'z' : 'x');
+          const hAxis = isTopBottom ? 'z' : 'y';
+          const modBoxes = [];
+          state.modules.forEach((md, mi)=>{
+            const grp = modelGroup.children.find(c=>c.name==='module'+mi);
+            if(!grp) return;
+            const mbox = new THREE.Box3().setFromObject(grp);
+            if(mbox.isEmpty()) return;
+            const corners = [
+              [mbox.min.x,mbox.min.y,mbox.min.z],[mbox.max.x,mbox.min.y,mbox.min.z],
+              [mbox.min.x,mbox.max.y,mbox.min.z],[mbox.max.x,mbox.max.y,mbox.min.z],
+              [mbox.min.x,mbox.min.y,mbox.max.z],[mbox.max.x,mbox.min.y,mbox.max.z],
+              [mbox.min.x,mbox.max.y,mbox.max.z],[mbox.max.x,mbox.max.y,mbox.max.z]
+            ];
+            let sMinX=Infinity,sMaxX=-Infinity,sMinY=Infinity,sMaxY=-Infinity;
+            corners.forEach(c=>{
+              const p = new THREE.Vector3(c[0],c[1],c[2]).project(camera);
+              const sx=(p.x*0.5+0.5)*w*2, sy=(-p.y*0.5+0.5)*h*2;
+              if(sx<sMinX)sMinX=sx; if(sx>sMaxX)sMaxX=sx;
+              if(sy<sMinY)sMinY=sy; if(sy>sMaxY)sMaxY=sy;
+            });
+            modBoxes.push({mi, sMinX, sMaxX, sMinY, sMaxY, wVal: modExt(md, wAxis), hVal: modExt(md, hAxis)});
+          });
+          const overlap1D = (aMin,aMax,bMin,bMax)=> Math.min(aMax,bMax) - Math.max(aMin,bMin);
+          const NEI_TOL = 8;
+          const hasNeighbor = (me, dir)=> modBoxes.some(n=>{
+            if(n===me) return false;
+            if(dir==='below') return Math.abs(n.sMinY - me.sMaxY) < NEI_TOL && overlap1D(n.sMinX,n.sMaxX,me.sMinX,me.sMaxX) > 4;
+            if(dir==='above') return Math.abs(n.sMaxY - me.sMinY) < NEI_TOL && overlap1D(n.sMinX,n.sMaxX,me.sMinX,me.sMaxX) > 4;
+            if(dir==='left')  return Math.abs(n.sMaxX - me.sMinX) < NEI_TOL && overlap1D(n.sMinY,n.sMaxY,me.sMinY,me.sMaxY) > 4;
+            if(dir==='right') return Math.abs(n.sMinX - me.sMaxX) < NEI_TOL && overlap1D(n.sMinY,n.sMaxY,me.sMinY,me.sMaxY) > 4;
+            return false;
+          });
+          ctx.font = '600 20px Inter, Arial, sans-serif';
+          ctx.shadowColor = 'rgba(255,255,255,0.85)';
+          ctx.shadowBlur = 3;
+          ctx.fillStyle = '#000000';
+          modBoxes.forEach(me=>{
+            const midX=(me.sMinX+me.sMaxX)/2, midY=(me.sMinY+me.sMaxY)/2;
+            const belowOcc = hasNeighbor(me,'below'), aboveOcc = hasNeighbor(me,'above');
+            if(!belowOcc || !aboveOcc){
+              ctx.textAlign = 'center';
+              if(!belowOcc){ ctx.textBaseline = 'top'; ctx.fillText(Math.round(me.wVal)+' mm', midX, me.sMaxY+8); }
+              else { ctx.textBaseline = 'bottom'; ctx.fillText(Math.round(me.wVal)+' mm', midX, me.sMinY-8); }
+            }
+            const leftOcc = hasNeighbor(me,'left'), rightOcc = hasNeighbor(me,'right');
+            if(!leftOcc || !rightOcc){
+              ctx.textBaseline = 'middle';
+              if(!leftOcc){ ctx.textAlign = 'right'; ctx.fillText(Math.round(me.hVal)+' mm', me.sMinX-8, midY); }
+              else { ctx.textAlign = 'left'; ctx.fillText(Math.round(me.hVal)+' mm', me.sMaxX+8, midY); }
+            }
+          });
+        }
+
         const allLabelObjs = [
           ...labelEntries.map(e=>e.obj),
           ...modNameGroups.flatMap(g=>g.map(e=>e.obj))
