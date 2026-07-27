@@ -1927,10 +1927,10 @@ async function exportExcel(){
         else missX += 4;
       });
     });
-    const frameRows = [...pmapX.entries()].sort((a,b)=>b[0]-a[0]).map(([boy,adet])=>['Köşe Profili', adet, Math.round(boy)]);
-    if(missX>0) frameRows.push(['Köşe Profili', missX, 'ÖLÇÜ EKSİK']);
-    frameRows.push(['Köşe Plastiği (3 yönlü)', 8*NM, '—']);
-    rr = addTable(wsO, rr, 'CİHAZ İSKELETİ — MODÜL BAŞINA 12 AYRIT', ['Eleman','Adet','Boy (mm)'], frameRows);
+    const frameRows = [...pmapX.entries()].sort((a,b)=>b[0]-a[0]).map(([boy,adet])=>['Köşe Profili', Math.round(boy), adet]);
+    if(missX>0) frameRows.push(['Köşe Profili', 'ÖLÇÜ EKSİK', missX]);
+    frameRows.push(['Köşe Plastiği (3 yönlü)', '—', 8*NM]);
+    rr = addTable(wsO, rr, 'CİHAZ İSKELETİ — MODÜL BAŞINA 12 AYRIT', ['Eleman','Boy (mm)','Adet'], frameRows);
 
     // Kapak ölçüleri — tüm modüller ve yüzler, yalnızca SABİT değerler
     const allKapakRows = [];
