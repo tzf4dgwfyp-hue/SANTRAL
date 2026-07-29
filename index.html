@@ -1028,6 +1028,8 @@ function drawFaceSVG(fi){
   const face = state.faces[fi];
   const V = r.V;
   const orient = r.orient;
+  const kodMap = buildActiveAhuKodMap();
+  const mi = state.active;
 
   const SVG_W = 880, SVG_H = 480, PAD = 46;
   const hasDims = r.faceW>0 && r.faceH>0;
@@ -1176,7 +1178,7 @@ function drawFaceSVG(fi){
         ? `${colDisp}×${effDisp}${autoSfx}`
         : `${effDisp}×${colDisp}${autoSfx}`;
       const labelFill = p.bos ? '#ffffff' : '#000000';
-      const kodTxt = `${FACE_CODE[fi]}-B${ci+1}K${pi+1}`;
+      const kodTxt = p.eleman ? `${FACE_CODE[fi]}-B${ci+1}K${pi+1}` : kodFor(kodMap, mi, fi, ci, pi);
       const padW = Math.max(pw-8, 10);
       // ph'ye göre kaç satır sığar (kod / tür / ölçü — bu sırayla öncelikli); her satırın
       // FONT BOYUTU ayrıca pw'ye göre fitLabelText ile küçültülür/kısaltılır, böylece yan
@@ -1594,16 +1596,18 @@ function renderBarEditor(fi){
 }
 
 // Kesim listesi satırları — HTML tablosu ve Excel çıktısı aynı kaynaktan beslenir
-function getCutRows(r){
+function getCutRows(r, mi){
+  if(mi===undefined) mi = state.active;
   const out = [];
-  const fc = FACE_CODE[FACE_DEFS.indexOf(r.def)] || '';
+  const fi = FACE_DEFS.indexOf(r.def);
+  const kodMap = buildActiveAhuKodMap();
   r.colResults.forEach((c,ci)=>{
     c.panels.forEach((p,pi)=>{
       if(p.bos) return; // Boş Alan kesim listesine girmez
       const istW = p.panelW>0 ? Math.round(p.panelW) : null;
       const istH = p.panelH>0 ? Math.round(p.panelH)+(p.auto?' (oto)':'') : null;
       const sabH = p.sabitH!==null ? Math.round(p.sabitH) : null;
-      out.push([fc+'-B'+(ci+1)+'K'+(pi+1), p.type, istW!==null?istW:'—', istH!==null?istH:'—',
+      out.push([p.eleman ? (FACE_CODE[fi]+'-B'+(ci+1)+'K'+(pi+1)) : kodFor(kodMap, mi, fi, ci, pi), p.type, istW!==null?istW:'—', istH!==null?istH:'—',
         p.sabitW!==null?Math.round(p.sabitW):'—', sabH!==null?sabH:'—']);
     });
   });
@@ -1611,15 +1615,17 @@ function getCutRows(r){
 }
 
 // Excel çıktısı için: yalnızca SABİT ölçüler (imalat kesim değerleri)
-function getSabitRows(r){
+function getSabitRows(r, mi){
+  if(mi===undefined) mi = state.active;
   const out = [];
-  const fc = FACE_CODE[FACE_DEFS.indexOf(r.def)] || '';
+  const fi = FACE_DEFS.indexOf(r.def);
+  const kodMap = buildActiveAhuKodMap();
   r.colResults.forEach((c,ci)=>{
     c.panels.forEach((p,pi)=>{
       if(p.bos) return; // Boş Alan kesim listesine girmez
       const g = p.sabitW!==null ? Math.round(p.sabitW) : 'ÖLÇÜ EKSİK';
       const y = p.sabitH!==null ? Math.round(p.sabitH) : 'ÖLÇÜ EKSİK';
-      out.push([fc+'-B'+(ci+1)+'K'+(pi+1), p.type, g, y]);
+      out.push([p.eleman ? (FACE_CODE[fi]+'-B'+(ci+1)+'K'+(pi+1)) : kodFor(kodMap, mi, fi, ci, pi), p.type, g, y]);
     });
   });
   return out;
@@ -1629,7 +1635,7 @@ function renderCutTable(fi){
   const r = computeFace(fi);
   const body = document.getElementById(`f${fi}_cutbody`);
   if(r.kapaksiz){ body.innerHTML = '<tr><td colspan=&quot;6&quot;>Kapaksız yüz</td></tr>'; return; }
-  body.innerHTML = getCutRows(r).map(row=>
+  body.innerHTML = getCutRows(r, state.active).map(row=>
     `<tr>${row.map(v=>`<td>${v}</td>`).join('')}</tr>`
   ).join('');
 }
@@ -1932,6 +1938,8 @@ function faceLayoutRects(fi){
   const face = state.faces[fi];
   const V = r.V;
   const def = FACE_DEFS[fi];
+  const kodMap = buildActiveAhuKodMap();
+  const mi = state.active;
   const FW = (Number(state.dims[def.wKey])||0) > 0 ? Number(state.dims[def.wKey]) : PH3[def.wKey];
   const FH = (Number(state.dims[def.hKey])||0) > 0 ? Number(state.dims[def.hKey]) : PH3[def.hKey];
   const k = V.kenar, tk = V.takviye;
@@ -2003,7 +2011,7 @@ function faceLayoutRects(fi){
         rects.push({circle:true, cu:(rc.u0+rc.u1)/2, cv:(rc.v0+rc.v1)/2,
           r: Math.min(GLASS_R_MM, Math.min(rc.u1-rc.u0, rc.v1-rc.v0)*0.42), fill:'rgba(127,200,220,0.30)'});
       }
-      if(!p.eleman) labels.push({u:(rc.u0+rc.u1)/2, v:(rc.v0+rc.v1)/2, text: p.bos ? 'BOŞ' : FACE_CODE[fi]+'-B'+(ci+1)+'K'+(pi+1), size: `${Math.round(rc.u1-rc.u0)}×${Math.round(rc.v1-rc.v0)}`, type: p.type, bos: !!p.bos});
+      if(!p.eleman) labels.push({u:(rc.u0+rc.u1)/2, v:(rc.v0+rc.v1)/2, text: p.bos ? 'BOŞ' : kodFor(kodMap, mi, fi, ci, pi), size: `${Math.round(rc.u1-rc.u0)}×${Math.round(rc.v1-rc.v0)}`, type: p.type, bos: !!p.bos});
       pc += pm;
       if(pi<cRes.panels.length-1 && col.innerGaps[pi]){
         gapAcrossMm[ci][pi] = pc;
@@ -2309,7 +2317,7 @@ async function exportExcel(){
         FACE_DEFS.forEach((def,fi)=>{
           const r = computeFace(fi);
           if(r.kapaksiz) return;
-          getSabitRows(r).forEach(row=>allKapakRows.push(['M'+(m+1)+' '+def.name, ...row]));
+          getSabitRows(r, m).forEach(row=>allKapakRows.push(['M'+(m+1)+' '+def.name, ...row]));
         });
       });
     });
@@ -2445,7 +2453,7 @@ async function exportExcel(){
         ]);
 
         if(!r.kapaksiz){
-          row = addTable(ws, row, 'KESİM LİSTESİ — KAPAKLAR', ['Kapak','Tip','Genişlik (mm)','Yükseklik (mm)'], getSabitRows(r));
+          row = addTable(ws, row, 'KESİM LİSTESİ — KAPAKLAR', ['Kapak','Tip','Genişlik (mm)','Yükseklik (mm)'], getSabitRows(r, m));
           row = addTable(ws, row, 'TAKVİYELER', ['Takviye','Adet','Boy (mm)','Kaynak'],
             r.takviyeRecords.map(t=>[t.yon+' '+t.tip, t.adet, t.boy!==null?Math.round(t.boy):'ÖLÇÜ EKSİK', t.kaynak]));
         }
@@ -2932,11 +2940,10 @@ function buildTabs(){
   });
 }
 
-buildTabs();
-attachListeners();
-renderAll();
-
 // ---------- DXF AKTARIM — HYT PANEL PROGRAMI entegrasyonu ----------
+// NOT: buildTabs/attachListeners/renderAll'dan ÖNCE tanımlanmalı — renderAll ilk çağrısında
+// drawFaceSVG/faceLayoutRects üzerinden buildActiveAhuKodMap'i tetikler, o da KAPAK_TO_HYT'i
+// okur; sonra tanımlanırsa ilk render'da undefined okunur ve script'in geri kalanı çalışmaz.
 var KAPAK_TO_HYT = {
   &quot;Normal Panel&quot;:  { tip: &quot;SABIT&quot;,  cam: &quot;H&quot;, bogazTip: &quot;N&quot;  },
   &quot;Üst Panel&quot;:     { tip: &quot;UST&quot;,    cam: &quot;H&quot;, bogazTip: &quot;N&quot;  },
@@ -2946,6 +2953,54 @@ var KAPAK_TO_HYT = {
   &quot;Camsız Açılır&quot;: { tip: &quot;ACILIR&quot;, cam: &quot;H&quot;, bogazTip: &quot;N&quot;  },
   &quot;Boğaz&quot;:         { tip: &quot;BOGAZ&quot;,  cam: &quot;H&quot;, bogazTip: &quot;N&quot;  }
 };
+
+buildTabs();
+attachListeners();
+renderAll();
+
+// Aktif AHU'daki (state.activeAhu) her panelin YENİ kodu — İş No + Santral Adı + Y/A/U + sıra
+// (örn. 0469-AHU-1-Y3). DXF üretimi, 3D montaj, yüz düzenleme ve Excel HEPSİ bu tek kaynaktan
+// beslenir ki ekranda görünen kod ile fiziksel DXF markalaması her zaman birebir aynı olsun.
+// Anahtar: &quot;mi:fi:ci:pi&quot; (modül, yüz, kolon, panel indeksleri) -> kod string'i.
+function buildActiveAhuKodMap(){
+  var proje = (state.proje.isNo || '').trim();
+  var isNoParcalari = proje.split('-');
+  var isNoKisa = isNoParcalari[isNoParcalari.length - 1] || '';
+  var ahu = state.ahus[state.activeAhu];
+  var ahuLabel = ahu.ad || ('AHU-' + (state.activeAhu + 1));
+  var kodOnEk = (isNoKisa ? isNoKisa + '-' : '') + ahuLabel.replace(/\s+/g, '') + '-';
+  var yanSayac = 0, altSayac = 0, ustSayac = 0;
+  var map = {};
+  state.modules.forEach(function(mod, mi) {
+    withModule(mi, function() {
+      FACE_DEFS.forEach(function(faceDef, fi) {
+        var r = computeFace(fi);
+        if (!r || r.kapaksiz) return;
+        var isAltUst = (fi === 2 || fi === 3);
+        (r.colResults || []).forEach(function(col, ci) {
+          (col.panels || []).forEach(function(p, pi) {
+            if (p.bos || p.eleman) return;
+            var mapped = KAPAK_TO_HYT[p.type];
+            if (!mapped) return;
+            var sw = p.sabitW, sh = p.sabitH;
+            if (!sw || !sh || sw <= 0 || sh <= 0) return;
+            var faceHarf = isAltUst ? (fi === 2 ? 'U' : 'A') : 'Y';
+            var faceNo = (faceHarf === 'U') ? ++ustSayac : (faceHarf === 'A') ? ++altSayac : ++yanSayac;
+            map[mi + ':' + fi + ':' + ci + ':' + pi] = kodOnEk + faceHarf + faceNo;
+          });
+        });
+      });
+    });
+  });
+  return map;
+}
+
+// map'te varsa yeni kodu, yoksa (BOŞ/eleman/eksik ölçü gibi DXF'e hiç girmeyen satırlar için)
+// eski FACE_CODE tabanlı kodu döndürür — böylece her satırda her zaman bir kod görünür.
+function kodFor(map, mi, fi, ci, pi){
+  var k = map[mi + ':' + fi + ':' + ci + ':' + pi];
+  return k || (FACE_CODE[fi] + '-B' + (ci + 1) + 'K' + (pi + 1));
+}
 
 function exportToDxf() {
   var dxfIssues = collectFaceIssues();
@@ -2957,7 +3012,6 @@ function exportToDxf() {
   var proje = (state.proje.isNo || '').trim();
   var basePath = window.location.href.replace(/\/[^\/]*$/, '/');
   var dxfUrl = basePath + 'cenk%20panel/DXF%20URETME%20PROGRAMI.html';
-  var multiAhu = state.ahus.length > 1;
   var origActiveAhu = state.activeAhu;
   var totalFound = 0;
 
@@ -3002,6 +3056,8 @@ function exportToDxf() {
     var projeLabel = proje ? proje + ' — ' + ahuLabel : ahuLabel;
     var mainPanels = [];
     var altUstPanels = [];
+    // Panel kodu tek kaynaktan gelir (bkz. buildActiveAhuKodMap) — 3D/yüz düzenleme/Excel ile birebir aynı.
+    var kodMap = buildActiveAhuKodMap();
 
     state.modules.forEach(function(mod, mi) {
       withModule(mi, function() {
@@ -3018,10 +3074,7 @@ function exportToDxf() {
               if (!sw || !sh || sw <= 0 || sh <= 0) return;
               var B = Math.max(Math.round(sw), Math.round(sh));
               var K = Math.min(Math.round(sw), Math.round(sh));
-              var ahuPfx = multiAhu ? ahuLabel.replace(/\s+/g,'') + '-' : '';
-              var modPfx = state.modules.length > 1 ? 'M' + (mi + 1) + '-' : '';
-              var faceShort = faceDef.name.replace(/\s+/g,'').substring(0, 3);
-              var kod = ahuPfx + modPfx + faceShort + '-B' + (ci + 1) + 'K' + (pi + 1);
+              var kod = kodMap[mi + ':' + fi + ':' + ci + ':' + pi];
               var panelObj = { kalinlik: seri, tip: mapped.tip, B: B, K: K,
                 cam: mapped.cam, bogazTip: mapped.bogazTip, kod: kod, adet: 1 };
               panelObj.grup = isAltUst ? 'ALTUST' : 'ANA';
@@ -5428,15 +5481,6 @@ function addVida(dxf, ox, oy, dir, x1, y1, x2, y2, dimVal, r, layer) {
   }
 }
 
-// Kodlama texti
-function addKod(dxf, ox, oy, tx, ty, kod, layer) {
-  if (kod && kod.length > 0) {
-    var txtH = 3.5;
-    var px = ox + tx - 9.0;
-    var py = oy + ty - txtH / 2;
-    dxf.addText(px, py, txtH, kod, layer);
-  }
-}
 
 // -------------------------------------------------------
 // DIS SABIT PANEL (50'lik)
@@ -5529,9 +5573,6 @@ function drawDisSabit(dxf, ox, oy, B, K, kod) {
   addVida(dxf, ox, oy, 'V', 64, 109, 64, H - 109, K, R_V, lv);
   addVida(dxf, ox, oy, 'V', W - 64, 109, W - 64, H - 109, K, R_V, lv);
 
-  // Kodlama
-  addKod(dxf, ox, oy, W - 90.5, H - 10.8, kod, 'DP_KODLAMA');
-
   // Vida cakismasi nedeniyle artan percin sayisi ic kapaga da aktarilsin diye dondurulur
   return { left: nLeft, right: nRight, bottom: nBottom, top: nTop };
 }
@@ -5599,8 +5640,6 @@ function drawIcSabit(dxf, ox, oy, B, K, kod, percinN) {
     addPercin(dxf, ox, oy, 56, H - 7.5, W - 56, H - 7.5, R_P, 'H', 390, lp);
   }
 
-  // Kodlama
-  addKod(dxf, ox, oy, W - 56, H - 7.5, kod, 'IC_KODLAMA');
 }
 
 // =====================================================================
@@ -5957,8 +5996,6 @@ function drawDisSabitPas(dxf, ox, oy, B, K, kod, percinOffsets) {
     dxf.addCircle(ox + W - 10.8, oy + SP + off, R_P, lp);
   });
 
-  // Kodlama
-  addKod(dxf, ox, oy, W - 90.5, H - 10.8, kod, 'PAS_DP_KODLAMA');
 }
 
 // --- IC SABIT PASLANMAZ (50'lik): W=B+31, H=K+31
@@ -6032,8 +6069,6 @@ function drawIcSabitPas(dxf, ox, oy, B, K, kod, percinOffsets) {
     dxf.addCircle(ox + W - 7.5, oy + SP + off, R_P, lp);
   });
 
-  // Kodlama
-  addKod(dxf, ox, oy, W - 56, H - 7.5, kod, 'PAS_IC_KODLAMA');
 }
 
 // =====================================================================
@@ -6156,8 +6191,6 @@ function drawBogazDisPas(dxf, ox, oy, B, K, bogazTip, kod, percinOffsets) {
     dxf.addCircle(ox + W - 10.8, oy + SP + off, R_P, lp);
   });
 
-  // Kodlama
-  addKod(dxf, ox, oy, W - 90.5, H - 10.8, kod, 'PAS_BG_KODLAMA');
 }
 
 // --- IC BOGAZ PASLANMAZ (50'lik): W=B+31, H=K+31
@@ -6249,8 +6282,6 @@ function drawIcBogazPas(dxf, ox, oy, B, K, bogazTip, kod, percinOffsets) {
     dxf.addCircle(ox + W - 7.5, oy + SP + off, R_P, lp);
   });
 
-  // Kodlama
-  addKod(dxf, ox, oy, W - 56, H - 7.5, kod, 'PAS_IC_BG_KODLAMA');
 }
 
 // --- PASLANMAZ cizim motoru: secili tarafi (DIS / IC) tek sirada cizer
@@ -6362,8 +6393,6 @@ function drawDis60Pas(dxf, ox, oy, B, K, kod, percinOffsets) {
     dxf.addCircle(ox + B + 51.7, oy + CN + off, 2.3, lp);
   });
 
-  // Kodlama
-  addKod60(dxf, ox + B - 49.70, oy + K + 49.95, kod, 'PAS_60_DP_KODLAMA');
 }
 
 function drawIc60Pas(dxf, ox, oy, B, K, kod, percinOffsets) {
@@ -6427,8 +6456,6 @@ function drawIc60Pas(dxf, ox, oy, B, K, kod, percinOffsets) {
     dxf.addCircle(ox + BI + 28.5, oy + CN + off, 2.3, lp);
   });
 
-  // Kodlama
-  addKod60(dxf, ox + B - 70, oy + K - 14.25, kod, 'PAS_60_IC_KODLAMA');
 }
 
 // =====================================================================
@@ -6528,8 +6555,6 @@ function drawBogazDis60Pas(dxf, ox, oy, B, K, bogazTip, kod, percinOffsets) {
     dxf.addCircle(ox + B + 51.7, oy + CN + off, 2.3, lp);
   });
 
-  // Kodlama
-  addKod60(dxf, ox + B - 49.70, oy + K + 49.95, kod, 'PAS_60_BG_KODLAMA');
 }
 
 // --- IC BOGAZ PASLANMAZ 60'lık: ins = INNER BI sol-alt (BI=B-41, KI=K-41)
@@ -6600,8 +6625,6 @@ function drawIc60BogazPas(dxf, ox, oy, B, K, bogazTip, kod, percinOffsets) {
     dxf.addCircle(ox + BI + 28.5, oy + CN + off, 2.3, lp);
   });
 
-  // Kodlama
-  addKod60(dxf, ox + B - 70, oy + K - 14.25, kod, 'PAS_60_IC_BG_KODLAMA');
 }
 
 // 60'lık paslanmaz cizim motoru (50'lik draw50Paslanmaz'in analogu).
@@ -6782,8 +6805,6 @@ function drawDisAcilir(dxf, ox, oy, B, K, cam, kod) {
     addCamBolmesi(dxf, ox + W / 2, oy + H / 2, 'DA_CAM');
   }
 
-  // Kodlama
-  addKod(dxf, ox, oy, W - 90.5, H - 10.8, kod, 'DA_KODLAMA');
 }
 
 // Ic bukum cizimi (L-profil R5+R1, KULAKLI) - eski ACILIR ic panel bukumu.
@@ -6883,8 +6904,6 @@ function drawIcAcilir(dxf, ox, oy, B, K, cam, kod) {
     addCamBolmesi(dxf, ox + W / 2, oy + H / 2, 'IA_CAM');
   }
 
-  // Kodlama
-  addKod(dxf, ox, oy, W - 56, H - 7.5, kod, 'IA_KODLAMA');
 }
 
 // -------------------------------------------------------
@@ -6940,9 +6959,6 @@ function drawUst(dxf, ox, oy, B, K, kod) {
   addPercin(dxf, ox, oy, 56, 7.5, W - 56, 7.5, R_P, 'H', 390, lp);
   addPercin(dxf, ox, oy, 56, H - 7.5, W - 56, H - 7.5, R_P, 'H', 390, lp);
 
-  // Kodlama: ust panelde kod 'U' onekli (U1, U12...) oldugundan genis; perçin
-  // hattindan (y=H-7.5) asagi H-15'e alindi ki sabit/degisken perçine denk gelmesin.
-  addKod(dxf, ox, oy, W - 56, H - 15, kod, 'UST_KODLAMA');
 }
 
 // -------------------------------------------------------
@@ -7054,9 +7070,6 @@ function drawBogazDis(dxf, ox, oy, B, K, bogazTip, kod) {
     dxf.addCircle(ox + W - 109, oy + H - 64, R_V, 'BG_VIDA_SARI');
     addVida(dxf, ox, oy, 'H', 109, H - 64, W - 109, H - 64, B, R_V, 'BG_VIDA_SARI');
   }
-
-  // Kodlama
-  addKod(dxf, ox, oy, W - 90.5, H - 10.8, kod, 'BG_KODLAMA');
 
   // Vida cakismasi nedeniyle artan percin sayisi ic kapaga da aktarilsin diye dondurulur
   return { left: nLeft, right: nRight, bottom: nBottom, top: nTop };
@@ -7188,12 +7201,6 @@ function addPV(dxf, x, y0, y1, xofs, cn, cf, layer, vidaYs) {
   }
 }
 
-// Kodlama texti (60'lık)
-function addKod60(dxf, px, py, txt, layer) {
-  if (txt && txt.length > 0) {
-    dxf.addText(px, py, 3.5, txt, layer);
-  }
-}
 
 // Büyük, mavi, ortalanmış markalama etiketi — orijinal küçük kod etiketine EK olarak TÜM DXF
 // çıktılarında (Toplu DXF Üret + Sac Nesting) kullanılır. (ox,oy)+(W,H) parçanın kendi GERÇEK
@@ -7484,8 +7491,6 @@ function drawDis60(dxf, ox, oy, B, K, kod, layer) {
     dxf.addCircle(ox + B - 15, oy + 60 + (K - 120) / 3, 8.1, ly);
     dxf.addCircle(ox + B - 15, oy + 60 + 2 * (K - 120) / 3, 8.1, ly);
   }
-  // Kodlama
-  addKod60(dxf, ox + B - 49.70, oy + K + 49.95, kod, ly);
 }
 
 // SABIT IC PANEL (60'lık) - kulak yok (SABIT ve BOGAZ icin)
@@ -7497,7 +7502,6 @@ function drawIc60(dxf, ox, oy, B, K, kod, layer) {
   addPH(dxf, ox, ox + BI, oy + KI, 28.5, 20, 20, ly);
   addPV(dxf, ox, oy, oy + KI, -28.5, 20, 20, ly);
   addPV(dxf, ox + BI, oy, oy + KI, 28.5, 20, 20, ly);
-  addKod60(dxf, ox + B - 70, oy + K - 14.25, kod, ly);
 }
 
 // -------------------------------------------------------
@@ -7510,7 +7514,6 @@ function drawDisAcilir60(dxf, ox, oy, B, K, kod, layer) {
   addPH(dxf, ox, ox + B, oy, -50.7, 41.3, 41.7, ly);
   addPV(dxf, ox, oy, oy + K, -51.7, 41.5, 41.5, ly);
   addPV(dxf, ox + B, oy, oy + K, 51.7, 41.5, 41.5, ly);
-  addKod60(dxf, ox + B - 50.7, oy + K + 48.95, kod, ly);
 }
 
 // ACILIR IC PANEL (60'lık) - BI=B-43, KI=K-43
@@ -7524,7 +7527,6 @@ function drawIcAcilir60(dxf, ox, oy, B, K, kod, layer) {
   addPH(dxf, ox, ox + BI, oy + KI, 28.5, 20, 20, ly);
   addPV(dxf, ox, oy, oy + KI, -28.5, 20, 20, ly);
   addPV(dxf, ox + BI, oy, oy + KI, 28.5, 20, 20, ly);
-  addKod60(dxf, ox + B - 72, oy + K - 16.25, kod, ly);
 }
 
 // -------------------------------------------------------
@@ -7538,9 +7540,6 @@ function drawUst60(dxf, ox, oy, B, K, kod, layer) {
   addPH(dxf, ox, ox + BI, oy + KI, 28.5, 20, 20, ly);
   addPV(dxf, ox, oy, oy + KI, -28.5, 20, 20, ly);
   addPV(dxf, ox + BI, oy, oy + KI, 28.5, 20, 20, ly);
-  // Kodlama: ust panelde kod 'U' onekli (U1, U12...) oldugundan genis; perçin
-  // hattindan (y=KI+28.5) asagi K-24'e alindi ki sabit/degisken perçine denk gelmesin.
-  addKod60(dxf, ox + B - 70, oy + K - 24, kod, ly);
 }
 
 // -------------------------------------------------------
@@ -7622,7 +7621,6 @@ function drawBogazDis60(dxf, ox, oy, B, K, tip, kod, layer) {
     }
     dxf.addCircle(ox + B - 60, oy + K - 15, 8.1, ly);
   }
-  addKod60(dxf, ox + B - 49.70, oy + K + 49.95, kod, ly);
 }
 
 // -------------------------------------------------------
@@ -9427,6 +9425,11 @@ function topluDxfUret() {
           var el2 = base2 === '60' ? document.getElementById('dosyaAdi60') : document.getElementById('dosyaAdi50');
           var baseAdi = (el2 && el2.value.trim()) || (base2 + 'lik_panel');
           customAd = baseAdi + ' — ALT-ÜST';
+        } else if (g === 'ANA') {
+          var base3 = String(kalinlik).replace('P','');
+          var el3 = base3 === '60' ? document.getElementById('dosyaAdi60') : document.getElementById('dosyaAdi50');
+          var baseAdi2 = (el3 && el3.value.trim()) || (base3 + 'lik_panel');
+          customAd = baseAdi2 + ' — YAN PANELLER';
         }
         var result = generateAndDownloadDxf(groups[kalinlik], kalinlik, 1, 700, 1000, customAd);
         if (result && result.success) exportedNames.push(result.filename);
