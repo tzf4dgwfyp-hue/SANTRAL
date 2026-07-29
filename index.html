@@ -5218,9 +5218,13 @@ class DxfWriter {
       }
     }
 
+    // Katman rengi: varsayılan 7 (beyaz/siyah) — sadece büyük marka etiketi katmanı
+    // (KOD_BUYUK, tüm DXF çıktılarında ortak) mavi (ACI 5) alır. Diğer TÜM mevcut katmanlar birebir aynı kalır.
+    var LAYER_COLOR = { KOD_BUYUK: 5 };
     dxf += '0\nTABLE\n2\nLAYER\n70\n' + layers.length + '\n';
     for (var li = 0; li < layers.length; li++) {
-      dxf += '0\nLAYER\n2\n' + layers[li] + '\n70\n0\n62\n7\n6\nCONTINUOUS\n';
+      var lclr = LAYER_COLOR[layers[li]] || 7;
+      dxf += '0\nLAYER\n2\n' + layers[li] + '\n70\n0\n62\n' + lclr + '\n6\nCONTINUOUS\n';
     }
     dxf += '0\nENDTAB\n';
 
@@ -6266,19 +6270,20 @@ function draw50Paslanmaz(dxf, panelList, gapCol, side) {
     if (tip === 'SABIT') pcOff = computePasPercinOffsets(B, K, '50');
     else if (tip === 'BOGAZ') pcOff = computePasPercinOffsets(B, K, '50', 'BOGAZ', bt);
     var w = 0;
+    var isGlass50P = (cam || 'H') === 'E';
     if (side === 'DIS') {
       switch (tip) {
-        case 'SABIT':  drawDisSabitPas(dxf, curX, 0, B, K, kod, pcOff); w = B + 98; break;
-        case 'ACILIR': drawDisAcilir(dxf, curX, 0, B, K, cam || 'H', kod); w = B + 98; break;
-        case 'BOGAZ':  drawBogazDisPas(dxf, curX, 0, B, K, bt, kod, pcOff); w = B + 98; break;
+        case 'SABIT':  drawDisSabitPas(dxf, curX, 0, B, K, kod, pcOff); w = B + 98; addBigKodLabel(dxf, curX, 0, w, K + 98, kod, false); break;
+        case 'ACILIR': drawDisAcilir(dxf, curX, 0, B, K, cam || 'H', kod); w = B + 98; addBigKodLabel(dxf, curX, 0, w, K + 98, kod, isGlass50P); break;
+        case 'BOGAZ':  drawBogazDisPas(dxf, curX, 0, B, K, bt, kod, pcOff); w = B + 98; addBigKodLabel(dxf, curX, 0, w, K + 98, kod, false); break;
         case 'UST':    w = 0; break; // UST disa gitmez
       }
     } else {
       switch (tip) {
-        case 'SABIT':  drawIcSabitPas(dxf, curX, 0, B, K, kod, pcOff); w = B + 31; break;
-        case 'ACILIR': drawIcAcilir(dxf, curX, 0, B, K, cam || 'H', kod); w = B + 29; break;
-        case 'BOGAZ':  drawIcBogazPas(dxf, curX, 0, B, K, bt, kod, pcOff); w = B + 31; break;
-        case 'UST':    drawUst(dxf, curX, 0, B, K, kod); w = B + 31; break;
+        case 'SABIT':  drawIcSabitPas(dxf, curX, 0, B, K, kod, pcOff); w = B + 31; addBigKodLabel(dxf, curX, 0, w, K + 31, kod, false); break;
+        case 'ACILIR': drawIcAcilir(dxf, curX, 0, B, K, cam || 'H', kod); w = B + 29; addBigKodLabel(dxf, curX, 0, w, K + 29, kod, isGlass50P); break;
+        case 'BOGAZ':  drawIcBogazPas(dxf, curX, 0, B, K, bt, kod, pcOff); w = B + 31; addBigKodLabel(dxf, curX, 0, w, K + 31, kod, false); break;
+        case 'UST':    drawUst(dxf, curX, 0, B, K, kod); w = B + 31; addBigKodLabel(dxf, curX, 0, w, K + 31, kod, false); break;
       }
     }
     if (w > 0) curX += w + gapCol;
@@ -6614,18 +6619,22 @@ function draw60Paslanmaz(dxf, panelList, gapCol, side) {
     if (tip === 'SABIT') pcOff = computePasPercinOffsets(B, K, '60');
     else if (tip === 'BOGAZ') pcOff = computePasPercinOffsets(B, K, '60', 'BOGAZ', bt);
     var w = 0;
+    var isGlass60P = cam === 'E';
     if (side === 'DIS') {
       switch (tip) {
         case 'SABIT':
           // ins = inner sol-alt = curX + 62.5 (outer flansin sagi)
           drawDis60Pas(dxf, curX + 62.5, 62.5, B, K, kod, pcOff);
+          addBigKodLabel(dxf, curX + 62.5, 62.5, B, K, kod, false);
           w = B + 125; break;
         case 'ACILIR':
           drawDisAcilir60(dxf, curX + 62.5, 62.5, B, K, kod, '0');
           if (cam === 'E') addCam60(dxf, curX + 62.5 + B / 2, 62.5 + K / 2, '0');
+          addBigKodLabel(dxf, curX + 62.5, 62.5, B, K, kod, isGlass60P);
           w = B + 125; break;
         case 'BOGAZ':
           drawBogazDis60Pas(dxf, curX + 62.5, 62.5, B, K, bt, kod, pcOff);
+          addBigKodLabel(dxf, curX + 62.5, 62.5, B, K, kod, false);
           w = B + 125; break;
         case 'UST': w = 0; break;
       }
@@ -6634,6 +6643,7 @@ function draw60Paslanmaz(dxf, panelList, gapCol, side) {
         case 'SABIT':
           // ins = inner BI sol-alt = curX + 36 (BI rect outer envelope dis-flansi)
           drawIc60Pas(dxf, curX + 36, 36, B, K, kod, pcOff);
+          addBigKodLabel(dxf, curX + 36, 36, B - 41, K - 41, kod, false);
           w = B + 31; break;
         case 'ACILIR':
           // drawIcAcilir60 ins = BI rect sol-alt
@@ -6642,12 +6652,15 @@ function draw60Paslanmaz(dxf, panelList, gapCol, side) {
             var BIa = B - 43;
             addCam60(dxf, curX + 36 + BIa / 2, 36 + (K - 43) / 2, '0');
           }
+          addBigKodLabel(dxf, curX + 36, 36, B - 43, K - 43, kod, isGlass60P);
           w = B + 29; break;
         case 'BOGAZ':
           drawIc60BogazPas(dxf, curX + 36, 36, B, K, bt, kod, pcOff);
+          addBigKodLabel(dxf, curX + 36, 36, B - 41, K - 41, kod, false);
           w = B + 31; break;
         case 'UST':
           drawUst60(dxf, curX + 36, 36, B, K, kod, '0');
+          addBigKodLabel(dxf, curX + 36, 36, B - 41, K - 41, kod, false);
           w = B + 31; break;
       }
     }
@@ -7074,20 +7087,26 @@ function draw50(dxf, panelList, satirN, gapCol, gapRow) {
         var Wdis = B + 98;
         var pN = drawDisSabit(dxf, curX, curY, B, K, kod);
         drawIcSabit(dxf, curX + Wdis + 400, curY + 33.5, B, K, kod, pN);
+        addBigKodLabel(dxf, curX, curY, Wdis, K + 98, kod, false);
+        addBigKodLabel(dxf, curX + Wdis + 400, curY + 33.5, B + 31, K + 31, kod, false);
         pairW = Wdis + 400 + B + 31;
         pairH = K + 98;
         break;
       }
       case 'ACILIR': {
         var Wdis = B + 98;
+        var isGlass = (cam || 'H') === 'E';
         drawDisAcilir(dxf, curX, curY, B, K, cam || 'H', kod);
         drawIcAcilir(dxf, curX + Wdis + 400, curY + 34.5, B, K, cam || 'H', kod);
+        addBigKodLabel(dxf, curX, curY, Wdis, K + 98, kod, isGlass);
+        addBigKodLabel(dxf, curX + Wdis + 400, curY + 34.5, B + 29, K + 29, kod, isGlass);
         pairW = Wdis + 400 + B + 29;
         pairH = K + 98;
         break;
       }
       case 'UST': {
         drawUst(dxf, curX, curY, B, K, kod);
+        addBigKodLabel(dxf, curX, curY, B + 31, K + 31, kod, false);
         pairW = B + 31;
         pairH = K + 31;
         break;
@@ -7097,6 +7116,8 @@ function draw50(dxf, panelList, satirN, gapCol, gapRow) {
         var bt = bogazTip || 'N';
         var pN = drawBogazDis(dxf, curX, curY, B, K, bt, kod);
         drawIcSabit(dxf, curX + Wdis + 400, curY + 33.5, B, K, kod, pN);
+        addBigKodLabel(dxf, curX, curY, Wdis, K + 98, kod, false);
+        addBigKodLabel(dxf, curX + Wdis + 400, curY + 33.5, B + 31, K + 31, kod, false);
         pairW = Wdis + 400 + B + 31;
         pairH = K + 98;
         break;
@@ -7172,6 +7193,18 @@ function addKod60(dxf, px, py, txt, layer) {
   if (txt && txt.length > 0) {
     dxf.addText(px, py, 3.5, txt, layer);
   }
+}
+
+// Büyük, mavi, ortalanmış markalama etiketi — orijinal küçük kod etiketine EK olarak TÜM DXF
+// çıktılarında (Toplu DXF Üret + Sac Nesting) kullanılır. (ox,oy)+(W,H) parçanın kendi GERÇEK
+// dış hat dikdörtgenidir (ör. 60'lık İÇ için BI,KI — çağıran taraf hangi B/K veya BI/KI
+// geçerliyse onu W/H olarak verir). isGlass=true ise (camlı açılır, dış+iç ikisi de) etiket
+// merkezden kaydırılır ki cama denk gelmesin.
+function addBigKodLabel(writer, ox, oy, W, H, kod, isGlass) {
+  if (!kod) return;
+  var lx = ox + W / 2;
+  var ly = isGlass ? (oy + H * 0.22) : (oy + H / 2);
+  writer.addText(lx, ly, 35, kod, 'KOD_BUYUK', 0, 1, 2);
 }
 
 // -------------------------------------------------------
@@ -7616,6 +7649,8 @@ function draw60(dxf, panelList, satirN, gapCol, gapRow) {
       case 'SABIT': {
         drawDis60(dxf, curX, curY, B, K, kod, '0');
         drawIc60(dxf, curX + B + 797, curY + 20.5, B, K, kod, '0');
+        addBigKodLabel(dxf, curX, curY, B, K, kod, false);
+        addBigKodLabel(dxf, curX + B + 797, curY + 20.5, B - 41, K - 41, kod, false);
         pairW = 2 * B + 917;
         pairH = K + 125;
         break;
@@ -7624,18 +7659,22 @@ function draw60(dxf, panelList, satirN, gapCol, gapRow) {
         var BI = B - 43, KI = K - 43;
         var oxIc = curX + B + 498.5;
         var oyIc = curY + (K - KI) / 2;
+        var isGlass = cam === 'E';
         drawDisAcilir60(dxf, curX, curY, B, K, kod, '0');
         drawIcAcilir60(dxf, oxIc, oyIc, B, K, kod, '0');
-        if (cam === 'E') {
+        if (isGlass) {
           addCam60(dxf, curX + B / 2, curY + K / 2, '0');
           addCam60(dxf, oxIc + BI / 2, curY + K / 2, '0');
         }
+        addBigKodLabel(dxf, curX, curY, B, K, kod, isGlass);
+        addBigKodLabel(dxf, oxIc, oyIc, BI, KI, kod, isGlass);
         pairW = 2 * B + 616.5;
         pairH = K + 125;
         break;
       }
       case 'UST': {
         drawUst60(dxf, curX, curY, B, K, kod, '0');
+        addBigKodLabel(dxf, curX, curY, B - 41, K - 41, kod, false);
         pairW = B + 31;
         pairH = K + 31;
         break;
@@ -7644,6 +7683,8 @@ function draw60(dxf, panelList, satirN, gapCol, gapRow) {
         var bt = (bogazTip || 'N').toUpperCase();
         drawBogazDis60(dxf, curX, curY, B, K, bt, kod, '0');
         drawIc60(dxf, curX + B + 797, curY + 20.5, B, K, kod, '0');
+        addBigKodLabel(dxf, curX, curY, B, K, kod, false);
+        addBigKodLabel(dxf, curX + B + 797, curY + 20.5, B - 41, K - 41, kod, false);
         pairW = 2 * B + 917;
         pairH = K + 125;
         break;
@@ -9698,6 +9739,10 @@ function drawNestPiece(writer, placement) {
       else if (p.tip === 'UST') drawUst60(writer, ox, oy, B, K, kod, '0');
     }
   }
+
+  // Panelin gerçek sac-üzerindeki yerleşim dikdörtgeni (placement) kullanılır, böylece
+  // döndürülmüş parçalarda da doğru ortalanır ve sac üzerinde her zaman dik durur.
+  addBigKodLabel(writer, placement.x, placement.y, placement.w, placement.h, kod, p.tip === 'ACILIR' && cam === 'E');
 }
 
 // Bir sac plakasının tamamını (sınır dikdörtgeni + üzerindeki tüm parçalar) writer'a çizer.
