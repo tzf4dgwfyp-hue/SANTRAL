@@ -3923,9 +3923,16 @@ function boot(){
             }
             const leftFree = sideFree(me,'left'), rightFree = sideFree(me,'right');
             if(leftFree || rightFree){
+              // Sol/sağa yazılan yükseklik etiketi de panel etiketleri gibi 90° döndürülür —
+              // ortalanmış (center/middle) çapa, sideFree'nin V_LBL_W/H tahminiyle tutarlıdır.
+              const hTxt = hEtiket+' '+Math.round(me.hVal)+' mm';
+              ctx.textAlign = 'center';
               ctx.textBaseline = 'middle';
-              if(leftFree){ ctx.textAlign = 'right'; ctx.fillText(hEtiket+' '+Math.round(me.hVal)+' mm', me.sMinX-8, midY); }
-              else { ctx.textAlign = 'left'; ctx.fillText(hEtiket+' '+Math.round(me.hVal)+' mm', me.sMaxX+8, midY); }
+              ctx.save();
+              ctx.translate(leftFree ? me.sMinX-8 : me.sMaxX+8, midY);
+              ctx.rotate(-Math.PI/2);
+              ctx.fillText(hTxt, 0, 0);
+              ctx.restore();
             }
           });
         }
