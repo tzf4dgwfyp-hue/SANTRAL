@@ -1028,7 +1028,7 @@ function drawFaceSVG(fi){
   const face = state.faces[fi];
   const V = r.V;
   const orient = r.orient;
-  const kodMap = buildActiveAhuKodMap();
+  const kodMap = excelKodModu ? buildActiveAhuKodMap() : null;
   const mi = state.active;
 
   const SVG_W = 880, SVG_H = 480, PAD = 46;
@@ -1178,7 +1178,7 @@ function drawFaceSVG(fi){
         ? `${colDisp}×${effDisp}${autoSfx}`
         : `${effDisp}×${colDisp}${autoSfx}`;
       const labelFill = p.bos ? '#ffffff' : '#000000';
-      const kodTxt = p.eleman ? `${FACE_CODE[fi]}-B${ci+1}K${pi+1}` : kodFor(kodMap, mi, fi, ci, pi);
+      const kodTxt = (excelKodModu && !p.eleman) ? kodFor(kodMap, mi, fi, ci, pi) : `${FACE_CODE[fi]}-B${ci+1}K${pi+1}`;
       const padW = Math.max(pw-8, 10);
       // ph'ye göre kaç satır sığar (kod / tür / ölçü — bu sırayla öncelikli); her satırın
       // FONT BOYUTU ayrıca pw'ye göre fitLabelText ile küçültülür/kısaltılır, böylece yan
@@ -1596,18 +1596,16 @@ function renderBarEditor(fi){
 }
 
 // Kesim listesi satırları — HTML tablosu ve Excel çıktısı aynı kaynaktan beslenir
-function getCutRows(r, mi){
-  if(mi===undefined) mi = state.active;
+function getCutRows(r){
   const out = [];
-  const fi = FACE_DEFS.indexOf(r.def);
-  const kodMap = buildActiveAhuKodMap();
+  const fc = FACE_CODE[FACE_DEFS.indexOf(r.def)] || '';
   r.colResults.forEach((c,ci)=>{
     c.panels.forEach((p,pi)=>{
       if(p.bos) return; // Boş Alan kesim listesine girmez
       const istW = p.panelW>0 ? Math.round(p.panelW) : null;
       const istH = p.panelH>0 ? Math.round(p.panelH)+(p.auto?' (oto)':'') : null;
       const sabH = p.sabitH!==null ? Math.round(p.sabitH) : null;
-      out.push([p.eleman ? (FACE_CODE[fi]+'-B'+(ci+1)+'K'+(pi+1)) : kodFor(kodMap, mi, fi, ci, pi), p.type, istW!==null?istW:'—', istH!==null?istH:'—',
+      out.push([fc+'-B'+(ci+1)+'K'+(pi+1), p.type, istW!==null?istW:'—', istH!==null?istH:'—',
         p.sabitW!==null?Math.round(p.sabitW):'—', sabH!==null?sabH:'—']);
     });
   });
@@ -1615,17 +1613,15 @@ function getCutRows(r, mi){
 }
 
 // Excel çıktısı için: yalnızca SABİT ölçüler (imalat kesim değerleri)
-function getSabitRows(r, mi){
-  if(mi===undefined) mi = state.active;
+function getSabitRows(r){
   const out = [];
-  const fi = FACE_DEFS.indexOf(r.def);
-  const kodMap = buildActiveAhuKodMap();
+  const fc = FACE_CODE[FACE_DEFS.indexOf(r.def)] || '';
   r.colResults.forEach((c,ci)=>{
     c.panels.forEach((p,pi)=>{
       if(p.bos) return; // Boş Alan kesim listesine girmez
       const g = p.sabitW!==null ? Math.round(p.sabitW) : 'ÖLÇÜ EKSİK';
       const y = p.sabitH!==null ? Math.round(p.sabitH) : 'ÖLÇÜ EKSİK';
-      out.push([p.eleman ? (FACE_CODE[fi]+'-B'+(ci+1)+'K'+(pi+1)) : kodFor(kodMap, mi, fi, ci, pi), p.type, g, y]);
+      out.push([fc+'-B'+(ci+1)+'K'+(pi+1), p.type, g, y]);
     });
   });
   return out;
@@ -1635,7 +1631,7 @@ function renderCutTable(fi){
   const r = computeFace(fi);
   const body = document.getElementById(`f${fi}_cutbody`);
   if(r.kapaksiz){ body.innerHTML = '<tr><td colspan=&quot;6&quot;>Kapaksız yüz</td></tr>'; return; }
-  body.innerHTML = getCutRows(r, state.active).map(row=>
+  body.innerHTML = getCutRows(r).map(row=>
     `<tr>${row.map(v=>`<td>${v}</td>`).join('')}</tr>`
   ).join('');
 }
@@ -1938,7 +1934,7 @@ function faceLayoutRects(fi){
   const face = state.faces[fi];
   const V = r.V;
   const def = FACE_DEFS[fi];
-  const kodMap = buildActiveAhuKodMap();
+  const kodMap = excelKodModu ? buildActiveAhuKodMap() : null;
   const mi = state.active;
   const FW = (Number(state.dims[def.wKey])||0) > 0 ? Number(state.dims[def.wKey]) : PH3[def.wKey];
   const FH = (Number(state.dims[def.hKey])||0) > 0 ? Number(state.dims[def.hKey]) : PH3[def.hKey];
@@ -2011,7 +2007,7 @@ function faceLayoutRects(fi){
         rects.push({circle:true, cu:(rc.u0+rc.u1)/2, cv:(rc.v0+rc.v1)/2,
           r: Math.min(GLASS_R_MM, Math.min(rc.u1-rc.u0, rc.v1-rc.v0)*0.42), fill:'rgba(127,200,220,0.30)'});
       }
-      if(!p.eleman) labels.push({u:(rc.u0+rc.u1)/2, v:(rc.v0+rc.v1)/2, text: p.bos ? 'BOŞ' : kodFor(kodMap, mi, fi, ci, pi), size: `${Math.round(rc.u1-rc.u0)}×${Math.round(rc.v1-rc.v0)}`, type: p.type, bos: !!p.bos});
+      if(!p.eleman) labels.push({u:(rc.u0+rc.u1)/2, v:(rc.v0+rc.v1)/2, text: p.bos ? 'BOŞ' : (excelKodModu ? kodFor(kodMap, mi, fi, ci, pi) : (FACE_CODE[fi]+'-B'+(ci+1)+'K'+(pi+1))), size: `${Math.round(rc.u1-rc.u0)}×${Math.round(rc.v1-rc.v0)}`, type: p.type, bos: !!p.bos});
       pc += pm;
       if(pi<cRes.panels.length-1 && col.innerGaps[pi]){
         gapAcrossMm[ci][pi] = pc;
@@ -2235,8 +2231,12 @@ async function exportExcel(){
   const ahuCount = state.ahus.length;
   const sanitizeF = s => s.replace(/[\\/:*?&quot;<>|]/g,'').replace(/\s+/g,'_');
   let totalExported = 0;
+  // Excel'in kendi görselleri (GÖRSEL YERLEŞİM + 3B TOPLU MONTAJ) YENİ kodu göstersin; canlı
+  // uygulama (2D yüz düzenleme, 3D montaj) etkilenmesin — export bitince aşağıda geri alınır.
+  excelKodModu = true;
   for(let _ai = 0; _ai < ahuCount; _ai++){
     state.activeAhu = _ai;
+    render3D();
     const _ahuLabel = state.ahus[_ai].ad || ('AHU-'+(_ai+1));
     const _isActiveAhu = (_ai === origActiveAhu);
     note.textContent = (ahuCount > 1 ? '['+(_ai+1)+'/'+ahuCount+'] ' : '') + 'Excel dosyası hazırlanıyor… ' + _ahuLabel;
@@ -2317,7 +2317,7 @@ async function exportExcel(){
         FACE_DEFS.forEach((def,fi)=>{
           const r = computeFace(fi);
           if(r.kapaksiz) return;
-          getSabitRows(r, m).forEach(row=>allKapakRows.push(['M'+(m+1)+' '+def.name, ...row]));
+          getSabitRows(r).forEach(row=>allKapakRows.push(['M'+(m+1)+' '+def.name, ...row]));
         });
       });
     });
@@ -2453,7 +2453,7 @@ async function exportExcel(){
         ]);
 
         if(!r.kapaksiz){
-          row = addTable(ws, row, 'KESİM LİSTESİ — KAPAKLAR', ['Kapak','Tip','Genişlik (mm)','Yükseklik (mm)'], getSabitRows(r, m));
+          row = addTable(ws, row, 'KESİM LİSTESİ — KAPAKLAR', ['Kapak','Tip','Genişlik (mm)','Yükseklik (mm)'], getSabitRows(r));
           row = addTable(ws, row, 'TAKVİYELER', ['Takviye','Adet','Boy (mm)','Kaynak'],
             r.takviyeRecords.map(t=>[t.yon+' '+t.tip, t.adet, t.boy!==null?Math.round(t.boy):'ÖLÇÜ EKSİK', t.kaynak]));
         }
@@ -2493,6 +2493,8 @@ async function exportExcel(){
   }
   } // end AHU loop
   state.activeAhu = origActiveAhu;
+  excelKodModu = false;
+  render3D();
   if(totalExported > 0){
     note.textContent = ahuCount > 1
       ? '✓ '+ahuCount+' AHU için Excel dosyaları indirildi.'
@@ -2958,9 +2960,15 @@ buildTabs();
 attachListeners();
 renderAll();
 
+// YENİ kod (İş No + Santral Adı + Y/A/U + sıra) sadece DXF üretiminde ve Excel çıktısında
+// (drawFaceSVG'nin GÖRSEL YERLEŞİM görseli + 3B TOPLU MONTAJ görseli) kullanılır — canlı 2D yüz
+// düzenleme ve canlı 3D montaj görünümü eski FACE_CODE tabanlı kodu göstermeye devam eder.
+// exportExcel bu bayrağı kendi başında true yapıp sonunda false'a döndürür.
+var excelKodModu = false;
+
 // Aktif AHU'daki (state.activeAhu) her panelin YENİ kodu — İş No + Santral Adı + Y/A/U + sıra
-// (örn. 0469-AHU-1-Y3). DXF üretimi, 3D montaj, yüz düzenleme ve Excel HEPSİ bu tek kaynaktan
-// beslenir ki ekranda görünen kod ile fiziksel DXF markalaması her zaman birebir aynı olsun.
+// (örn. 0469-AHU-1-Y3). DXF üretimi ve Excel bu tek kaynaktan beslenir ki ekranda görünen kod
+// ile fiziksel DXF markalaması her zaman birebir aynı olsun.
 // Anahtar: &quot;mi:fi:ci:pi&quot; (modül, yüz, kolon, panel indeksleri) -> kod string'i.
 function buildActiveAhuKodMap(){
   var proje = (state.proje.isNo || '').trim();
@@ -3856,14 +3864,17 @@ function boot(){
 
         // Modül genişlik/yükseklik ölçü etiketleri — yalnızca sabit cephe görünümlerinde
         // (yaw/pitch verilmişse) anlamlı; serbest açıda &quot;genişlik altta/üstte&quot; gibi bir
-        // yön tanımlanamaz. Komşu modülün izdüşümü bitişikse (başka modül doluysa) metin
-        // karşı tarafa kaydırılır; genişlikte hem üst hem alt, yükseklikte hem sol hem sağ
-        // doluysa o ölçü hiç yazılmaz.
+        // yön tanımlanamaz. Etiket metninin gerçek yer kaplayacağı dikdörtgen tahmini başka
+        // BİR modülün izdüşüm kutusuyla çakışıyorsa (basit &quot;bitişik mi&quot; testi değil, gerçek
+        // çakışma testi — çapraz/kademeli modül dizilimlerinde de doğru çalışır) metin karşı
+        // tarafa kaydırılır; her iki taraf da doluysa o ölçü hiç yazılmaz.
         if(yaw!==null && pitch!==null && state.modules.length){
           const isTopBottom = Math.abs(Math.abs(pitch) - Math.PI/2) < 0.01;
           const isSide = Math.abs(pitch) < 0.01 && Math.abs(Math.abs(yaw) - Math.PI/2) < 0.01;
           const wAxis = isTopBottom ? 'x' : (isSide ? 'z' : 'x');
           const hAxis = isTopBottom ? 'z' : 'y';
+          const EKSEN_TR = { L:'Uzunluk', H:'Yükseklik', W:'Genişlik' };
+          const wEtiket = EKSEN_TR[EXT_KEY[wAxis]], hEtiket = EKSEN_TR[EXT_KEY[hAxis]];
           const modBoxes = [];
           state.modules.forEach((md, mi)=>{
             const grp = modelGroup.children.find(c=>c.name==='module'+mi);
@@ -3885,33 +3896,36 @@ function boot(){
             });
             modBoxes.push({mi, sMinX, sMaxX, sMinY, sMaxY, wVal: modExt(md, wAxis), hVal: modExt(md, hAxis)});
           });
-          const overlap1D = (aMin,aMax,bMin,bMax)=> Math.min(aMax,bMax) - Math.max(aMin,bMin);
-          const NEI_TOL = 8;
-          const hasNeighbor = (me, dir)=> modBoxes.some(n=>{
-            if(n===me) return false;
-            if(dir==='below') return Math.abs(n.sMinY - me.sMaxY) < NEI_TOL && overlap1D(n.sMinX,n.sMaxX,me.sMinX,me.sMaxX) > 4;
-            if(dir==='above') return Math.abs(n.sMaxY - me.sMinY) < NEI_TOL && overlap1D(n.sMinX,n.sMaxX,me.sMinX,me.sMaxX) > 4;
-            if(dir==='left')  return Math.abs(n.sMaxX - me.sMinX) < NEI_TOL && overlap1D(n.sMinY,n.sMaxY,me.sMinY,me.sMaxY) > 4;
-            if(dir==='right') return Math.abs(n.sMinX - me.sMaxX) < NEI_TOL && overlap1D(n.sMinY,n.sMaxY,me.sMinY,me.sMaxY) > 4;
-            return false;
-          });
+          // Etiketin kaplayacağı alanın kabaca tahmini (mevcut 20px font ölçüsüne göre) —
+          // yatay (genişlik) metni geniş/alçak, dikey (yükseklik) tarafı dar/uzun kabul edilir.
+          const rectsOverlap = (a,b)=> a.minX<b.maxX && a.maxX>b.minX && a.minY<b.maxY && a.maxY>b.minY;
+          const H_LBL_W = 90, H_LBL_H = 22, V_LBL_W = 22, V_LBL_H = 90, GAP = 8;
+          const sideFree = (me, dir)=>{
+            const midX=(me.sMinX+me.sMaxX)/2, midY=(me.sMinY+me.sMaxY)/2;
+            let test;
+            if(dir==='below') test = { minX: me.sMinX, maxX: me.sMaxX, minY: me.sMaxY+GAP, maxY: me.sMaxY+GAP+H_LBL_H };
+            else if(dir==='above') test = { minX: me.sMinX, maxX: me.sMaxX, minY: me.sMinY-GAP-H_LBL_H, maxY: me.sMinY-GAP };
+            else if(dir==='left') test = { minX: me.sMinX-GAP-V_LBL_W, maxX: me.sMinX-GAP, minY: midY-V_LBL_H/2, maxY: midY+V_LBL_H/2 };
+            else test = { minX: me.sMaxX+GAP, maxX: me.sMaxX+GAP+V_LBL_W, minY: midY-V_LBL_H/2, maxY: midY+V_LBL_H/2 };
+            return !modBoxes.some(n=> n!==me && rectsOverlap(test, {minX:n.sMinX,maxX:n.sMaxX,minY:n.sMinY,maxY:n.sMaxY}));
+          };
           ctx.font = '600 20px Inter, Arial, sans-serif';
           ctx.shadowColor = 'rgba(255,255,255,0.85)';
           ctx.shadowBlur = 3;
           ctx.fillStyle = '#000000';
           modBoxes.forEach(me=>{
             const midX=(me.sMinX+me.sMaxX)/2, midY=(me.sMinY+me.sMaxY)/2;
-            const belowOcc = hasNeighbor(me,'below'), aboveOcc = hasNeighbor(me,'above');
-            if(!belowOcc || !aboveOcc){
+            const belowFree = sideFree(me,'below'), aboveFree = sideFree(me,'above');
+            if(belowFree || aboveFree){
               ctx.textAlign = 'center';
-              if(!belowOcc){ ctx.textBaseline = 'top'; ctx.fillText(Math.round(me.wVal)+' mm', midX, me.sMaxY+8); }
-              else { ctx.textBaseline = 'bottom'; ctx.fillText(Math.round(me.wVal)+' mm', midX, me.sMinY-8); }
+              if(belowFree){ ctx.textBaseline = 'top'; ctx.fillText(wEtiket+' '+Math.round(me.wVal)+' mm', midX, me.sMaxY+8); }
+              else { ctx.textBaseline = 'bottom'; ctx.fillText(wEtiket+' '+Math.round(me.wVal)+' mm', midX, me.sMinY-8); }
             }
-            const leftOcc = hasNeighbor(me,'left'), rightOcc = hasNeighbor(me,'right');
-            if(!leftOcc || !rightOcc){
+            const leftFree = sideFree(me,'left'), rightFree = sideFree(me,'right');
+            if(leftFree || rightFree){
               ctx.textBaseline = 'middle';
-              if(!leftOcc){ ctx.textAlign = 'right'; ctx.fillText(Math.round(me.hVal)+' mm', me.sMinX-8, midY); }
-              else { ctx.textAlign = 'left'; ctx.fillText(Math.round(me.hVal)+' mm', me.sMaxX+8, midY); }
+              if(leftFree){ ctx.textAlign = 'right'; ctx.fillText(hEtiket+' '+Math.round(me.hVal)+' mm', me.sMinX-8, midY); }
+              else { ctx.textAlign = 'left'; ctx.fillText(hEtiket+' '+Math.round(me.hVal)+' mm', me.sMaxX+8, midY); }
             }
           });
         }
@@ -3929,7 +3943,12 @@ function boot(){
           const sx = (ndc.x*0.5+0.5)*w*2, sy = (-ndc.y*0.5+0.5)*h*2;
           const lines = obj.userData.lines || [];
           const lineH = 24;
+          // modname (M1/M2) yatay kalır ve dikeyde y ile alt alta dizilir (tek satır olduğu
+          // için pratikte etkisiz); panel etiketleri (kod/tip/ölçü) 90° döndürülüp x boyunca
+          // yan yana &quot;şeritler&quot; halinde dizilir — aksi halde döndürülmüş satırlar birbirinin
+          // üzerine gelirdi (dikeydeki 24px aralık, döndürülmüş metnin uzunluğuna yetmez).
           let y = sy - (lines.length-1)*lineH/2;
+          let x = sx - (lines.length-1)*lineH/2;
           lines.forEach(line=>{
             // Yüz Düzenleme/Excel etiketleriyle aynı renk-boyut kuralı — burada CSS'e
             // (.label3d .l1/.l3/.l2) sahip değiliz, canlı DOM stiliyle elle senkron tutulur:
@@ -3945,8 +3964,17 @@ function boot(){
             ctx.fillStyle = color;
             ctx.shadowColor = shadowColor;
             ctx.shadowBlur = 3;
-            ctx.fillText(line.text, sx, y);
-            y += lineH;
+            if(base==='modname'){
+              ctx.fillText(line.text, sx, y);
+              y += lineH;
+            } else {
+              ctx.save();
+              ctx.translate(x, sy);
+              ctx.rotate(-Math.PI/2);
+              ctx.fillText(line.text, 0, 0);
+              ctx.restore();
+              x += lineH;
+            }
           });
         });
         const dataURL = outCanvas.toDataURL('image/png');
