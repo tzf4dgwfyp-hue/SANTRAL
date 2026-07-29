@@ -4464,6 +4464,77 @@ boot();
       letter-spacing: 0.5px;
     }
 
+    /* ---------- SAC NESTING MODALI (history-modal ile aynı görsel dil) ---------- */
+    #nest-modal {
+      position: fixed; inset: 0; z-index: 820;
+      display: none;
+      align-items: center; justify-content: center;
+    }
+    #nest-modal.active { display: flex; }
+    .nest-backdrop {
+      position: absolute; inset: 0;
+      background: rgba(0,0,0,0.72);
+      backdrop-filter: blur(10px);
+    }
+    .nest-panel {
+      position: relative;
+      background: var(--bg-main);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 22px 24px 20px;
+      width: min(94vw, 940px);
+      max-height: 90vh;
+      display: flex; flex-direction: column;
+      box-shadow: 0 22px 64px rgba(0,0,0,0.55);
+    }
+    .nest-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+    .nest-title { font-size: 20px; font-weight: 800; color: var(--accent); letter-spacing: 0.5px; }
+    .nest-close {
+      background: transparent; border: 1px solid var(--border);
+      color: var(--text-muted);
+      width: 34px; height: 34px; border-radius: 50%;
+      cursor: pointer; font-size: 20px; line-height: 1;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.15s;
+    }
+    .nest-close:hover { color: var(--accent); border-color: var(--accent); }
+    .nest-body { flex: 1; overflow-y: auto; padding-right: 4px; }
+    .nest-settings {
+      display: grid; grid-template-columns: repeat(auto-fit,minmax(120px,1fr)); gap: 10px;
+      background: var(--bg-sidebar); border: 1px solid var(--border); border-radius: 10px;
+      padding: 12px 14px; margin-bottom: 14px;
+    }
+    .nest-settings label { display: block; font-size: 10.5px; color: var(--text-muted); margin-bottom: 4px; }
+    .nest-settings input {
+      width: 100%; padding: 6px 8px; background: var(--bg-input); color: var(--text);
+      border: 1px solid var(--border); border-radius: 6px; font-size: 12.5px; font-family: inherit;
+      box-sizing: border-box;
+    }
+    .nest-recalc-btn {
+      background: var(--accent); color: #06231f; border: none; padding: 8px 18px;
+      border-radius: 8px; font-size: 12.5px; font-weight: 700; cursor: pointer; letter-spacing: .3px;
+      width: 100%;
+    }
+    .nest-summary-banner {
+      display: flex; gap: 18px; flex-wrap: wrap;
+      background: color-mix(in srgb, var(--accent) 12%, transparent);
+      border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+      border-radius: 10px; padding: 12px 16px; margin-bottom: 14px; font-size: 13px;
+    }
+    .nest-summary-banner b { color: var(--accent); }
+    .nest-group-card { background: var(--bg-sidebar); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; margin-bottom: 12px; }
+    .nest-group-title { font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+    .nest-group-stats { display: flex; gap: 16px; flex-wrap: wrap; font-size: 12px; color: var(--text-muted); margin-bottom: 10px; }
+    .nest-group-stats b { color: var(--text); }
+    .nest-preview-box { background: #fff; border-radius: 8px; padding: 8px; display: flex; align-items: center; justify-content: center; min-height: 220px; }
+    .nest-preview-nav { display: flex; align-items: center; gap: 10px; justify-content: center; margin-top: 8px; font-size: 12px; color: var(--text-muted); }
+    .nest-preview-nav button { background: transparent; border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: 3px 10px; cursor: pointer; font-size: 12px; }
+    .nest-preview-nav button:disabled { opacity: .35; cursor: not-allowed; }
+    .nest-group-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+    .nest-download-btn { background: var(--accent); color: #06231f; border: none; padding: 7px 14px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer; }
+    .nest-sheet-link { background: transparent; border: 1px solid var(--border); color: var(--text-muted); padding: 6px 10px; border-radius: 6px; font-size: 11.5px; cursor: pointer; }
+    .nest-sheet-link:hover { color: var(--accent); border-color: var(--accent); }
+
     /* &quot;Yakinda&quot; kart varyasyonu - tiklanabilir degil, hafif soluk */
     .mode-card.mode-card-soon {
       cursor: not-allowed;
@@ -4822,6 +4893,7 @@ boot();
     <h1 id=&quot;main-title&quot;></h1>
     <div class=&quot;header-right&quot;>
       <button id=&quot;btn-toplu-export&quot; style=&quot;background:var(--accent);color:#06231f;border:none;padding:7px 16px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;letter-spacing:.3px;transition:opacity .15s;&quot;>⬇ Toplu DXF Üret</button>
+      <button id=&quot;btn-nest-export&quot; style=&quot;background:linear-gradient(135deg,#1a9e6a,#27c47e);color:#06231f;border:none;padding:7px 16px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;letter-spacing:.3px;transition:opacity .15s;&quot; title=&quot;Panelleri standart sac plakalarına optimum nesting ile yerleştir + kesim raporu&quot;>⬛ Sac Nesting</button>
       <label for=&quot;theme_sel&quot; style=&quot;font-size:11px;color:var(--text-muted);margin-right:4px;&quot;>Tema</label>
       <select id=&quot;theme_sel&quot; style=&quot;background:var(--bg-input);border:1px solid var(--border);color:var(--text);padding:4px 8px;border-radius:4px;font-size:11px;cursor:pointer;outline:none;&quot;>
         <option value=&quot;&quot;>Gece</option>
@@ -9358,6 +9430,508 @@ if (elTopluExport) {
   elTopluExport.addEventListener('click', topluDxfUret);
 }
 
+// ============================================================
+// SAC NESTING — panelleri standart stok sac plakalarına optimum
+// yerleştirme (BFDH-R) + kesim raporu (plaka sayısı, kg, fire%).
+// Mevcut &quot;Toplu DXF Üret&quot; akışına dokunmaz, tamamen ek bir özellik.
+// ============================================================
+
+// Gerçek sac kalınlığı (mm) — &quot;kalinlik&quot; alanı burada profil serisi+malzeme
+// kodudur (50/60/50P/60P), gerçek mm değeri değildir; bu yüzden ayrı saklanır.
+var SAC_GAUGE_KEY = 'dxf_sac_kalinlik_mm';
+var SAC_GAUGE_DEFAULT = 0.8;
+function sacGaugeLoad() {
+  try {
+    var raw = localStorage.getItem(SAC_GAUGE_KEY);
+    var obj = raw ? JSON.parse(raw) : {};
+    return (obj && typeof obj === 'object') ? obj : {};
+  } catch (e) { return {}; }
+}
+function sacGaugeSave(map) {
+  try { localStorage.setItem(SAC_GAUGE_KEY, JSON.stringify(map)); } catch (e) {}
+}
+function sacGaugeFor(kod) {
+  var m = sacGaugeLoad();
+  var v = Number(m[kod]);
+  return (v > 0) ? v : SAC_GAUGE_DEFAULT;
+}
+function sacGaugeSet(kod, mm) {
+  var m = sacGaugeLoad();
+  m[kod] = Number(mm) || SAC_GAUGE_DEFAULT;
+  sacGaugeSave(m);
+}
+function sacDensityFor(kod) {
+  // kg/dm3 — paslanmaz (304 tipi) ~7.93, galvaniz/normal çelik ~7.85
+  return String(kod).slice(-1) === 'P' ? 7.93 : 7.85;
+}
+
+// Panel ailesi + tip + taraf (DIS/IC) -&gt; gerçek dış hat ölçüsü (mm). Bu formüller
+// draw50/draw60'ın kendi W/H hesaplarından birebir alınmıştır (drawDisSabit/drawIcSabit/
+// drawDisAcilir/drawIcAcilir/drawBogazDis/drawUst — 50'lik; drawDis60/drawIc60/
+// drawDisAcilir60/drawIcAcilir60/drawBogazDis60/drawUst60 — 60'lık; hepsi doğrulandı).
+function nestFootprint(kalinlikBase, tip, side) {
+  if (tip === 'UST') return { w: function (B) { return B + 31; }, h: function (B, K) { return K + 31; } };
+  if (kalinlikBase === '50') {
+    if (side === 'DIS') return { w: function (B) { return B + 98; }, h: function (B, K) { return K + 98; } };
+    if (tip === 'ACILIR') return { w: function (B) { return B + 29; }, h: function (B, K) { return K + 29; } };
+    return { w: function (B) { return B + 31; }, h: function (B, K) { return K + 31; } }; // SABIT/BOGAZ IC
+  }
+  // 60'lık
+  if (side === 'DIS') return { w: function (B) { return B + 125; }, h: function (B, K) { return K + 125; } };
+  if (tip === 'ACILIR') return { w: function (B) { return B + 29; }, h: function (B, K) { return K + 29; } };
+  return { w: function (B) { return B + 31; }, h: function (B, K) { return K + 31; } }; // SABIT/BOGAZ IC
+}
+
+// panelList: {kalinlik, tip, B, K, cam, bogazTip, kod, adet} dizisi (bir grup, adet&gt;1 olabilir).
+// Her panelObj'u adet kadar, bağımsız DIS+IC (veya UST için sadece IC) parça tanımına ayrıştırır —
+// dış/iç artık &quot;çift&quot; olarak taşınmaz, nesting'de tam bağımsız dikdörtgen olarak yerleştirilir.
+function buildNestPieces(panelList) {
+  var pieces = [];
+  var pid = 0;
+  panelList.forEach(function (p) {
+    var kalinlikBase = String(p.kalinlik).replace('P', '');
+    var isPas = String(p.kalinlik).slice(-1) === 'P';
+    var adet = Math.max(1, Number(p.adet) || 1);
+    for (var a = 0; a < adet; a++) {
+      var percinN = null, percinOffsets = null;
+      if (!isPas && kalinlikBase === '50' && (p.tip === 'SABIT' || p.tip === 'BOGAZ')) {
+        // DIŞ panelin gerçek çizimi perçin sayısını belirliyor (vida çakışması) — atılabilir
+        // bir DxfWriter'a karşı bir kez çağırıp sadece sayıyı yakalıyoruz (konum önemsiz).
+        var scratch = new DxfWriter();
+        if (p.tip === 'SABIT') percinN = drawDisSabit(scratch, 0, 0, p.B, p.K, p.kod);
+        else percinN = drawBogazDis(scratch, 0, 0, p.B, p.K, p.bogazTip || 'N', p.kod);
+      } else if (isPas && (p.tip === 'SABIT' || p.tip === 'BOGAZ')) {
+        percinOffsets = (p.tip === 'SABIT')
+          ? computePasPercinOffsets(p.B, p.K, kalinlikBase)
+          : computePasPercinOffsets(p.B, p.K, kalinlikBase, 'BOGAZ', p.bogazTip || 'N');
+      }
+
+      var sides = (p.tip === 'UST') ? ['IC'] : ['DIS', 'IC'];
+      sides.forEach(function (side) {
+        var fp = nestFootprint(kalinlikBase, p.tip, side);
+        pieces.push({
+          id: 'p' + (pid++),
+          kod: p.kod, tip: p.tip, side: side,
+          kalinlik: p.kalinlik, kalinlikBase: kalinlikBase, isPas: isPas,
+          B: p.B, K: p.K, cam: p.cam, bogazTip: p.bogazTip,
+          w: fp.w(p.B, p.K), h: fp.h(p.B, p.K),
+          percinN: percinN, percinOffsets: percinOffsets
+        });
+      });
+    }
+  });
+  return pieces;
+}
+
+// Düz parça listesini nest-gruplarına ayırır: Galvaniz'de dış+iç+üst TEK grup;
+// Paslanmaz'da bugünkü dosya ayrımı korunur (DIŞ ayrı, İÇ+ÜST ayrı).
+function groupNestPieces(allPieces) {
+  var byKalinlik = {};
+  allPieces.forEach(function (pc) {
+    (byKalinlik[pc.kalinlik] = byKalinlik[pc.kalinlik] || []).push(pc);
+  });
+  var groups = [];
+  Object.keys(byKalinlik).forEach(function (kod) {
+    var list = byKalinlik[kod];
+    if (list[0].isPas) {
+      var dis = list.filter(function (pc) { return pc.side === 'DIS'; });
+      var ic = list.filter(function (pc) { return pc.side === 'IC'; });
+      if (dis.length) groups.push({ label: kalinlikLabel(kod) + ' — DIŞ', kalinlik: kod, pieces: dis });
+      if (ic.length) groups.push({ label: kalinlikLabel(kod) + ' — İÇ/ÜST', kalinlik: kod, pieces: ic });
+    } else {
+      groups.push({ label: kalinlikLabel(kod), kalinlik: kod, pieces: list });
+    }
+  });
+  return groups;
+}
+
+// MaxRects (maksimal boş dikdörtgen izleme, Best-Short-Side-Fit skoru + döndürme): şerit/raf
+// bazlı paketlemenin aksine, bir parçanın ALTINDA/YANINDA kalan boş alan sonraki HERHANGİ bir
+// parça için tekrar aday olur (raf'ta olduğu gibi &quot;bu rafın yüksekliğinde kilitli&quot; kalmaz) —
+// bu yüzden fire belirgin şekilde daha az. Parçalar büyükten küçüğe sıralanır; her parça için
+// TÜM boş dikdörtgenler + hem düz hem 90° döndürülmüş hali denenir, en dar artık kısa kenarı
+// bırakan (best-fit) yerleşim seçilir. Yerleştirilen her parça (+ sağına/üstüne bir `gap` payı)
+// kesiştiği TÜM boş dikdörtgenleri böler; birbirini tamamen içeren boş dikdörtgenler budanır.
+// Saf fonksiyon — DOM/DXF'ten bağımsız, sentetik {w,h} dizileriyle test edilir.
+function nestPieces(pieceList, sheetW, sheetH, gap) {
+  var EPS = 1e-6;
+  var ordered = pieceList.slice().sort(function (a, b) {
+    var am = Math.max(a.w, a.h), bm = Math.max(b.w, b.h);
+    if (Math.abs(am - bm) > EPS) return bm - am;
+    return Math.min(b.w, b.h) - Math.min(a.w, a.h);
+  });
+
+  function rectsIntersect(a, b) {
+    return a.x < b.x + b.w - EPS && a.x + a.w > b.x + EPS && a.y < b.y + b.h - EPS && a.y + a.h > b.y + EPS;
+  }
+
+  // fr'nin used (parça + sağ/üst gap payı) ile kesişmeyen kalan parçalarını üretir (sol/sağ/alt/üst).
+  function splitFreeRect(fr, used) {
+    var out = [];
+    if (used.x > fr.x + EPS) out.push({ x: fr.x, y: fr.y, w: used.x - fr.x, h: fr.h });
+    var usedRight = used.x + used.w;
+    if (usedRight < fr.x + fr.w - EPS) out.push({ x: usedRight, y: fr.y, w: (fr.x + fr.w) - usedRight, h: fr.h });
+    if (used.y > fr.y + EPS) out.push({ x: fr.x, y: fr.y, w: fr.w, h: used.y - fr.y });
+    var usedTop = used.y + used.h;
+    if (usedTop < fr.y + fr.h - EPS) out.push({ x: fr.x, y: usedTop, w: fr.w, h: (fr.y + fr.h) - usedTop });
+    return out.filter(function (r) { return r.w > EPS && r.h > EPS; });
+  }
+
+  // Başka bir boş dikdörtgenin içinde tamamen kalan (artık gereksiz) dikdörtgenleri eler.
+  function pruneContained(rects) {
+    var keep = [];
+    for (var i = 0; i < rects.length; i++) {
+      var a = rects[i], contained = false;
+      for (var j = 0; j < rects.length; j++) {
+        if (i === j) continue;
+        var b = rects[j];
+        var inside = a.x >= b.x - EPS && a.y >= b.y - EPS && a.x + a.w <= b.x + b.w + EPS && a.y + a.h <= b.y + b.h + EPS;
+        if (!inside) continue;
+        var identical = Math.abs(a.x - b.x) < EPS && Math.abs(a.y - b.y) < EPS && Math.abs(a.w - b.w) < EPS && Math.abs(a.h - b.h) < EPS;
+        if (identical && i < j) continue; // birebir eşse tekini (küçük index) tut
+        contained = true; break;
+      }
+      if (!contained) keep.push(a);
+    }
+    return keep;
+  }
+
+  function tryPlaceOnSheet(piece, sheet, sw, sh) {
+    var best = null;
+    sheet.freeRects.forEach(function (fr) {
+      [[piece.w, piece.h, false], [piece.h, piece.w, true]].forEach(function (o) {
+        var pw = o[0], ph = o[1], rotated = o[2];
+        if (pw <= fr.w + EPS && ph <= fr.h + EPS) {
+          var leftoverX = fr.w - pw, leftoverY = fr.h - ph;
+          var shortFit = Math.min(leftoverX, leftoverY), longFit = Math.max(leftoverX, leftoverY);
+          if (!best || shortFit < best.shortFit - EPS || (Math.abs(shortFit - best.shortFit) <= EPS && longFit < best.longFit)) {
+            best = { x: fr.x, y: fr.y, pw: pw, ph: ph, rotated: rotated, shortFit: shortFit, longFit: longFit };
+          }
+        }
+      });
+    });
+    if (!best) return null; // parça bu sacın hiçbir boş alanına, hiçbir yönde sığmıyor
+    var placement = { piece: piece, x: best.x, y: best.y, w: best.pw, h: best.ph, rotated: best.rotated };
+    var usedWithGap = { x: best.x, y: best.y, w: Math.min(best.pw + gap, sw - best.x), h: Math.min(best.ph + gap, sh - best.y) };
+    var newFree = [];
+    sheet.freeRects.forEach(function (fr) {
+      if (rectsIntersect(fr, usedWithGap)) newFree = newFree.concat(splitFreeRect(fr, usedWithGap));
+      else newFree.push(fr);
+    });
+    sheet.freeRects = pruneContained(newFree);
+    sheet.placements.push(placement);
+    return placement;
+  }
+
+  function runPack(sw, sh) {
+    function newSheet() { return { freeRects: [{ x: 0, y: 0, w: sw, h: sh }], placements: [] }; }
+    var sheets = [newSheet()];
+    for (var i = 0; i < ordered.length; i++) {
+      var piece = ordered[i];
+      var placed = null;
+      for (var s = 0; s < sheets.length && !placed; s++) placed = tryPlaceOnSheet(piece, sheets[s], sw, sh);
+      if (!placed) {
+        var ns = newSheet();
+        sheets.push(ns);
+        placed = tryPlaceOnSheet(piece, ns, sw, sh);
+        if (!placed) throw new Error('Parça sac ölçüsüne hiçbir yönde sığmıyor: ' + (piece.kod || piece.id || '?') + ' (' + piece.w + '×' + piece.h + ' mm)');
+      }
+    }
+    return sheets;
+  }
+
+  function fillRatio(sheets, sw, sh) {
+    var used = 0;
+    sheets.forEach(function (s) { s.placements.forEach(function (p) { used += p.w * p.h; }); });
+    return used / (sheets.length * sw * sh);
+  }
+
+  // İki olası sac ekseninde bir kez daha çalıştır, daha az plaka kullananı (eşitlikte
+  // daha iyi doluluk oranını) tut — arbitrary &quot;hangi yön raf ekseni&quot; kararını ortadan kaldırır.
+  var runA = runPack(sheetW, sheetH);
+  var chosen = runA, chosenW = sheetW, chosenH = sheetH;
+  if (sheetW !== sheetH) {
+    var runB = runPack(sheetH, sheetW);
+    if (runB.length < runA.length || (runB.length === runA.length && fillRatio(runB, sheetH, sheetW) > fillRatio(runA, sheetW, sheetH))) {
+      chosen = runB; chosenW = sheetH; chosenH = sheetW;
+    }
+  }
+  return { sheets: chosen, sheetW: chosenW, sheetH: chosenH, gap: gap };
+}
+
+// Bir yerleşimi (placement: {piece, x, y, w, h, rotated}) sac koordinatlarında GERÇEK panel
+// çizim fonksiyonuna yönlendirir. writer bir DxfWriter (gerçek indirme) VEYA SvgWriter (ekran
+// önizleme) olabilir — bu uygulamadaki her çizim fonksiyonu ikisine karşı da çalışır (bkz.
+// updatePanelPreview'daki mevcut kalıp). 90° döndürme koordinat dönüşümü GEREKTİRMEZ: aynı
+// fonksiyon B/K yer değiştirilmiş çağrılır (her panel 4 köşede simetrik bükümlüdür).
+function drawNestPiece(writer, placement) {
+  var p = placement.piece;
+  var B = placement.rotated ? p.K : p.B;
+  var K = placement.rotated ? p.B : p.K;
+  var is60 = p.kalinlikBase === '60';
+  var off = is60 ? (p.side === 'DIS' ? 62.5 : 36) : 0;
+  var ox = placement.x + off, oy = placement.y + off;
+  var kod = p.kod, bt = p.bogazTip || 'N', cam = p.cam || 'H';
+
+  if (!is60) {
+    if (p.side === 'DIS') {
+      if (p.tip === 'SABIT') { if (p.isPas) drawDisSabitPas(writer, ox, oy, B, K, kod, p.percinOffsets); else drawDisSabit(writer, ox, oy, B, K, kod); }
+      else if (p.tip === 'ACILIR') drawDisAcilir(writer, ox, oy, B, K, cam, kod);
+      else if (p.tip === 'BOGAZ') { if (p.isPas) drawBogazDisPas(writer, ox, oy, B, K, bt, kod, p.percinOffsets); else drawBogazDis(writer, ox, oy, B, K, bt, kod); }
+    } else {
+      if (p.tip === 'SABIT') { if (p.isPas) drawIcSabitPas(writer, ox, oy, B, K, kod, p.percinOffsets); else drawIcSabit(writer, ox, oy, B, K, kod, p.percinN); }
+      else if (p.tip === 'ACILIR') drawIcAcilir(writer, ox, oy, B, K, cam, kod);
+      else if (p.tip === 'BOGAZ') { if (p.isPas) drawIcBogazPas(writer, ox, oy, B, K, bt, kod, p.percinOffsets); else drawIcSabit(writer, ox, oy, B, K, kod, p.percinN); }
+      else if (p.tip === 'UST') drawUst(writer, ox, oy, B, K, kod);
+    }
+  } else {
+    if (p.side === 'DIS') {
+      if (p.tip === 'SABIT') { if (p.isPas) drawDis60Pas(writer, ox, oy, B, K, kod, p.percinOffsets); else drawDis60(writer, ox, oy, B, K, kod, '0'); }
+      else if (p.tip === 'ACILIR') drawDisAcilir60(writer, ox, oy, B, K, kod, '0');
+      else if (p.tip === 'BOGAZ') { if (p.isPas) drawBogazDis60Pas(writer, ox, oy, B, K, bt, kod, p.percinOffsets); else drawBogazDis60(writer, ox, oy, B, K, bt, kod, '0'); }
+    } else {
+      if (p.tip === 'SABIT') { if (p.isPas) drawIc60Pas(writer, ox, oy, B, K, kod, p.percinOffsets); else drawIc60(writer, ox, oy, B, K, kod, '0'); }
+      else if (p.tip === 'ACILIR') drawIcAcilir60(writer, ox, oy, B, K, kod, '0');
+      else if (p.tip === 'BOGAZ') { if (p.isPas) drawIc60BogazPas(writer, ox, oy, B, K, bt, kod, p.percinOffsets); else drawIc60(writer, ox, oy, B, K, kod, '0'); }
+      else if (p.tip === 'UST') drawUst60(writer, ox, oy, B, K, kod, '0');
+    }
+  }
+}
+
+// Bir sac plakasının tamamını (sınır dikdörtgeni + üzerindeki tüm parçalar) writer'a çizer.
+// yOffset (opsiyonel) — birleşik çok-sac dosyasında her sac'ı dikey kaydırmak için.
+function renderNestSheetToWriter(writer, sheet, sheetW, sheetH, yOffset) {
+  var yOff = yOffset || 0;
+  var lb = 'SAC_SINIRI';
+  writer.addLine(0, yOff, sheetW, yOff, lb);
+  writer.addLine(sheetW, yOff, sheetW, yOff + sheetH, lb);
+  writer.addLine(sheetW, yOff + sheetH, 0, yOff + sheetH, lb);
+  writer.addLine(0, yOff + sheetH, 0, yOff, lb);
+  sheet.placements.forEach(function (pl) {
+    drawNestPiece(writer, { piece: pl.piece, x: pl.x, y: pl.y + yOff, w: pl.w, h: pl.h, rotated: pl.rotated });
+  });
+}
+
+// Blob→createObjectURL→gizli &lt;a&gt;→click→revoke — mevcut generateAndDownloadDxf'in _dl'siyle birebir aynı desen.
+function nestDownloadDxf(dxfWriter, filename) {
+  var blob = new Blob([dxfWriter.generate()], { type: 'application/dxf' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// Bir nest-grubunun TÜM sac'larını dikey sabit boşlukla art arda TEK bir DxfWriter'a çizer
+// (her sac kendi &quot;SAC n/m&quot; etiketiyle) — birincil indirme, operatör tek dosya açar.
+var NEST_SHEET_SEP = 200; // sac'lar arası dikey ayraç (mm), sadece birleşik dosyada
+function renderNestGroupCombined(nestResult) {
+  var dxf = new DxfWriter();
+  nestResult.sheets.forEach(function (sheet, i) {
+    var yOff = i * (nestResult.sheetH + NEST_SHEET_SEP);
+    renderNestSheetToWriter(dxf, sheet, nestResult.sheetW, nestResult.sheetH, yOff);
+    dxf.addText(10, yOff - 40, 45, 'SAC ' + (i + 1) + '/' + nestResult.sheets.length, 'SAC_ETIKET');
+  });
+  return dxf;
+}
+
+// Tek bir sac'ı (birleşik dosyadan bağımsız) kendi DxfWriter'ına çizer — sac-başına ayrı indirme için.
+function renderSingleNestSheetDxf(sheet, sheetW, sheetH) {
+  var dxf = new DxfWriter();
+  renderNestSheetToWriter(dxf, sheet, sheetW, sheetH, 0);
+  return dxf;
+}
+
+// Bir nest-grubunun kesim raporu: plaka sayısı, gerçek sac kalınlığı/yoğunluğu, kg, fire%.
+// Fire hesabında payda KULLANILAN TÜM sac alanı (yarı-dolu son sac dahil) — parçaların
+// bounding-box'ı değil; pay her parçanın GERÇEK dış hat alanı (nominal B×K değil).
+function computeNestReport(nestResult, kalinlikKod) {
+  var gaugeMm = sacGaugeFor(kalinlikKod);
+  var density = sacDensityFor(kalinlikKod);
+  var sheetCount = nestResult.sheets.length;
+  var totalSheetArea = sheetCount * nestResult.sheetW * nestResult.sheetH; // mm²
+  var totalPartsArea = 0;
+  nestResult.sheets.forEach(function (sheet) {
+    sheet.placements.forEach(function (pl) { totalPartsArea += pl.w * pl.h; });
+  });
+  var kgPerSheet = (nestResult.sheetW * nestResult.sheetH * gaugeMm) / 1000000 * density;
+  var fireRatio = totalSheetArea > 0 ? Math.max(0, 1 - totalPartsArea / totalSheetArea) : 0;
+  return {
+    kalinlik: kalinlikKod, gaugeMm: gaugeMm, densityKgDm3: density,
+    sheetCount: sheetCount, sheetW: nestResult.sheetW, sheetH: nestResult.sheetH,
+    totalPartsArea: totalPartsArea, totalSheetArea: totalSheetArea,
+    firePercent: fireRatio * 100,
+    kgPerSheet: kgPerSheet, totalKg: kgPerSheet * sheetCount
+  };
+}
+
+// Birden fazla grup raporunu TOPLAR (asla ortalamaz) — alan-ağırlıklı tek fire% üretir.
+// Grup büyüklükleri farklıysa yüzdelerin ortalaması yanlış sonuç verir; bu yüzden önce
+// alanlar toplanır, tek oran EN SONDA hesaplanır.
+function aggregateNestReports(reports) {
+  var totalSheetCount = 0, totalKg = 0, totalPartsArea = 0, totalSheetArea = 0;
+  reports.forEach(function (r) {
+    totalSheetCount += r.sheetCount;
+    totalKg += r.totalKg;
+    totalPartsArea += r.totalPartsArea;
+    totalSheetArea += r.totalSheetArea;
+  });
+  var fireRatio = totalSheetArea > 0 ? Math.max(0, 1 - totalPartsArea / totalSheetArea) : 0;
+  return { totalSheetCount: totalSheetCount, totalKg: totalKg, firePercent: fireRatio * 100 };
+}
+
+// ---- Nesting modalı: orkestrasyon + UI ----
+var nestState = null; // { groups:[{label,kalinlik,pieces,nestResult,report,previewIndex}], aggregate, sheetW, sheetH, gap }
+
+function nestLoadGaugeInputs() {
+  ['50', '60', '50P', '60P'].forEach(function (kod) {
+    var el = document.getElementById('nest-gauge-' + kod);
+    if (el) el.value = sacGaugeFor(kod);
+  });
+}
+function nestWireGaugeInputs() {
+  ['50', '60', '50P', '60P'].forEach(function (kod) {
+    var el = document.getElementById('nest-gauge-' + kod);
+    if (el) el.addEventListener('blur', function () { sacGaugeSet(kod, el.value); });
+  });
+}
+
+function nestComputeAll() {
+  var sheetW = Number(document.getElementById('nest-sheet-w').value) || 1500;
+  var sheetH = Number(document.getElementById('nest-sheet-h').value) || 3000;
+  var gap = Number(document.getElementById('nest-gap').value);
+  if (!(gap >= 0)) gap = 3;
+
+  // ANA + ALTUST hepsi aynı fiziksel sac(lar)dan kesileceği için nesting'de birleştirilir
+  // (grup ayrımı sadece f0'daki dosya organizasyonu içindi, malzeme tüketimini etkilemez).
+  var relevantPanels = panels.slice();
+
+  var allPieces = buildNestPieces(relevantPanels);
+  var groups = groupNestPieces(allPieces);
+  var reports = [];
+  groups.forEach(function (g) {
+    g.nestResult = nestPieces(g.pieces, sheetW, sheetH, gap);
+    g.report = computeNestReport(g.nestResult, g.kalinlik);
+    g.previewIndex = 0;
+    reports.push(g.report);
+  });
+  nestState = { groups: groups, aggregate: aggregateNestReports(reports), sheetW: sheetW, sheetH: sheetH, gap: gap };
+  return nestState;
+}
+
+function nestSvgPreviewForSheet(g, sheetIdx) {
+  var sw = new SvgWriter();
+  renderNestSheetToWriter(sw, g.nestResult.sheets[sheetIdx], g.nestResult.sheetW, g.nestResult.sheetH, 0);
+  return sw.toSvg(360, 620);
+}
+
+function renderNestModalContent() {
+  var summaryEl = document.getElementById('nest-summary');
+  var groupsEl = document.getElementById('nest-groups');
+  if (!nestState || !nestState.groups.length) {
+    summaryEl.innerHTML = '';
+    groupsEl.innerHTML = '<div style=&quot;color:var(--text-muted);font-size:13px;padding:20px;text-align:center;&quot;>Nestlenecek panel yok — önce listeye panel ekleyin.</div>';
+    return;
+  }
+  var agg = nestState.aggregate;
+  summaryEl.innerHTML = '<div class=&quot;nest-summary-banner&quot;>'
+    + '<div>Toplam plaka: <b>' + agg.totalSheetCount + '</b></div>'
+    + '<div>Toplam ağırlık: <b>' + agg.totalKg.toFixed(1) + ' kg</b></div>'
+    + '<div>Ortalama fire: <b>%' + agg.firePercent.toFixed(1) + '</b></div>'
+    + '</div>';
+
+  groupsEl.innerHTML = nestState.groups.map(function (g, gi) {
+    var r = g.report;
+    var svg = nestSvgPreviewForSheet(g, g.previewIndex);
+    return '<div class=&quot;nest-group-card&quot;>'
+      + '<div class=&quot;nest-group-title&quot;>' + g.label + '</div>'
+      + '<div class=&quot;nest-group-stats&quot;>'
+      + '<div>Plaka: <b>' + r.sheetCount + '</b></div>'
+      + '<div>Kalınlık: <b>' + r.gaugeMm + ' mm</b></div>'
+      + '<div>Ağırlık: <b>' + r.totalKg.toFixed(1) + ' kg</b></div>'
+      + '<div>Fire: <b>%' + r.firePercent.toFixed(1) + '</b></div>'
+      + '</div>'
+      + '<div class=&quot;nest-preview-box&quot;>' + svg + '</div>'
+      + '<div class=&quot;nest-preview-nav&quot;>'
+      + '<button data-nestprev=&quot;' + gi + '&quot; ' + (g.previewIndex <= 0 ? 'disabled' : '') + '>‹ Önceki</button>'
+      + '<span>Sac ' + (g.previewIndex + 1) + ' / ' + g.nestResult.sheets.length + '</span>'
+      + '<button data-nestnext=&quot;' + gi + '&quot; ' + (g.previewIndex >= g.nestResult.sheets.length - 1 ? 'disabled' : '') + '>Sonraki ›</button>'
+      + '</div>'
+      + '<div class=&quot;nest-group-actions&quot;>'
+      + '<button class=&quot;nest-download-btn&quot; data-nestdlgroup=&quot;' + gi + '&quot;>⬇ İndir (Birleşik DXF)</button>'
+      + '<button class=&quot;nest-sheet-link&quot; data-nestdlsheet=&quot;' + gi + '&quot;>Sadece Bu Sacı İndir</button>'
+      + '</div>'
+      + '</div>';
+  }).join('');
+
+  nestBindGroupEvents();
+}
+
+function nestBindGroupEvents() {
+  document.querySelectorAll('[data-nestprev]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var gi = Number(b.dataset.nestprev);
+      var g = nestState.groups[gi];
+      if (g.previewIndex > 0) { g.previewIndex--; renderNestModalContent(); }
+    });
+  });
+  document.querySelectorAll('[data-nestnext]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var gi = Number(b.dataset.nestnext);
+      var g = nestState.groups[gi];
+      if (g.previewIndex < g.nestResult.sheets.length - 1) { g.previewIndex++; renderNestModalContent(); }
+    });
+  });
+  document.querySelectorAll('[data-nestdlgroup]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var g = nestState.groups[Number(b.dataset.nestdlgroup)];
+      var dxf = renderNestGroupCombined(g.nestResult);
+      var elAd = document.getElementById('dosyaAdi50');
+      var baseAd = (elAd && elAd.value.trim()) || 'sac_nesting';
+      nestDownloadDxf(dxf, baseAd + '_' + g.kalinlik + '_nesting.dxf');
+    });
+  });
+  document.querySelectorAll('[data-nestdlsheet]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var g = nestState.groups[Number(b.dataset.nestdlsheet)];
+      var dxf = renderSingleNestSheetDxf(g.nestResult.sheets[g.previewIndex], g.nestResult.sheetW, g.nestResult.sheetH);
+      nestDownloadDxf(dxf, g.kalinlik + '_sac' + (g.previewIndex + 1) + '.dxf');
+    });
+  });
+}
+
+function nestRunAndRender() {
+  try {
+    nestComputeAll();
+    renderNestModalContent();
+  } catch (e) {
+    document.getElementById('nest-summary').innerHTML = '';
+    document.getElementById('nest-groups').innerHTML = '<div style=&quot;color:var(--bad);font-size:13px;padding:20px;&quot;>Hata: ' + (e.message || e) + '</div>';
+  }
+}
+
+function openNestModal() {
+  nestLoadGaugeInputs();
+  document.getElementById('nest-sheet-w').value = 1500;
+  document.getElementById('nest-sheet-h').value = 3000;
+  document.getElementById('nest-gap').value = 3;
+  if (panels.length === 0) {
+    document.getElementById('nest-summary').innerHTML = '';
+    document.getElementById('nest-groups').innerHTML = '<div style=&quot;color:var(--text-muted);font-size:13px;padding:20px;text-align:center;&quot;>Nestlenecek panel yok — önce listeye panel ekleyin.</div>';
+  } else {
+    nestRunAndRender();
+  }
+  document.getElementById('nest-modal').classList.add('active');
+}
+function closeNestModal() {
+  document.getElementById('nest-modal').classList.remove('active');
+}
+
+var elNestExport = document.getElementById('btn-nest-export');
+if (elNestExport) elNestExport.addEventListener('click', openNestModal);
+// nest-modal içindeki elemanlar (kapat/backdrop/recalc/gauge girişleri) bu script bloğunun
+// ALTINDA, body sonunda tanımlı — burada henüz DOM'da yoklar. Bağlama, modal HTML'inin
+// hemen ardındaki küçük &lt;script&gt; bloğunda yapılıyor (bkz. aşağıda #nest-modal sonrası).
 
 function applyKapakData(data) {
   try {
@@ -9433,6 +10007,36 @@ setTimeout(function() {
     window.parent.postMessage({ type: 'dxfReady' }, '*');
   }
 }, 300);
+</script>
+
+<div id=&quot;nest-modal&quot;>
+  <div class=&quot;nest-backdrop&quot; data-nestclose=&quot;1&quot;></div>
+  <div class=&quot;nest-panel&quot;>
+    <div class=&quot;nest-header&quot;>
+      <div class=&quot;nest-title&quot;>Sac Nesting — Kesim Yerleşimi</div>
+      <button class=&quot;nest-close&quot; id=&quot;nest-close-btn&quot; type=&quot;button&quot;>×</button>
+    </div>
+    <div class=&quot;nest-body&quot; id=&quot;nest-body&quot;>
+      <div class=&quot;nest-settings&quot;>
+        <div><label>50'lik Galvaniz (mm)</label><input type=&quot;number&quot; step=&quot;0.1&quot; min=&quot;0.1&quot; id=&quot;nest-gauge-50&quot;></div>
+        <div><label>60'lık Galvaniz (mm)</label><input type=&quot;number&quot; step=&quot;0.1&quot; min=&quot;0.1&quot; id=&quot;nest-gauge-60&quot;></div>
+        <div><label>50'lik Paslanmaz (mm)</label><input type=&quot;number&quot; step=&quot;0.1&quot; min=&quot;0.1&quot; id=&quot;nest-gauge-50P&quot;></div>
+        <div><label>60'lık Paslanmaz (mm)</label><input type=&quot;number&quot; step=&quot;0.1&quot; min=&quot;0.1&quot; id=&quot;nest-gauge-60P&quot;></div>
+        <div><label>Sac Genişliği (mm)</label><input type=&quot;number&quot; id=&quot;nest-sheet-w&quot; value=&quot;1500&quot;></div>
+        <div><label>Sac Yüksekliği (mm)</label><input type=&quot;number&quot; id=&quot;nest-sheet-h&quot; value=&quot;3000&quot;></div>
+        <div><label>Parça Boşluğu (mm)</label><input type=&quot;number&quot; step=&quot;0.5&quot; id=&quot;nest-gap&quot; value=&quot;3&quot;></div>
+        <div style=&quot;display:flex;align-items:flex-end;&quot;><button class=&quot;nest-recalc-btn&quot; id=&quot;nest-recalc-btn&quot; type=&quot;button&quot;>Yeniden Hesapla</button></div>
+      </div>
+      <div id=&quot;nest-summary&quot;></div>
+      <div id=&quot;nest-groups&quot;></div>
+    </div>
+  </div>
+</div>
+<script>
+  document.getElementById('nest-close-btn').addEventListener('click', closeNestModal);
+  document.querySelector('#nest-modal .nest-backdrop').addEventListener('click', closeNestModal);
+  document.getElementById('nest-recalc-btn').addEventListener('click', nestRunAndRender);
+  nestWireGaugeInputs();
 </script>
 
 </body>
