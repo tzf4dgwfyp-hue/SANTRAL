@@ -9624,7 +9624,9 @@ function nestPieces(pieceList, sheetW, sheetH, gap) {
   }
 
   function runPack(sw, sh) {
-    function newSheet() { return { freeRects: [{ x: 0, y: 0, w: sw, h: sh }], placements: [] }; }
+    // Sac kenarından da parçalar-arası ile AYNI payı bırak (kenara yapışık kesim yok) — başlangıç
+    // boş dikdörtgeni tüm sacı değil, her yönden `gap` içeri girinti yapılmış alanı kapsar.
+    function newSheet() { return { freeRects: [{ x: gap, y: gap, w: Math.max(sw - 2 * gap, 0), h: Math.max(sh - 2 * gap, 0) }], placements: [] }; }
     var sheets = [newSheet()];
     for (var i = 0; i < ordered.length; i++) {
       var piece = ordered[i];
