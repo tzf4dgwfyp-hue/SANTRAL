@@ -228,7 +228,8 @@ iframe.active{display:block;}
   .svg-panel{cursor:pointer;}
   .svg-panel:hover .panel-rect{stroke:#4fb8a8;stroke-width:2.5;}
   .panel-rect.selected{stroke:#4fb8a8;stroke-width:3;}
-  .svg-addbtn, .svg-gap, .svg-innergap, .svg-addpanel, .svg-addrow, .svg-addcol{cursor:pointer;}
+  .svg-addbtn, .svg-gap, .svg-innergap, .svg-addpanel, .svg-addrow, .svg-addcol, .svg-anacut{cursor:pointer;}
+  .svg-anacut:hover circle:first-child{fill:#4fb8a8;r:6;}
   .svg-addbtn:hover rect{fill:#2a4a44;}
   .svg-addpanel:hover rect, .svg-addrow:hover rect, .svg-addcol:hover rect{fill:#2a4a44;}
   .svg-gap:hover .gap-hint, .svg-innergap:hover .gap-hint{stroke:#4fb8a8;stroke-width:2;}
@@ -407,7 +408,7 @@ iframe.active{display:block;}
   </table></div>
   <h2 style=&quot;margin-top:18px;&quot;>Toplu Sipariş Listesi (Boya Göre Gruplu)</h2>
   <div style=&quot;overflow-x:auto;&quot;><table class=&quot;profil-table&quot;>
-    <thead><tr><th>Profil</th><th>Boy (mm)</th><th>Toplam Adet</th><th>Toplam Uzunluk (m)</th></tr></thead>
+    <thead><tr><th>Boy (mm)</th><th>Toplam Adet</th><th>Toplam Uzunluk (m)</th></tr></thead>
     <tbody id=&quot;gsum_group&quot;></tbody>
   </table></div>
   <div class=&quot;note&quot; id=&quot;gsum_note&quot;></div>
@@ -472,32 +473,57 @@ const TYPE_COLORS = {
  IZGARA VERİ MODELİ
  face = {
    kapaksiz, orient ('H': bölümler soldan sağa | 'V': bölümler yukarıdan aşağıya),
-   columns: [ { size, panels:[{size,type}], innerGaps:[bool], araJoinNext:[bool] } ],
+   columns: [ { size, panels:[{size,type,colSpan}], innerGaps:[bool], araJoinNext:[bool] } ],
    colGaps: [bool],           // bölümler arası ANA takviye (orient H → dikey)
-   anaSplit: [bool],          // colGaps ile paralel: bu ANA takviye tekil olarak AYRILMIŞ mı (bkz. sharedGapLevels)
-   selected: {col, idx} | null,
-   selectedBar: {kind:'ana', i} | {kind:'ara', ci, gi} | null
+   anaSplitLevels: [[idx,…]], // colGaps ile paralel: bu ANA takviyenin HANGİ seviyelerden
+                              // kesildiği (bkz. sharedGapLevels). Boş dizi = boydan boya sürekli.
+   selectedCells: [{col, idx}, …],                             // Ctrl ile çoklu seçilebilir
+   selectedBars:  [{kind:'ana', i} | {kind:'ara', ci, gi}, …]   // Ctrl ile çoklu seçilebilir
  }
  column.size  = bölümün ana yöndeki ölçüsü (H orient → kapak genişliği w)
  panel.size   = kapağın dik yöndeki ölçüsü  (H orient → kapak yüksekliği h)
                 Bölümde TEK kapak varsa ve size=0 → otomatik tam yükseklik.
+ panel.colSpan  = bu kapağın kaç bölüm kapladığı (varsayılan 1). n>1 ise kapak sağındaki
+                  n-1 bölüme taşar; aradaki ANA takviye O BANTTA kalkar ve kapladığı
+                  bölümlerdeki hizalı hücreler &quot;covered&quot; olur — geometriye katkı verir
+                  ama kapak sayılmaz (kesim listesi/DXF/Excel dışında kalır). Böylece üst
+                  satır ile alt satır FARKLI sayıda kapak içerebilir.
  innerGaps[i]   = bölüm içindeki i. ile i+1. kapak arasında ARA takviye (orient H → yatay)
  araJoinNext[i] = bu bölümün i. seviyesindeki ARA takviye bir SONRAKİ bölümle BİRLEŞİK mi
                   (varsayılan false = bugünkü gibi her bölüm kendi parçası)
- cont alanı artık okunmuyor (eski projelerle geriye dönük uyumluluk için duruyor, zararsız).
+ cont / anaSplit / selected / selectedBar alanları artık okunmuyor (eski projelerle geriye
+ dönük uyumluluk için syncStructure bir kez göç ettirir, sonra zararsızca durur).
 */
-function newColumn(){ return { size:0, panels:[{size:0, type:&quot;Normal Panel&quot;}], innerGaps:[], araJoinNext:[] }; }
+function newColumn(){ return { size:0, panels:[{size:0, type:&quot;Normal Panel&quot;, colSpan:1}], innerGaps:[], araJoinNext:[] }; }
 function newFaceSet(){
   return FACE_DEFS.map(()=>({
     kapaksiz: false,
     orient: 'H',
     cont: 'ana',
-    selected: null,
-    selectedBar: null,
+    selectedCells: [],
+    selectedBars: [],
     columns: [ newColumn() ],
     colGaps: [],
-    anaSplit: []
+    anaSplitLevels: []
   }));
+}
+
+// Çoklu seçimde &quot;birincil&quot; öğe = en son tıklanan. Tek kapak/tek bar düzenleyicisi bunu kullanır.
+function selCell(face){ const a = face.selectedCells; return (a && a.length) ? a[a.length-1] : null; }
+function selBar(face){ const a = face.selectedBars; return (a && a.length) ? a[a.length-1] : null; }
+function sameCell(a,b){ return a.col===b.col && a.idx===b.idx; }
+function sameBar(a,b){
+  if(a.kind!==b.kind) return false;
+  return a.kind==='ana' ? a.i===b.i : (a.ci===b.ci && a.gi===b.gi);
+}
+// Ctrl/Cmd basılıysa listeye ekle/çıkar, değilse tek öğeye indir (tekrar tıklama = seçimi kaldır).
+function toggleSel(list, item, eq, additive){
+  const at = list.findIndex(x=>eq(x,item));
+  if(additive){
+    if(at>=0) list.splice(at,1); else list.push(item);
+    return list;
+  }
+  return (at>=0 && list.length===1) ? [] : [item];
 }
 function newModule(){ return { L:0, H:0, W:0, pos:{x:0,y:0,z:0}, faces: newFaceSet() }; }
 function newAhu(n){ return { ad:'AHU-'+(n||1), malzeme:'', active:0, modules:[newModule()], varsayimlar:{seri:'', tolW:3, tolH:3} }; }
@@ -683,18 +709,45 @@ function syncStructure(face){
   const needCG = Math.max(face.columns.length-1, 0);
   while(face.colGaps.length < needCG) face.colGaps.push(true);   // otomatik: yeni ara = takviyeli (boğaz bitişiği dahil)
   face.colGaps.length = needCG;
-  if(!face.anaSplit) face.anaSplit = [];
-  while(face.anaSplit.length < needCG) face.anaSplit.push(false); // yeni ana takviye varsayılan: sürekli (ayrılmamış)
-  face.anaSplit.length = needCG;
-  if(!face.selectedBar) face.selectedBar = null;
-  face.columns.forEach(col=>{
+
+  // GÖÇ: eski anaSplit[i] boolean'ı → anaSplitLevels[i] seviye listesi. true = &quot;hizalı TÜM
+  // seviyelerden kes&quot; demekti; o seviyeler ancak computeFace içinde (sharedGapLevels ile)
+  // bilindiğinden burada '*' işareti olarak taşınır, computeFace'te gerçek listeye açılır.
+  if(!Array.isArray(face.anaSplitLevels)){
+    const old = Array.isArray(face.anaSplit) ? face.anaSplit : [];
+    face.anaSplitLevels = old.map(v=> v ? '*' : []);
+  }
+  while(face.anaSplitLevels.length < needCG) face.anaSplitLevels.push([]); // yeni ana takviye: sürekli
+  face.anaSplitLevels.length = needCG;
+
+  // GÖÇ: tekil seçim alanları → çoklu seçim listeleri
+  if(!Array.isArray(face.selectedCells)) face.selectedCells = face.selected ? [face.selected] : [];
+  if(!Array.isArray(face.selectedBars))  face.selectedBars  = face.selectedBar ? [face.selectedBar] : [];
+
+  face.columns.forEach((col, ci)=>{
     const needIG = Math.max(col.panels.length-1, 0);
     while(col.innerGaps.length < needIG) col.innerGaps.push(true); // otomatik: yeni ara = takviyeli
     col.innerGaps.length = needIG;
     if(!col.araJoinNext) col.araJoinNext = [];
     while(col.araJoinNext.length < needIG) col.araJoinNext.push(false); // yeni ara takviye varsayılan: segmentli (birleşmemiş)
     col.araJoinNext.length = needIG;
+    // colSpan: tanımsız/bozuksa 1; sağda o kadar bölüm kalmadıysa kırp
+    col.panels.forEach(p=>{
+      const n = Math.round(Number(p.colSpan)||1);
+      p.colSpan = Math.max(1, Math.min(n, face.columns.length - ci));
+    });
   });
+
+  // Bölüm/kapak silinince geçersiz kalan kesim seviyelerini ve seçimleri bud
+  face.anaSplitLevels = face.anaSplitLevels.map((lv, i)=>{
+    if(lv === '*') return '*';
+    const maxIdx = (face.columns[i] ? face.columns[i].panels.length : 1) - 2;
+    return (Array.isArray(lv) ? lv : []).filter(ix => ix>=0 && ix<=maxIdx);
+  });
+  face.selectedCells = face.selectedCells.filter(s => face.columns[s.col] && face.columns[s.col].panels[s.idx]);
+  face.selectedBars  = face.selectedBars.filter(b => b.kind==='ana'
+    ? b.i < needCG
+    : (face.columns[b.ci] && b.gi < face.columns[b.ci].innerGaps.length));
 }
 
 // İki BİTİŞİK bölümün ara takviye seviyelerini kümülatif yüksekliğe göre eşleştirir
@@ -720,32 +773,107 @@ function sharedGapLevels(colResA, faceColA, colResB, faceColB){
   return shared;
 }
 
-// Ayrılmış bir ana takviyenin iki tarafındaki sütun panellerinin, &quot;levels&quot; ile sınırlanan
-// her hizalı segmentte KENDİ genişliklerini taşımasına izin verir (kademeli/zigzag sınır).
-// Tek kural: her segmentteki (sol+sağ) toplam genişlik SABİT kalmalı — yoksa sağ sütunun
-// bittiği yer (bir sonraki bölümün başlayacağı nokta) tanımsız kalır.
-function resolveStagger(colResL, colResR, levels){
-  function segOf(colRes, useIdxA){
-    let seg = 0; const out = [];
-    colRes.panels.forEach((p, pi)=>{
-      out[pi] = seg;
-      if(levels.some(l=>(useIdxA ? l.idxA : l.idxB) === pi)) seg++;
-    });
-    return out;
+// Bölüm başlangıçlarını SATIR BAZINDA çözer. Kesilmiş bir ANA takviye, kesildiği her
+// seviyede kendi X'ini değiştirebilir (kademeli/zigzag sınır); junction'lar soldan sağa
+// ZİNCİRLEME çözüldüğü için ART ARDA gelen kademeler de birbirini taşır — böylece her
+// satır kendi genişlik dağılımını taşıyabilir (üst satır 500/600/660, alt 600/600/560 gibi).
+// Birim bağımsızdır: mm (hesap/3B) ve px (SVG; min-piksel ve yer tutucular dahil) aynı kodu kullanır.
+//   widthOf(ci,pi) → hücrenin along-eksen ölçüsü
+//   colWidthOf(ci) → bölümün kendi ölçüsü (segmentte hiç katkı veren hücre yoksa yedek)
+//   gapW           → ana takviye kalınlığı (aynı birimde)
+//   autoEnd        → yüzün iç bitiş noktası; SON bölümde ölçüsü girilmemiş bir hücre, kendi
+//                    SATIRINDA kalan boşluğu doldurur (dik eksendeki &quot;oto&quot; kuralının aynısı).
+//                    Yalnız solundaki tüm hücreler girilmişse devreye girer.
+// Dönüş: start[ci][pi] (hücre along-başlangıcı), junctionX[i][seg] (ana takviye X'leri),
+//        segOfL/segOfR (segment haritaları), staggered/inconsistent (uyarı için),
+//        endMax/endMin, autoWidth[pi] (son bölümde otomatik doldurulan genişlikler).
+function resolveColumnLayout(colResults, face, anaBars, widthOf, colWidthOf, gapW, autoEnd){
+  const TOL = 0.51;
+  const n = colResults.length;
+  const start = colResults.map(c=>new Array(c.panels.length).fill(0));
+  const junctionX = [], segOfL = [], segOfR = [], staggered = [], inconsistent = [];
+  const autoWidth = new Array(colResults[n-1].panels.length).fill(null);
+  // complete[ci][pi] = bu hücrenin SOLUNDAKİ her şey gerçek ölçüyle girilmiş mi (satır bazında).
+  // Otomatik doldurma yalnız bu doğruysa yapılır — aksi halde eksik veri &quot;TAM OTURDU&quot; gibi görünürdü.
+  const complete = colResults.map(c=>new Array(c.panels.length).fill(true));
+  // Bir hücrenin SAĞ kenarı — yalnızca o junction'da BİTİYORSA katkı verir. Yayılan (colSpan>1)
+  // hücre aradaki junction'ları geçer ve kendi son bölümünde (spanLast) sayılır.
+  // real=false → ölçüsü henüz girilmemiş; hizasızlık uyarısında dikkate alınmaz.
+  function edgeOf(ci, pi){
+    const p = colResults[ci].panels[pi];
+    if(p.covered){
+      if(!p.spanLast || !p.spanOwner) return null;      // birleşimin ortası: junction geçiliyor
+      const o = p.spanOwner, w = widthOf(o.col, o.idx);
+      return {e: start[o.col][o.idx] + w, real: w > 0, complete: w > 0 && complete[o.col][o.idx]};
+    }
+    if(p.spanN > 1) return null;                        // sağa taşıyor; son bölümünde sayılacak
+    const w = widthOf(ci, pi);
+    if(w <= 0 && ci === n-1 && autoEnd != null && complete[ci][pi]){
+      const aw = Math.max(autoEnd - start[ci][pi], 0);  // satırda kalan boşluk
+      autoWidth[pi] = aw;
+      return {e: start[ci][pi] + aw, real: true, complete: true};
+    }
+    return {e: start[ci][pi] + w, real: w > 0, complete: w > 0 && complete[ci][pi]};
   }
-  const segOfL = segOf(colResL, true), segOfR = segOf(colResR, false);
-  const segCount = levels.length + 1;
-  const leftW = new Array(segCount).fill(0), rightW = new Array(segCount).fill(0);
-  colResL.panels.forEach((p,pi)=>{ const s=segOfL[pi]; if(p.pColSize>leftW[s]) leftW[s]=p.pColSize; });
-  colResR.panels.forEach((p,pi)=>{ const s=segOfR[pi]; if(p.pColSize>rightW[s]) rightW[s]=p.pColSize; });
-  const pairTotal = leftW.map((lw,i)=>lw+rightW[i]);
-  const effectivePairTotal = Math.max(...pairTotal);
-  const consistent = (effectivePairTotal - Math.min(...pairTotal)) <= 0.51;
-  // Sadece leftW segmentler arasında GERÇEKTEN farklıysa görsel bir zigzag oluşur — aksi halde
-  // (tüm panel genişlikleri zaten eşitse) bugünkü düz-bölünmüş davranıştan hiçbir farkı yoktur ve
-  // ara-birleştirmeyi engellemeye gerek yok (mevcut kaynak formülü zaten doğru sonucu verir).
-  const visiblyStaggered = leftW.some(w=>Math.abs(w-leftW[0])>0.51);
-  return {leftW, rightW, pairTotal, effectivePairTotal, consistent, visiblyStaggered, segOfL, segOfR};
+  for(let i=0; i<n-1; i++){
+    const b = anaBars[i];
+    const cuts = (b && b.staggerable) ? b.cutLevels : [];
+    const segCount = cuts.length + 1;
+    let s = 0;
+    const mapL = colResults[i].panels.map((p,pi)=>{ const v=s; if(cuts.indexOf(pi)>=0) s++; return v; });
+    const cutsB = cuts.map(ix=>{ const l = b.levels.find(L=>L.idxA===ix); return l ? l.idxB : -1; });
+    s = 0;
+    const mapR = colResults[i+1].panels.map((p,pj)=>{ const v=s; if(cutsB.indexOf(pj)>=0) s++; return v; });
+
+    const hi = new Array(segCount).fill(null), lo = new Array(segCount).fill(null);
+    const compAt = new Array(segCount).fill(false);   // segmentin sağ kenarını belirleyen hücre eksiksiz mi
+    colResults[i].panels.forEach((p,pi)=>{
+      const c = edgeOf(i, pi);
+      if(!c) return;
+      const sg = Math.min(mapL[pi], segCount-1);
+      if(hi[sg]===null || c.e>hi[sg]){ hi[sg]=c.e; compAt[sg]=c.complete; }
+      if(c.real && (lo[sg]===null || c.e<lo[sg])) lo[sg]=c.e;
+    });
+    // Tamamen birleşik kapağın altında kalan segmentte bar zaten çizilmez; yine de bir X gerekir
+    let fb = 0;
+    colResults[i].panels.forEach((p,pi)=>{ const v = start[i][pi] + colWidthOf(i); if(v>fb) fb=v; });
+    let bad = false;
+    for(let k=0;k<segCount;k++){
+      if(hi[k]===null){ hi[k] = fb; lo[k] = fb; }
+      else if(lo[k]!==null && hi[k]-lo[k] > TOL) bad = true;
+    }
+    junctionX.push(hi); segOfL.push(mapL); segOfR.push(mapR);
+    inconsistent.push(bad);
+    staggered.push(hi.some(v=>Math.abs(v-hi[0])>TOL));
+    const g = face.colGaps[i] ? gapW : 0;
+    colResults[i+1].panels.forEach((p,pj)=>{
+      const sg = Math.min(mapR[pj], segCount-1);
+      start[i+1][pj] = hi[sg] + g;
+      complete[i+1][pj] = compAt[sg];
+    });
+  }
+  let endMax = null, endMin = null;
+  colResults[n-1].panels.forEach((p,pi)=>{
+    const c = edgeOf(n-1, pi);
+    if(!c) return;
+    if(endMax===null || c.e>endMax) endMax = c.e;
+    if(c.real && (endMin===null || c.e<endMin)) endMin = c.e;
+  });
+  if(endMax===null){
+    endMax = 0;
+    colResults[n-1].panels.forEach((p,pi)=>{ const v = start[n-1][pi] + colWidthOf(n-1); if(v>endMax) endMax=v; });
+  }
+  if(endMin===null) endMin = endMax;
+  // Bir hücrenin along-eksen SAĞ kenarı: ara bölümlerde o banttaki ANA TAKVİYE'nin durduğu
+  // yer, son bölümde hücrenin kendi kenarı. Ara takviye boyu buradan okunur — böylece
+  // bölüm maksimumuna (colSize) hiç bağlı kalmaz; birleşik kapağın KAPLADIĞI hücrenin
+  // kendi (artık anlamsız) ölçüsü bar boyunu şişiremez.
+  function rightAt(ci, pi){
+    if(ci < n-1) return junctionX[ci][Math.min(segOfL[ci][pi], junctionX[ci].length-1)];
+    const c = edgeOf(ci, pi);
+    return c ? c.e : start[ci][pi] + colWidthOf(ci);
+  }
+  return {start, junctionX, segOfL, segOfR, staggered, inconsistent, endMax, endMin, rightAt, autoWidth};
 }
 
 function computeFace(fi){
@@ -777,7 +905,23 @@ function computeFace(fi){
   const anaTakAdedi = face.colGaps.filter(Boolean).length;
   const icKullAlong = alongDim - 2*V.kenar - anaTakAdedi*V.takviye;
 
-  let toplamAlong = 0, toplamKapak = 0, araTakToplam = 0;
+  // pColSize (along) ve eff (across) değerlerinden gerçek w/h eşleşmesini ve SABİT (kesim)
+  // ölçülerini türetir. Yayılan (colSpan>1) hücrelerde pColSize 2. geçişte değiştiği için
+  // orada bir kez daha çağrılır — formülün tek kopyası burada durur.
+  function applyDims(p){
+    p.panelW = orient==='H' ? p.pColSize : p.eff;
+    p.panelH = orient==='H' ? p.eff : p.pColSize;
+    const along  = (p.pColSize>0 && !p.bos) ? (p.eleman ? p.pColSize : p.pColSize - (p.acilir?tolAlong+V.acilirEk:tolAlong)) : null;
+    const across = (p.eff>0 && !p.bos)      ? (p.eleman ? p.eff      : p.eff      - (p.acilir?tolAcross+V.acilirEk:tolAcross)) : null;
+    p.sabitW = orient==='H' ? along : across;
+    p.sabitH = orient==='H' ? across : along;
+  }
+
+  let toplamKapak = 0, araTakToplam = 0;
+
+  // ---- GEÇİŞ 1: bölüm genişlikleri ve kapak yükseklikleri ----
+  // Yayılan hücre KENDİ bölümünün genişliğini belirlemez (genişliği 2. geçişte, kapladığı
+  // bölümlerin toplamından türetilir) — bu yüzden maxPanelColSize'a katkı vermez.
   const colResults = face.columns.map((col, ci)=>{
     // col.size = bölüm varsayılan genişliği (yeni kapaklar için); panel.colSize = bireysel kapak genişliği
     const colSizeDefault = Number(col.size)||0;
@@ -792,12 +936,12 @@ function computeFace(fi){
     const lastIdx = col.panels.length-1;
     let maxPanelColSize = 0;
     const panels = col.panels.map((p,pi)=>{
+      const spanN = Math.max(1, Math.min(Math.round(Number(p.colSpan)||1), face.columns.length - ci));
       const pColSize = Number(p.colSize)||0 || colSizeDefault; // bireysel kapak along-ekseni ölçüsü
-      if(pColSize > maxPanelColSize) maxPanelColSize = pColSize;
+      if(spanN===1 && pColSize > maxPanelColSize) maxPanelColSize = pColSize;
 
       const eleman = isEleman(p.type);      // Damper/Boğaz: 0 tolerans
       const bos = isBos(p.type);            // Boş Alan: yer kaplar, kesime girmez
-      if(!eleman && !bos) toplamKapak++;
       const entered = enteredList[pi];
       // Otomatik doldurma: tek hücre boş bırakılırsa VEYA son hücre &quot;Boş Alan&quot; ve ölçüsüzse kalan alanı alır
       const trailingBosAuto = bos && entered<=0 && pi===lastIdx && !single
@@ -810,86 +954,237 @@ function computeFace(fi){
       if(!auto && entered>0) toplamAcross += entered;
       const acilir = isAcilir(p.type);
 
-      // Gerçek w/h eşleşmesi (pColSize: bireysel along)
-      const panelW = orient==='H' ? pColSize : eff;
-      const panelH = orient==='H' ? eff : pColSize;
-
-      const sabitAlongV  = (pColSize>0 && !bos) ? (eleman ? pColSize : pColSize - (acilir?tolAlong+V.acilirEk:tolAlong)) : null;
-      const sabitAcrossV = (eff>0 && !bos) ? (eleman ? eff : eff - (acilir?tolAcross+V.acilirEk:tolAcross)) : null;
-      const sabitW = orient==='H' ? sabitAlongV : sabitAcrossV;
-      const sabitH = orient==='H' ? sabitAcrossV : sabitAlongV;
-
-      return {entered, auto, eff, pColSize, panelW, panelH, sabitW, sabitH, type:p.type, acilir, eleman, bos};
+      const out = {entered, auto, eff, pColSize, type:p.type, acilir, eleman, bos,
+                   spanN, covered:false, spanCovers:null, spanOwner:null, spanLast:false, colAuto:false};
+      applyDims(out);
+      return out;
     });
 
     // Bölümün along katkısı = en büyük panel colSize (bölüm cursor'ı bu ölçüde ilerler)
     const colSize = maxPanelColSize || colSizeDefault;
-    if(colSize>0) toplamAlong += colSize;
 
     const autoUsed = panels.some(pp=>pp.auto);
     const kalanAcross = autoUsed ? 0 : (icColAcross - toplamAcross);
     return {colSize, colSizeDefault, panels, innerTakAdedi, icColAcross, kalanAcross, autoUsed, hasBogaz: colHasBogaz(col)};
   });
 
+  // ---- GEÇİŞ 2: HÜCRE BİRLEŞTİRME (colSpan) ----
+  // Yayılan hücre kapladığı bölümlerin genişlikleri + aradaki ANA takviye kalınlıkları kadar
+  // genişler; kapladığı bölümlerdeki HİZALI hücreler &quot;covered&quot; olur (kapak sayılmaz). Toplam
+  // genişlik değişmediği için icKullAlong muhasebesi olduğu gibi doğru kalır.
+  const spanWarnings = [];
+  const spanForcedCuts = face.columns.map(()=>[]);      // [junction i] → zorunlu kesim seviyeleri (idxA)
+  const junctionSuppressed = face.columns.map(()=>({})); // [junction i][bant idx] → o bandda ana takviye yok
+  const cellBounds = colResults.map(cRes=>{              // sharedGapLevels ile AYNI kümülatif eff uzayı
+    const out = []; let cum = 0;
+    cRes.panels.forEach(p=>{ out.push({top:cum, bot:cum+p.eff}); cum += p.eff; });
+    return out;
+  });
+  colResults.forEach((cRes, ci)=>{
+    cRes.panels.forEach((p, pi)=>{
+      if(p.spanN <= 1 || p.covered) return;
+      const last = ci + p.spanN - 1;
+      const me = cellBounds[ci][pi];
+      const covers = [];
+      let bad = null;
+      for(let j=ci+1; j<=last && !bad; j++){
+        const k = cellBounds[j].findIndex(b=> Math.abs(b.top-me.top)<=0.51 && Math.abs(b.bot-me.bot)<=0.51);
+        if(k < 0){ bad = 'Bölüm '+(j+1)+' içinde hizalı hücre yok'; break; }
+        const target = colResults[j].panels[k];
+        if(target.covered || target.spanN>1){ bad = 'Bölüm '+(j+1)+' hücresi başka bir birleşimde'; break; }
+        covers.push({col:j, idx:k});
+      }
+      // Birleşen hücrenin üst ve alt sınırı ya yüz kenarına ya da GERÇEK bir ara takviyeye
+      // dayanmalı — aksi halde dikey takviye boşlukta biterdi.
+      if(!bad){
+        const all = [{col:ci, idx:pi}].concat(covers);
+        for(const c of all){
+          const col = face.columns[c.col];
+          if(c.idx > 0 && !col.innerGaps[c.idx-1]){ bad = 'üst sınırda ara takviye yok (Bölüm '+(c.col+1)+')'; break; }
+          if(c.idx < col.panels.length-1 && !col.innerGaps[c.idx]){ bad = 'alt sınırda ara takviye yok (Bölüm '+(c.col+1)+')'; break; }
+        }
+      }
+      if(bad){
+        p.spanN = 1;
+        spanWarnings.push('Kapak birleşimi (Bölüm '+(ci+1)+', Kapak '+(pi+1)+') uygulanamadı: '+bad+' — birleşim çözüldü');
+        return;
+      }
+      const all = [{col:ci, idx:pi}].concat(covers);
+      covers.forEach((c,cx)=>{
+        const t = colResults[c.col].panels[c.idx];
+        t.covered = true;
+        t.spanOwner = {col:ci, idx:pi};
+        t.spanLast = (cx === covers.length-1);   // birleşimin SON bölümü: sağ kenarı orada sayılır
+      });
+      p.spanCovers = covers;
+      // Kaplanan junction'lar: o bandda ana takviye yok, iki ucunda kesim zorunlu
+      all.slice(0, all.length-1).forEach(c=>{
+        const j = c.col;
+        junctionSuppressed[j][c.idx] = true;
+        if(c.idx > 0) spanForcedCuts[j].push(c.idx-1);
+        if(c.idx < face.columns[j].panels.length-1) spanForcedCuts[j].push(c.idx);
+      });
+      // Genişlik = kapladığı bölümlerin toplamı + aradaki AÇIK ana takviyelerin kalınlığı
+      let w = 0;
+      for(let j=ci; j<=last; j++) w += colResults[j].colSize;
+      for(let j=ci; j<last; j++) if(face.colGaps[j]) w += V.takviye;
+      p.pColSize = w;
+      applyDims(p);   // pColSize değişti → panelW/panelH ve SABİT ölçüler yeniden türetilir
+    });
+  });
+
+  // Kapak sayımı covered hücreleri saymaz (onlar tek bir birleşik kapağın parçası)
+  colResults.forEach(cRes=>cRes.panels.forEach(p=>{ if(!p.eleman && !p.bos && !p.covered) toplamKapak++; }));
+
   // TAKVİYE BAR ÇÖZÜMLEME — her ana/ara takviye kendi süreklilik durumuna göre
-  // ayrı ayrı değerlendirilir (bkz. sharedGapLevels). face.anaSplit[i]=true → o ANA
-  // takviye ayrılmış; col.araJoinNext[gi]=true → o ARA takviye bir sonraki bölümle birleşik.
+  // ayrı ayrı değerlendirilir (bkz. sharedGapLevels). face.anaSplitLevels[i] → o ANA
+  // takviyenin HANGİ seviyelerden kesildiği; col.araJoinNext[gi]=true → o ARA takviye
+  // bir sonraki bölümle birleşik.
   const bars = { ana: [], ara: [] };
-  const barWarnings = [];
-  const claimedCols = new Set(); // bir sütun aynı anda en fazla 1 kademeli (stagger) junction'a dahil olabilir
+  const barWarnings = spanWarnings.slice();
 
   for(let i=0; i<face.columns.length-1; i++){
     const on = !!face.colGaps[i];
     const levels = on ? sharedGapLevels(colResults[i], face.columns[i], colResults[i+1], face.columns[i+1]) : [];
-    const splitReq = !!face.anaSplit[i];
-    const splitValid = splitReq && levels.length>0;
-    if(on && splitReq && !splitValid) barWarnings.push('Ana Takviye (Bölüm '+(i+1)+'/'+(i+2)+' arası) ayrılamadı: hizalı ara takviye seviyesi yok — sürekli düzene geri düşüldü');
-    let stagger = null;
-    if(splitValid){
-      stagger = resolveStagger(colResults[i], colResults[i+1], levels);
-      if(claimedCols.has(i) || claimedCols.has(i+1)){
-        stagger.active = false;
-        barWarnings.push('Ana Takviye (Bölüm '+(i+1)+'/'+(i+2)+' arası): bitişik bölüm zaten kademeli bir takviyeye dahil — art arda kademeleme desteklenmiyor, düz bölünmüş çizildi');
-      } else {
-        stagger.active = true;
-        claimedCols.add(i); claimedCols.add(i+1);
-        if(!stagger.consistent) barWarnings.push('Ana Takviye (Bölüm '+(i+1)+'/'+(i+2)+' arası) satır genişlikleri tutarsız ('+stagger.pairTotal.map(v=>Math.round(v)).join('/')+' mm) — en büyük değer esas alındı');
-      }
-    }
-    bars.ana.push({i, on, splitReq, splitValid, levels, stagger});
-  }
-  bars.staggerByRightCol = {};
-  bars.ana.forEach(b=>{ if(b.stagger && b.stagger.active) bars.staggerByRightCol[b.i+1] = b; });
+    // Elle seçilen kesim seviyeleri ('*' = eski projelerin &quot;hepsini ayır&quot; davranışı) ile
+    // hücre birleştirmenin ZORUNLU kıldığı sınırların birleşimi. Zorunlu kesim otomatik
+    // bölme değildir: birleşik kapak o bandda takviyeyi kaldırdığından bandın iki ucunun
+    // kesilmesi geometrik zorunluluktur.
+    const req = face.anaSplitLevels[i];
+    const manual = (req === '*') ? levels.map(l=>l.idxA) : (Array.isArray(req) ? req : []);
+    const wanted = new Set(manual.concat(spanForcedCuts[i]));
+    const cutLevels = levels.filter(l=>wanted.has(l.idxA)).map(l=>l.idxA);
+    const splitValid = on && cutLevels.length>0;
+    const lostManual = manual.filter(ix=>!levels.some(l=>l.idxA===ix));
+    if(on && lostManual.length) barWarnings.push('Ana Takviye (Bölüm '+(i+1)+'/'+(i+2)+' arası): '+lostManual.length+' kesim noktası hizasını kaybetti (komşu bölümde hizalı ara takviye yok) — o noktalar sürekli çizildi');
 
-  // Kademeli (stagger) bölüm çiftlerinde gerçek toplam genişlik, iki sütunun kendi
-  // maksimumlarının toplamından FARKLI olabilir (satır bazlı yeniden dağılım) — düzeltilir.
-  let alongCorrection = 0;
-  bars.ana.forEach(b=>{
-    if(b.stagger && b.stagger.active){
-      alongCorrection += b.stagger.effectivePairTotal - colResults[b.i].colSize - colResults[b.i+1].colSize;
+    // Segmentler yukarıdan aşağıya. Bir segment tamamen birleşik bir kapağın bandına
+    // düşüyorsa orada takviye fiziksel olarak yoktur → suppressed (çizilmez, kesime girmez).
+    const segments = [];
+    if(on){
+      let len = 0, from = 0;
+      colResults[i].panels.forEach((p,k)=>{
+        len += p.eff;
+        if(cutLevels.indexOf(k) >= 0){ segments.push({len, from, to:k}); len = 0; from = k+1; }
+      });
+      segments.push({len, from, to: Math.max(colResults[i].panels.length-1, 0)});
+      segments.forEach(sg=>{
+        sg.suppressed = true;
+        for(let k=sg.from; k<=sg.to; k++){ if(!junctionSuppressed[i][k]){ sg.suppressed = false; break; } }
+      });
     }
+    // Bu junction'ın TAMAMI birleşik kapağın altında kaldıysa ortada bar yok demektir
+    const fullySuppressed = on && segments.length>0 && segments.every(sg=>sg.suppressed);
+
+    // Birleşik kapak içeren junction kademeli (stagger) olamaz: kademe çözümü iki bölümün
+    // bandı tam paylaştığını varsayar, birleşimde o varsayım geçersizdir.
+    const hasSpan = Object.keys(junctionSuppressed[i]).length > 0;
+    const staggerable = splitValid && !hasSpan;
+    bars.ana.push({i, on, cutLevels, splitValid, staggerable, fullySuppressed, levels, segments});
+  }
+
+  // ---- GEÇİŞ 3: SATIR BAZLI YERLEŞİM (zincirleme kademe) ----
+  const layout = resolveColumnLayout(colResults, face, bars.ana,
+    (ci,pi)=>colResults[ci].panels[pi].pColSize||0,
+    ci=>colResults[ci].colSize||0,
+    V.takviye,
+    alongDim>0 ? alongDim - 2*V.kenar : null);
+  bars.layout = layout;
+
+  // ---- GEÇİŞ 4: SON BÖLÜMDE OTOMATİK GENİŞLİK ----
+  // Ölçüsü girilmemiş bir hücre, bölüm maksimumunu (üstteki kapağın ölçüsünü) DEĞİL kendi
+  // satırında kalan boşluğu alır — aksi halde satır yüzün dışına taşardı.
+  {
+    const lastCi = colResults.length-1;
+    layout.autoWidth.forEach((w, pi)=>{
+      if(w==null) return;
+      const p = colResults[lastCi].panels[pi];
+      p.pColSize = w;
+      p.colAuto = true;      // etiketlerde &quot;(oto)&quot; olarak gösterilir
+      applyDims(p);
+    });
+  }
+  bars.ana.forEach(b=>{ b.segX = layout.junctionX[b.i]; b.staggered = layout.staggered[b.i]; });
+  layout.inconsistent.forEach((bad,i)=>{
+    if(bad) barWarnings.push('Ana Takviye (Bölüm '+(i+1)+'/'+(i+2)+' arası): satırlar aynı hizada bitmiyor — en geniş satır esas alındı'+(bars.ana[i].staggerable ? '' : ' (bu takviye kesilirse her satır kendi genişliğini alabilir)'));
   });
-  const kalanAlong = icKullAlong - (toplamAlong + alongCorrection);
+  if(layout.endMax - layout.endMin > 0.51)
+    barWarnings.push('Satırların toplam genişliği eşit değil ('+Math.round(layout.endMin)+'/'+Math.round(layout.endMax)+' mm) — en geniş satır esas alındı');
+
+  // Her satır kendi genişlik dağılımını taşıyabildiği için toplam kullanım, sütun
+  // maksimumlarının toplamı değil, EN GENİŞ satırın bittiği yerdir.
+  const kalanAlong = icKullAlong - (layout.endMax - anaTakAdedi*V.takviye);
 
   face.columns.forEach((col,ci)=>{
     col.innerGaps.forEach((on,gi)=>{
       const joinReq = ci<face.columns.length-1 && !!col.araJoinNext[gi];
-      let joinValid = false, blockedByAna = false, blockedByStagger = false;
+      let joinValid = false, blockedByAna = false;
       if(on && joinReq){
         const anaBar = bars.ana[ci];
         const levelShared = !!anaBar && anaBar.levels.some(l=>l.idxA===gi);
-        blockedByAna = !!anaBar && anaBar.on && !anaBar.splitValid;
-        // Kademeli (zigzag) bir ana takviyenin ÜZERİNDEN ara birleştirme desteklenir (bkz. takviyeRecords'taki
-        // effectivePairTotal düzeltmesi ve deferredJoins render'ındaki pairTotal-bazlı uç hesabı). Sadece bu
-        // sütun BAŞKA bir junction'dan (kendi solundan) zaten kademeliyse engellenir — art arda kademeleme
-        // ile aynı kapsam dışı karar (3+ sütun zinciri desteklenmiyor).
-        blockedByStagger = !!bars.staggerByRightCol[ci] && bars.staggerByRightCol[ci].stagger.visiblyStaggered;
-        joinValid = levelShared && !blockedByAna && !blockedByStagger;
-        if(!joinValid) barWarnings.push('Ara Takviye (Bölüm '+(ci+1)+', Seviye '+(gi+1)+') birleştirilemedi: '+(blockedByStagger ? 'bu bölüm başka bir kademeli takviyeye bitişik' : blockedByAna ? 'aradaki ana takviye önce Ayır ile bölünmeli' : 'komşu bölümde hizalı seviye yok')+' — segmentli düzene geri düşüldü');
+        // Ara takviyenin komşu bölüme geçebilmesi için aradaki ana takviyenin TAM BU SEVİYEDEN
+        // kesilmiş olması gerekir. (Eskiden barın herhangi bir yerinden kesilmiş olması yeterdi;
+        // seviye bazlı kesimle birlikte kontrol de seviye bazlı hale geldi.)
+        blockedByAna = !!anaBar && anaBar.on && !anaBar.fullySuppressed && anaBar.cutLevels.indexOf(gi) < 0;
+        // Kademeli (zigzag) bir ana takviyenin ÜZERİNDEN birleştirme serbesttir: barın iki ucu
+        // artık satır bazlı gerçek koordinatlardan (bars.layout) okunuyor, çift-toplam tahminine
+        // gerek yok. Zincirin kaç bölüm sürdüğü de sınırsızdır (bkz. bars.araChains).
+        joinValid = levelShared && !blockedByAna;
+        if(!joinValid) barWarnings.push('Ara Takviye (Bölüm '+(ci+1)+', Seviye '+(gi+1)+') birleştirilemedi: '+(blockedByAna ? 'aradaki ana takviye önce bu seviyeden kesilmeli' : 'komşu bölümde hizalı seviye yok')+' — segmentli düzene geri düşüldü');
       }
-      bars.ara.push({ci, gi, on, joinReq, joinValid, blockedByAna, blockedByStagger});
+      bars.ara.push({ci, gi, on, joinReq, joinValid, blockedByAna});
     });
   });
+
+  // ARA TAKVİYE ZİNCİRLERİ — birleşme 2 bölümle sınırlı değil: ardışık her araJoinNext
+  // dizisi TEK parça bir takviyedir. Zincir, hizalı seviyeler (levels[].idxB) üzerinden
+  // sağa doğru yürütülür, böylece bölümlerin kapak sayıları farklı olsa da izlenebilir.
+  const araChains = [];
+  const araChainIdx = face.columns.map(()=>({}));   // [ci][gi] → zincir indeksi
+  face.columns.forEach((col,ci)=>{
+    col.innerGaps.forEach((on,gi)=>{
+      if(!on || araChainIdx[ci][gi]!==undefined) return;
+      const head = bars.ara.find(x=>x.ci===ci && x.gi===gi);
+      if(!head || !head.joinValid) return;           // zincir yalnız birleşik bir bardan başlar
+      const members = [{ci, gi}];
+      let cc = ci, cg = gi;
+      while(true){
+        const bb = bars.ara.find(x=>x.ci===cc && x.gi===cg);
+        if(!bb || !bb.joinValid) break;
+        const lvl = bars.ana[cc] ? bars.ana[cc].levels.find(l=>l.idxA===cg) : null;
+        if(!lvl) break;
+        cc = cc+1; cg = lvl.idxB;
+        if(araChainIdx[cc][cg]!==undefined) break;   // güvenlik: aynı barı iki kez zincirleme
+        members.push({ci:cc, gi:cg});
+      }
+      const idx = araChains.length;
+      members.forEach(m=>{ araChainIdx[m.ci][m.gi] = idx; });
+      araChains.push({idx, members, ciFirst: members[0].ci, ciLast: members[members.length-1].ci});
+    });
+  });
+  bars.araChains = araChains;
+  bars.araChainIdx = araChainIdx;
+  // Geriye uyum: &quot;bu bar bir birleşimin sağ ucu&quot; — zincirin baş üyesi hariç tüm üyeler
+  const consumedRight = face.columns.map(()=>({}));
+  araChains.forEach(ch=>{ ch.members.slice(1).forEach(m=>{ consumedRight[m.ci][m.gi] = true; }); });
+  bars.consumedRight = consumedRight;
+
+  // Bir ara takviyenin along-eksen kaplaması. Kademeli düzende üstteki ve alttaki kapak
+  // farklı genişlikte olabilir; bar EN GENİŞ kenara kadar uzanır ki dar taraftaki dikey
+  // takviye üzerine otursun. İki uç da &quot;en sağdaki&quot; alınır: sol uç bir önceki ana
+  // takviyenin EN SAĞ konumundan başlar — böylece komşu bölümün barıyla ÇAKIŞMAZ, tam
+  // bitişik dizilirler.
+  function araSpanOf(m){
+    const cRes = colResults[m.ci];
+    const a = m.gi, b2 = Math.min(m.gi+1, cRes.panels.length-1);
+    return {left:  Math.max(layout.start[m.ci][a],   layout.start[m.ci][b2]),
+            right: Math.max(layout.rightAt(m.ci, a), layout.rightAt(m.ci, b2))};
+  }
+  bars.araSpanOf = araSpanOf;
+  function araChainSpan(ch){
+    const f = araSpanOf(ch.members[0]), l = araSpanOf(ch.members[ch.members.length-1]);
+    return {left: f.left, right: l.right};
+  }
 
   // DURUM
   const alongName = orient==='H' ? 'genişlik' : 'yükseklik';
@@ -932,16 +1227,13 @@ function computeFace(fi){
 
   let anaContCount = 0;
   bars.ana.forEach(b=>{
-    if(!b.on) return;
+    if(!b.on || b.fullySuppressed) return;   // fullySuppressed: tüm yükseklik birleşik kapağın altında
     if(b.splitValid){
-      let span=0; const segs=[];
-      colResults[b.i].panels.forEach((p,k)=>{
-        span += p.eff;
-        if(b.levels.some(l=>l.idxA===k)){ segs.push(span); span=0; }
-      });
-      segs.push(span);
-      segs.forEach((s,si)=>{
-        takviyeRecords.push({tip:'Ana Takviye', yon:anaTakYon, kaynak:'Bölüm '+(b.i+1)+'/'+(b.i+2)+' arası — segment '+(si+1), adet:1, boy: (dimsOk && s>0) ? s-2*V.takviyePlastik : null});
+      let si = 0;
+      b.segments.forEach(sg=>{
+        if(sg.suppressed) return;            // o bant birleşik kapak — orada takviye yok
+        si++;
+        takviyeRecords.push({tip:'Ana Takviye', yon:anaTakYon, kaynak:'Bölüm '+(b.i+1)+'/'+(b.i+2)+' arası — segment '+si, adet:1, boy: (dimsOk && sg.len>0) ? sg.len-2*V.takviyePlastik : null});
       });
     } else {
       anaContCount++;
@@ -949,35 +1241,30 @@ function computeFace(fi){
   });
   if(anaContCount>0) takviyeRecords.push({tip:'Ana Takviye', yon:anaTakYon, kaynak:'Boydan boya', adet:anaContCount, boy: dimsOk ? anaTakBoy : null});
 
-  // Birleşik bir arayan takviyenin SAĞ ucu, kendi bölümünde de innerGaps=true görünür —
-  // bu ikinci kez &quot;segment&quot; olarak sayılmasın diye önce &quot;tüketilmiş&quot; (sağ uç) seviyeler işaretlenir.
-  const consumedRight = face.columns.map(()=>({}));
-  bars.ara.forEach(b=>{
-    if(!b.joinValid) return;
-    const lvl = bars.ana[b.ci].levels.find(l=>l.idxA===b.gi);
-    if(lvl) consumedRight[b.ci+1][lvl.idxB] = true;
+  // Her ZİNCİR tek parça bir ara takviyedir (2, 3, … bölüm fark etmez); boyu satır bazlı
+  // gerçek koordinatlardan okunur, böylece kademeli düzende de doğrudur.
+  araChains.forEach(ch=>{
+    const sp = araChainSpan(ch);
+    const boy = sp.right - sp.left;
+    takviyeRecords.push({tip:'Ara Takviye', yon:araTakYon,
+      kaynak:'Bölüm '+ch.members.map(m=>m.ci+1).join('-')+' arası — sürekli', adet:1,
+      boy: (dimsOk && boy>0) ? boy-2*V.takviyePlastik : null});
   });
-  bars.consumedRight = consumedRight;
+  // Birleşmemiş ara takviyeler kendi bölümlerinde kalır; aynı bölümde farklı boylar
+  // çıkabileceği için (kademeli satırlar) boya göre gruplanır.
   face.columns.forEach((col,ci)=>{
-    let ownCount = 0;
+    const byLen = {};
     col.innerGaps.forEach((on,gi)=>{
-      if(!on || consumedRight[ci][gi]) return;
-      const b = bars.ara.find(x=>x.ci===ci && x.gi===gi);
-      if(b && b.joinValid){
-        // Kademeli (zigzag) bir junction'da sol+sağ sütun toplamı colSize'ların toplamından farklı
-        // olabilir (bkz. resolveStagger) — gerçek (satır bazlı) çift genişliği esas alınır.
-        const anaHere = bars.ana[ci];
-        const pairW = (anaHere && anaHere.stagger && anaHere.stagger.active) ? anaHere.stagger.effectivePairTotal : (colResults[ci].colSize + colResults[ci+1].colSize);
-        const boy = pairW + (face.colGaps[ci] ? V.takviye : 0);
-        takviyeRecords.push({tip:'Ara Takviye', yon:araTakYon, kaynak:'Bölüm '+(ci+1)+'-'+(ci+2)+' arası — sürekli', adet:1, boy: dimsOk ? boy-2*V.takviyePlastik : null});
-      } else {
-        ownCount++;
-      }
+      if(!on || araChainIdx[ci][gi]!==undefined) return;
+      const sp = araSpanOf({ci, gi});
+      const key = Math.round(Math.max(sp.right - sp.left, 0));
+      byLen[key] = (byLen[key]||0)+1;
     });
-    if(ownCount>0){
-      const cs = Number(col.size)||0;
-      takviyeRecords.push({tip:'Ara Takviye', yon:araTakYon, kaynak:'Bölüm '+(ci+1)+' — segment', adet:ownCount, boy: cs>0 ? cs-2*V.takviyePlastik : null});
-    }
+    Object.keys(byLen).forEach(k=>{
+      const boy = Number(k);
+      takviyeRecords.push({tip:'Ara Takviye', yon:araTakYon, kaynak:'Bölüm '+(ci+1)+' — segment',
+        adet:byLen[k], boy: (dimsOk && boy>0) ? boy-2*V.takviyePlastik : null});
+    });
   });
 
   return {def, faceW, faceH, orient, V, icAcross, kapaksiz:false,
@@ -1056,6 +1343,9 @@ function drawFaceSVG(fi){
   // Her takviye kendi süreklilik durumuna göre renklenir: CONT_FILL = o noktada tek parça/sürekli,
   // SEG_FILL = o noktada kesik/segmentli (bar bazında r.bars'tan — Ayır/Birleştir ile ayarlanır)
   const CONT_FILL = '#547a96', SEG_FILL = '#3d5568';
+  // Ctrl ile çoklu seçilen takviyeler vurgulanır — hangilerine toplu işlem uygulanacağı görünsün
+  const NRM_STROKE = 'stroke=&quot;#4a5d6e&quot; stroke-width=&quot;0.8&quot;';
+  const SEL_STROKE = 'stroke=&quot;#4fb8a8&quot; stroke-width=&quot;2.5&quot;';
   if(kosePx>0) [[ox,oy],[ox+fw-kosePx,oy],[ox,oy+fh-kosePx],[ox+fw-kosePx,oy+fh-kosePx]].forEach(cc=>{
     svg += `<rect x=&quot;${cc[0]}&quot; y=&quot;${cc[1]}&quot; width=&quot;${kosePx}&quot; height=&quot;${kosePx}&quot; fill=&quot;${PL}&quot; stroke=&quot;#55707f&quot; stroke-width=&quot;0.8&quot;/>`;
   });
@@ -1082,33 +1372,37 @@ function drawFaceSVG(fi){
   const remainingMm = Math.max(icKullMm-totalEntered, 0);
   const placeholderMm = zeroCount>0 ? Math.max(remainingMm/zeroCount, icKullMm*0.10) : 0;
 
-  let cursor = alongStartPx;
+  // SATIR BAZLI YERLEŞİM (px) — computeFace'teki mm çözümüyle aynı fonksiyon; buradaki
+  // fark yalnızca birimin piksel olması ve boş ölçüler için yer tutucu/min-piksel kullanılması.
+  const colPxOf = ci=>{ const c = r.colResults[ci]; return Math.max((c.colSize>0?c.colSize:placeholderMm)*scale, 26); };
+  const cellPxOf = (ci,pi)=>{
+    const c = r.colResults[ci], p = c.panels[pi];
+    const colMm = c.colSize>0 ? c.colSize : placeholderMm;
+    return Math.max(((p.pColSize||0)>0 ? p.pColSize : colMm)*scale, 26);
+  };
+  const LP = resolveColumnLayout(r.colResults, face, r.bars.ana, cellPxOf, colPxOf, takviyePx);
+  const startOf = (ci,pi)=> alongStartPx + LP.start[ci][pi];
+  const junctionPx = (ci,seg)=> alongStartPx + LP.junctionX[ci][Math.min(seg, LP.junctionX[ci].length-1)];
+  const endPx = alongStartPx + LP.endMax;
+  // Ara takviye kaplaması — computeFace'teki araSpanOf ile BİREBİR aynı kural
+  const araSpanPx = m=>{
+    const cRes = r.colResults[m.ci];
+    const a = m.gi, b2 = Math.min(m.gi+1, cRes.panels.length-1);
+    return {left:  Math.max(startOf(m.ci,a), startOf(m.ci,b2)),
+            right: alongStartPx + Math.max(LP.rightAt(m.ci,a), LP.rightAt(m.ci,b2))};
+  };
+
   const innerBars = [], colBars = []; // ayrılmış/birleşik barlar kesişimde üstte çizilsin diye tamponlanır
-  const colRangePx = [];               // her bölümün along-eksen piksel aralığı {startPx,px} — birleşik ara bar için
   const gapAcrossPx = face.columns.map(()=>({})); // açık her ara takviyenin piksel across-konumu, [ci][gi]
-  const deferredJoins = [];            // birleşik ara takviyeler: iki bölüm tamamlanınca döngü sonrasında çizilir
-  const pairTotalPxByJunction = {};    // kademeli junction'ların çift-toplamı (px) — kademeli+birleşik ara bar ucu için
 
   r.colResults.forEach((cRes, ci)=>{
     const col = face.columns[ci];
     const colMm = cRes.colSize>0 ? cRes.colSize : placeholderMm;
-    const colPx = Math.max(colMm*scale, 26);
+    const colPx = colPxOf(ci);
 
-    // Kademeli (stagger) sütun: bu sütun aktif bir kademeli takviyenin SAĞ tarafıysa,
-    // her panel kendi segmentinin genişliğine göre farklı bir along-eksen başlangıcı alır
-    // (sol kenarı segmente göre kayar, sağ kenarı — bir sonraki sütunun başlangıcı — sabit kalır).
-    const rStag = r.bars.staggerByRightCol[ci];
-    let segStartPx = null, pairTotalPx = null;
-    if(rStag){
-      const Lrange = colRangePx[rStag.i];
-      const leftWPx = rStag.stagger.leftW.map(w=>Math.max(w*scale,26));
-      const rightWPx = rStag.stagger.rightW.map(w=>Math.max(w*scale,26));
-      segStartPx = leftWPx.map(lw => Lrange.startPx + (rStag.on?takviyePx:0) + lw);
-      pairTotalPx = Math.max(...leftWPx.map((lw,i2)=>lw+rightWPx[i2]));
-      pairTotalPxByJunction[rStag.i] = pairTotalPx;
-    }
-    const colStartPx = segStartPx ? segStartPx[0] : cursor;
-    const alongOf = pi => segStartPx ? segStartPx[rStag.stagger.segOfR[pi]] : cursor;
+    // Kademeli (zigzag) bölümde her panel kendi satırının along-başlangıcını alır.
+    const colStartPx = alongStartPx + Math.min(...LP.start[ci]);
+    const alongOf = pi => startOf(ci, pi);
 
     // Bölüm içi paneller (dik eksende)
     const icColMm = Math.max(cRes.icColAcross, 1);
@@ -1126,7 +1420,7 @@ function drawFaceSVG(fi){
       const pColMm = (p.pColSize||0) > 0 ? p.pColSize : colMm;
       const pColPx = Math.max(pColMm*scale, 26);
       const color = TYPE_COLORS[p.type] || &quot;#34495e&quot;;
-      const isSel = face.selected && face.selected.col===ci && face.selected.idx===pi;
+      const isSel = face.selectedCells.some(s=>s.col===ci && s.idx===pi);
       const dash = p.bos ? 'stroke-dasharray=&quot;7,5&quot; fill-opacity=&quot;0.35&quot;'
                  : ((p.entered<=0 && !p.auto) ? 'stroke-dasharray=&quot;5,4&quot; fill-opacity=&quot;0.4&quot;' : '');
 
@@ -1135,6 +1429,9 @@ function drawFaceSVG(fi){
       if(orient==='H'){ px=alongPx; py=pCursor; pw=pColPx; ph=pPx; }
       else            { px=pCursor; py=alongPx; pw=pPx; ph=pColPx; }
 
+      // Birleştirilmiş kapağın kapladığı hücre: yer tutar (bant yüksekliği, bölüm genişliği)
+      // ama ÇİZİLMEZ — soldaki yayılan kapağın tek geniş dikdörtgeni onun üzerini de kaplar.
+      if(!p.covered){
       svg += `<g class=&quot;svg-panel&quot; data-face=&quot;${fi}&quot; data-col=&quot;${ci}&quot; data-panel=&quot;${pi}&quot;>`;
       svg += `<rect class=&quot;panel-rect${isSel?' selected':''}&quot; x=&quot;${px}&quot; y=&quot;${py}&quot; width=&quot;${pw}&quot; height=&quot;${ph}&quot; fill=&quot;${color}&quot; stroke=&quot;#4a5d6e&quot; stroke-width=&quot;1.5&quot; ${dash}/>`;
       if(p.type==='Camlı Açılır'){
@@ -1172,7 +1469,7 @@ function drawFaceSVG(fi){
       const cx=px+pw/2, cy=py+ph/2;
       const colDisp = (p.pColSize||0) > 0 ? Math.round(p.pColSize) : Math.round(pColMm);
       const effDisp = p.eff>0 ? Math.round(p.eff) : Math.round(pMm);
-      const colIsAuto = (p.pColSize||0) <= 0;
+      const colIsAuto = !!p.colAuto || (p.pColSize||0) <= 0;
       const autoSfx = (colIsAuto || p.auto) ? ' (oto)' : '';
       const sizeTxt = orient==='H'
         ? `${colDisp}×${effDisp}${autoSfx}`
@@ -1201,34 +1498,27 @@ function drawFaceSVG(fi){
         svg += `</g>`;
       }
       svg += `</g>`;
+      } // if(!p.covered)
 
       pCursor += pPx;
 
       // Bölüm içi ara boşluk / ara takviye
       if(pi < cRes.panels.length-1){
         const on = col.innerGaps[pi];
-        // İç takviye yalnızca her iki panelinpColPx örtüşümü kadar uzanır
-        const np = cRes.panels[pi+1];
-        const nextPColMm = (np.pColSize||0) > 0 ? np.pColSize : colMm;
-        const nextPColPx = Math.max(nextPColMm*scale, 26);
-        // Gerçek örtüşüm aralığı: staggered olmayan durumda bu, ortak cursor + min(pColPx,nextPColPx)'e
-        // matematiksel olarak birebir eşittir (geriye dönük uyumlu); staggered'da her panelin kendi
-        // along-başlangıcı (alongOf) farklı olabileceğinden gerçek kesişim hesaplanır.
-        const alongA = alongOf(pi), alongB = alongOf(pi+1);
-        const gapAlongStart = Math.max(alongA, alongB);
-        const gapAlongEnd = Math.min(alongA+pColPx, alongB+nextPColPx);
-        const gapColPx = Math.max(gapAlongEnd-gapAlongStart, 0);
+        // Kademeli düzende üstteki ve alttaki kapak farklı genişlikte olabilir; ara takviye
+        // EN DIŞ kenara kadar uzanır ki iki dikey takviye de üzerine otursun. Kademesiz
+        // durumda iki kenar zaten aynı olduğundan bugünkü çizimle birebir aynı sonucu verir.
+        const sp = araSpanPx({ci, gi:pi});
+        const gapAlongStart = sp.left;
+        const gapColPx = Math.max(sp.right - sp.left, 0);
         if(on){
           gapAcrossPx[ci][pi] = pCursor;
-          const consumed = !!(r.bars.consumedRight[ci] && r.bars.consumedRight[ci][pi]);
-          if(!consumed){
-            const bAra = r.bars.ara.find(x=>x.ci===ci && x.gi===pi);
-            if(bAra && bAra.joinValid){
-              deferredJoins.push({ci, gi:pi, acrossPx: pCursor});
-            } else {
-              if(orient==='H') innerBars.push(`<g class=&quot;svg-innergap&quot; data-face=&quot;${fi}&quot; data-col=&quot;${ci}&quot; data-gap=&quot;${pi}&quot;><rect x=&quot;${gapAlongStart}&quot; y=&quot;${pCursor}&quot; width=&quot;${gapColPx}&quot; height=&quot;${takviyePx}&quot; fill=&quot;${SEG_FILL}&quot; stroke=&quot;#4a5d6e&quot; stroke-width=&quot;0.8&quot;/>${plastikPx>0?`<rect x=&quot;${gapAlongStart}&quot; y=&quot;${pCursor}&quot; width=&quot;${plastikPx}&quot; height=&quot;${takviyePx}&quot; fill=&quot;${PL}&quot;/><rect x=&quot;${gapAlongStart+gapColPx-plastikPx}&quot; y=&quot;${pCursor}&quot; width=&quot;${plastikPx}&quot; height=&quot;${takviyePx}&quot; fill=&quot;${PL}&quot;/>`:``}<rect x=&quot;${gapAlongStart}&quot; y=&quot;${pCursor-5}&quot; width=&quot;${gapColPx}&quot; height=&quot;${takviyePx+10}&quot; fill=&quot;transparent&quot;/></g>`);
-              else innerBars.push(`<g class=&quot;svg-innergap&quot; data-face=&quot;${fi}&quot; data-col=&quot;${ci}&quot; data-gap=&quot;${pi}&quot;><rect x=&quot;${pCursor}&quot; y=&quot;${gapAlongStart}&quot; width=&quot;${takviyePx}&quot; height=&quot;${gapColPx}&quot; fill=&quot;${SEG_FILL}&quot; stroke=&quot;#4a5d6e&quot; stroke-width=&quot;0.8&quot;/>${plastikPx>0?`<rect x=&quot;${pCursor}&quot; y=&quot;${gapAlongStart}&quot; width=&quot;${takviyePx}&quot; height=&quot;${plastikPx}&quot; fill=&quot;${PL}&quot;/><rect x=&quot;${pCursor}&quot; y=&quot;${gapAlongStart+gapColPx-plastikPx}&quot; width=&quot;${takviyePx}&quot; height=&quot;${plastikPx}&quot; fill=&quot;${PL}&quot;/>`:``}<rect x=&quot;${pCursor-5}&quot; y=&quot;${gapAlongStart}&quot; width=&quot;${takviyePx+10}&quot; height=&quot;${gapColPx}&quot; fill=&quot;transparent&quot;/></g>`);
-            }
+          // Zincir üyesi barlar tek parça olarak döngü sonrasında çizilir
+          const inChain = r.bars.araChainIdx[ci][pi] !== undefined;
+          if(!inChain){
+            const araStroke = face.selectedBars.some(s=>s.kind==='ara' && s.ci===ci && s.gi===pi) ? SEL_STROKE : NRM_STROKE;
+            if(orient==='H') innerBars.push(`<g class=&quot;svg-innergap&quot; data-face=&quot;${fi}&quot; data-col=&quot;${ci}&quot; data-gap=&quot;${pi}&quot;><rect x=&quot;${gapAlongStart}&quot; y=&quot;${pCursor}&quot; width=&quot;${gapColPx}&quot; height=&quot;${takviyePx}&quot; fill=&quot;${SEG_FILL}&quot; ${araStroke}/>${plastikPx>0?`<rect x=&quot;${gapAlongStart}&quot; y=&quot;${pCursor}&quot; width=&quot;${plastikPx}&quot; height=&quot;${takviyePx}&quot; fill=&quot;${PL}&quot;/><rect x=&quot;${gapAlongStart+gapColPx-plastikPx}&quot; y=&quot;${pCursor}&quot; width=&quot;${plastikPx}&quot; height=&quot;${takviyePx}&quot; fill=&quot;${PL}&quot;/>`:``}<rect x=&quot;${gapAlongStart}&quot; y=&quot;${pCursor-5}&quot; width=&quot;${gapColPx}&quot; height=&quot;${takviyePx+10}&quot; fill=&quot;transparent&quot;/></g>`);
+            else innerBars.push(`<g class=&quot;svg-innergap&quot; data-face=&quot;${fi}&quot; data-col=&quot;${ci}&quot; data-gap=&quot;${pi}&quot;><rect x=&quot;${pCursor}&quot; y=&quot;${gapAlongStart}&quot; width=&quot;${takviyePx}&quot; height=&quot;${gapColPx}&quot; fill=&quot;${SEG_FILL}&quot; ${araStroke}/>${plastikPx>0?`<rect x=&quot;${pCursor}&quot; y=&quot;${gapAlongStart}&quot; width=&quot;${takviyePx}&quot; height=&quot;${plastikPx}&quot; fill=&quot;${PL}&quot;/><rect x=&quot;${pCursor}&quot; y=&quot;${gapAlongStart+gapColPx-plastikPx}&quot; width=&quot;${takviyePx}&quot; height=&quot;${plastikPx}&quot; fill=&quot;${PL}&quot;/>`:``}<rect x=&quot;${pCursor-5}&quot; y=&quot;${gapAlongStart}&quot; width=&quot;${takviyePx+10}&quot; height=&quot;${gapColPx}&quot; fill=&quot;transparent&quot;/></g>`);
           }
           pCursor += takviyePx;
         } else {
@@ -1263,76 +1553,70 @@ function drawFaceSVG(fi){
     }
 
 
-    if(rStag) cursor = colRangePx[rStag.i].startPx + (rStag.on?takviyePx:0) + pairTotalPx;
-    else cursor += colPx;
-    colRangePx[ci] = {startPx: colStartPx, px: colPx};
-
     // Bölümler arası ANA takviye / boşluk
     if(ci < r.colResults.length-1){
       const on = face.colGaps[ci];
-      if(on){
-        const bAna = r.bars.ana[ci];
-        if(bAna && bAna.stagger && bAna.stagger.active){
-          // Kademeli (zigzag) bölücü: her segment KENDİ satırındaki gerçek panel genişliğine göre
-          // farklı X'te (V yönde Y'de) çizilir — sağdaki sütun bu segment X'lerine göre konumlanır (alongOf)
-          const aEnd = (orient==='H') ? innerY+innerH : innerX+innerW;
-          const aStart = (orient==='H') ? innerY : innerX;
-          const boundsPx = bAna.levels.map(l=>gapAcrossPx[ci][l.idxA]).filter(v=>v!=null).sort((a,b)=>a-b);
-          let segStart = aStart;
-          const bounds = [];
-          boundsPx.forEach(b=>{ bounds.push([segStart, b]); segStart = b + takviyePx; });
-          bounds.push([segStart, aEnd]);
-          const leftWPx = bAna.stagger.leftW.map(w=>Math.max(w*scale,26));
-          const segXs = leftWPx.map(lw=>colStartPx+lw);
-          let segs = '';
-          bounds.forEach((bd,seg)=>{
-            const s0=bd[0], s1=bd[1];
-            if(s1-s0 < 1) return;
-            const segX = segXs[seg];
-            if(orient==='H'){
-              segs += `<rect x=&quot;${segX}&quot; y=&quot;${s0}&quot; width=&quot;${takviyePx}&quot; height=&quot;${(s1-s0)}&quot; fill=&quot;${SEG_FILL}&quot; stroke=&quot;#4a5d6e&quot; stroke-width=&quot;0.8&quot;/>`;
-              if(plastikPx>0) segs += `<rect x=&quot;${segX}&quot; y=&quot;${s0}&quot; width=&quot;${takviyePx}&quot; height=&quot;${plastikPx}&quot; fill=&quot;${PL}&quot;/><rect x=&quot;${segX}&quot; y=&quot;${s1-plastikPx}&quot; width=&quot;${takviyePx}&quot; height=&quot;${plastikPx}&quot; fill=&quot;${PL}&quot;/>`;
-            } else {
-              segs += `<rect x=&quot;${s0}&quot; y=&quot;${segX}&quot; width=&quot;${(s1-s0)}&quot; height=&quot;${takviyePx}&quot; fill=&quot;${SEG_FILL}&quot; stroke=&quot;#4a5d6e&quot; stroke-width=&quot;0.8&quot;/>`;
-              if(plastikPx>0) segs += `<rect x=&quot;${s0}&quot; y=&quot;${segX}&quot; width=&quot;${plastikPx}&quot; height=&quot;${takviyePx}&quot; fill=&quot;${PL}&quot;/><rect x=&quot;${s1-plastikPx}&quot; y=&quot;${segX}&quot; width=&quot;${plastikPx}&quot; height=&quot;${takviyePx}&quot; fill=&quot;${PL}&quot;/>`;
-            }
-          });
-          const minSegX = Math.min(...segXs), maxSegX = Math.max(...segXs);
-          const hit = (orient==='H')
-            ? `<rect x=&quot;${minSegX-5}&quot; y=&quot;${innerY}&quot; width=&quot;${maxSegX-minSegX+takviyePx+10}&quot; height=&quot;${innerH}&quot; fill=&quot;transparent&quot;/>`
-            : `<rect x=&quot;${innerX}&quot; y=&quot;${minSegX-5}&quot; width=&quot;${innerW}&quot; height=&quot;${maxSegX-minSegX+takviyePx+10}&quot; fill=&quot;transparent&quot;/>`;
-          colBars.push(`<g class=&quot;svg-gap&quot; data-face=&quot;${fi}&quot; data-gap=&quot;${ci}&quot;>${segs}${hit}</g>`);
-        }
-        else if(bAna && bAna.splitValid){
-          // Ayrılmış: bu junction'ın KENDİ hizalı seviyelerinde bölünür (gapAcrossPx[ci] — panel
-          // döngüsünde zaten kaydedildi), her segmentin iki ucuna takviye plastiği gelir
-          const aEnd = (orient==='H') ? innerY+innerH : innerX+innerW;
-          const aStart = (orient==='H') ? innerY : innerX;
-          const boundsPx = bAna.levels.map(l=>gapAcrossPx[ci][l.idxA]).filter(v=>v!=null).sort((a,b)=>a-b);
-          let segStart = aStart;
-          const bounds = [];
-          boundsPx.forEach(b=>{ bounds.push([segStart, b]); segStart = b + takviyePx; });
-          bounds.push([segStart, aEnd]);
-          let segs = '';
-          bounds.forEach(bd=>{
-            const s0=bd[0], s1=bd[1];
-            if(s1-s0 < 1) return;
-            if(orient==='H'){
-              segs += `<rect x=&quot;${cursor}&quot; y=&quot;${s0}&quot; width=&quot;${takviyePx}&quot; height=&quot;${(s1-s0)}&quot; fill=&quot;${SEG_FILL}&quot; stroke=&quot;#4a5d6e&quot; stroke-width=&quot;0.8&quot;/>`;
-              if(plastikPx>0) segs += `<rect x=&quot;${cursor}&quot; y=&quot;${s0}&quot; width=&quot;${takviyePx}&quot; height=&quot;${plastikPx}&quot; fill=&quot;${PL}&quot;/><rect x=&quot;${cursor}&quot; y=&quot;${s1-plastikPx}&quot; width=&quot;${takviyePx}&quot; height=&quot;${plastikPx}&quot; fill=&quot;${PL}&quot;/>`;
-            } else {
-              segs += `<rect x=&quot;${s0}&quot; y=&quot;${cursor}&quot; width=&quot;${(s1-s0)}&quot; height=&quot;${takviyePx}&quot; fill=&quot;${SEG_FILL}&quot; stroke=&quot;#4a5d6e&quot; stroke-width=&quot;0.8&quot;/>`;
-              if(plastikPx>0) segs += `<rect x=&quot;${s0}&quot; y=&quot;${cursor}&quot; width=&quot;${plastikPx}&quot; height=&quot;${takviyePx}&quot; fill=&quot;${PL}&quot;/><rect x=&quot;${s1-plastikPx}&quot; y=&quot;${cursor}&quot; width=&quot;${plastikPx}&quot; height=&quot;${takviyePx}&quot; fill=&quot;${PL}&quot;/>`;
-            }
-          });
-          const hit = (orient==='H')
-            ? `<rect x=&quot;${cursor-5}&quot; y=&quot;${innerY}&quot; width=&quot;${takviyePx+10}&quot; height=&quot;${innerH}&quot; fill=&quot;transparent&quot;/>`
-            : `<rect x=&quot;${innerX}&quot; y=&quot;${cursor-5}&quot; width=&quot;${innerW}&quot; height=&quot;${takviyePx+10}&quot; fill=&quot;transparent&quot;/>`;
-          colBars.push(`<g class=&quot;svg-gap&quot; data-face=&quot;${fi}&quot; data-gap=&quot;${ci}&quot;>${segs}${hit}</g>`);
-        }
-        else if(orient==='H') colBars.push(`<g class=&quot;svg-gap&quot; data-face=&quot;${fi}&quot; data-gap=&quot;${ci}&quot;><rect x=&quot;${cursor}&quot; y=&quot;${innerY}&quot; width=&quot;${takviyePx}&quot; height=&quot;${innerH}&quot; fill=&quot;${CONT_FILL}&quot; stroke=&quot;#4a5d6e&quot; stroke-width=&quot;0.8&quot;/>${plastikPx>0?`<rect x=&quot;${cursor}&quot; y=&quot;${innerY}&quot; width=&quot;${takviyePx}&quot; height=&quot;${plastikPx}&quot; fill=&quot;${PL}&quot;/><rect x=&quot;${cursor}&quot; y=&quot;${innerY+innerH-plastikPx}&quot; width=&quot;${takviyePx}&quot; height=&quot;${plastikPx}&quot; fill=&quot;${PL}&quot;/>`:``}<rect x=&quot;${cursor-5}&quot; y=&quot;${innerY}&quot; width=&quot;${takviyePx+10}&quot; height=&quot;${innerH}&quot; fill=&quot;transparent&quot;/></g>`);
-        else colBars.push(`<g class=&quot;svg-gap&quot; data-face=&quot;${fi}&quot; data-gap=&quot;${ci}&quot;><rect x=&quot;${innerX}&quot; y=&quot;${cursor}&quot; width=&quot;${innerW}&quot; height=&quot;${takviyePx}&quot; fill=&quot;${CONT_FILL}&quot; stroke=&quot;#4a5d6e&quot; stroke-width=&quot;0.8&quot;/>${plastikPx>0?`<rect x=&quot;${innerX}&quot; y=&quot;${cursor}&quot; width=&quot;${plastikPx}&quot; height=&quot;${takviyePx}&quot; fill=&quot;${PL}&quot;/><rect x=&quot;${innerX+innerW-plastikPx}&quot; y=&quot;${cursor}&quot; width=&quot;${plastikPx}&quot; height=&quot;${takviyePx}&quot; fill=&quot;${PL}&quot;/>`:``}<rect x=&quot;${innerX}&quot; y=&quot;${cursor-5}&quot; width=&quot;${innerW}&quot; height=&quot;${takviyePx+10}&quot; fill=&quot;transparent&quot;/></g>`);
-        cursor += takviyePx;
+      const bAna = r.bars.ana[ci];
+      const cursor = junctionPx(ci, 0);   // kademesiz junction'da tek X; kademelide 1. segment
+      if(on && bAna && !bAna.fullySuppressed){
+        // Tek yol: bar, KESİLMİŞ seviyelerden (bAna.cutLevels) segmentlere ayrılır. Hiç kesim
+        // yoksa tek segment çıkar ve bu, eski &quot;boydan boya sürekli&quot; çizimin birebir aynısıdır.
+        // Kademeli (zigzag) düzende her segment kendi satır genişliğine göre farklı X'te durur.
+        const aEnd = (orient==='H') ? innerY+innerH : innerX+innerW;
+        const aStart = (orient==='H') ? innerY : innerX;
+        const anaStroke = face.selectedBars.some(s=>s.kind==='ana' && s.i===ci) ? SEL_STROKE : NRM_STROKE;
+        const segXs = LP.junctionX[ci].map((_,s)=>junctionPx(ci, s));
+        const xOf = seg => junctionPx(ci, seg);
+        const fill = bAna.splitValid ? SEG_FILL : CONT_FILL;
+
+        const boundsPx = bAna.cutLevels.map(ix=>gapAcrossPx[ci][ix]).filter(v=>v!=null).sort((a,b)=>a-b);
+        let segStart = aStart;
+        const bounds = [];
+        boundsPx.forEach(b=>{ bounds.push([segStart, b]); segStart = b + takviyePx; });
+        bounds.push([segStart, aEnd]);
+
+        let segs = '';
+        bounds.forEach((bd, seg)=>{
+          if(bAna.segments[seg] && bAna.segments[seg].suppressed) return; // o bant birleşik kapak → takviye yok
+          const s0=bd[0], s1=bd[1];
+          if(s1-s0 < 1) return;
+          const segX = xOf(seg);
+          if(orient==='H'){
+            segs += `<rect x=&quot;${segX}&quot; y=&quot;${s0}&quot; width=&quot;${takviyePx}&quot; height=&quot;${(s1-s0)}&quot; fill=&quot;${fill}&quot; ${anaStroke}/>`;
+            if(plastikPx>0) segs += `<rect x=&quot;${segX}&quot; y=&quot;${s0}&quot; width=&quot;${takviyePx}&quot; height=&quot;${plastikPx}&quot; fill=&quot;${PL}&quot;/><rect x=&quot;${segX}&quot; y=&quot;${s1-plastikPx}&quot; width=&quot;${takviyePx}&quot; height=&quot;${plastikPx}&quot; fill=&quot;${PL}&quot;/>`;
+          } else {
+            segs += `<rect x=&quot;${s0}&quot; y=&quot;${segX}&quot; width=&quot;${(s1-s0)}&quot; height=&quot;${takviyePx}&quot; fill=&quot;${fill}&quot; ${anaStroke}/>`;
+            if(plastikPx>0) segs += `<rect x=&quot;${s0}&quot; y=&quot;${segX}&quot; width=&quot;${plastikPx}&quot; height=&quot;${takviyePx}&quot; fill=&quot;${PL}&quot;/><rect x=&quot;${s1-plastikPx}&quot; y=&quot;${segX}&quot; width=&quot;${plastikPx}&quot; height=&quot;${takviyePx}&quot; fill=&quot;${PL}&quot;/>`;
+          }
+        });
+
+        // KESİM NOKTALARI — hizalı her seviyede küçük bir tutamak. Tıklayınca YALNIZ o
+        // seviyedeki kesim açılır/kapanır. Dolu (turkuaz) = kesik, boş (gri) = sürekli.
+        let cuts = '';
+        bAna.levels.forEach(l=>{
+          const ap = gapAcrossPx[ci][l.idxA];
+          if(ap==null) return;
+          const isCut = bAna.cutLevels.indexOf(l.idxA) >= 0;
+          const segIdx = bAna.cutLevels.filter(c=>c<l.idxA).length;
+          const hx = xOf(Math.min(segIdx, bounds.length-1)) + takviyePx/2;
+          const hv = ap + takviyePx/2;
+          const dot = isCut ? '#4fb8a8' : 'rgba(150,168,182,0.75)';
+          const ttl = isCut ? 'Kesimi kaldır (bu seviyede sürekli yap)' : 'Bu seviyeden ayır';
+          const cx0 = orient==='H' ? hx : hv, cy0 = orient==='H' ? hv : hx;
+          cuts += `<g class=&quot;svg-anacut&quot; data-face=&quot;${fi}&quot; data-gap=&quot;${ci}&quot; data-lvl=&quot;${l.idxA}&quot;>`
+               +  `<circle cx=&quot;${cx0.toFixed(1)}&quot; cy=&quot;${cy0.toFixed(1)}&quot; r=&quot;4.5&quot; fill=&quot;${dot}&quot; stroke=&quot;#0f1a22&quot; stroke-width=&quot;1&quot;/>`
+               +  `<circle cx=&quot;${cx0.toFixed(1)}&quot; cy=&quot;${cy0.toFixed(1)}&quot; r=&quot;9&quot; fill=&quot;transparent&quot;><title>${ttl}</title></circle></g>`;
+        });
+
+        const hitMin = Math.min(...segXs);
+        const hitMax = Math.max(...segXs);
+        const hit = (orient==='H')
+          ? `<rect x=&quot;${hitMin-5}&quot; y=&quot;${innerY}&quot; width=&quot;${hitMax-hitMin+takviyePx+10}&quot; height=&quot;${innerH}&quot; fill=&quot;transparent&quot;/>`
+          : `<rect x=&quot;${innerX}&quot; y=&quot;${hitMin-5}&quot; width=&quot;${innerW}&quot; height=&quot;${hitMax-hitMin+takviyePx+10}&quot; fill=&quot;transparent&quot;/>`;
+        colBars.push(`<g class=&quot;svg-gap&quot; data-face=&quot;${fi}&quot; data-gap=&quot;${ci}&quot;>${segs}${hit}</g>${cuts}`);
+      } else if(on){
+        // Tüm yükseklik birleşik kapağın altında kaldı: bar çizilmez ama genişlikte yerini korur
+        // (birleşik kapağın pColSize'ı bu takviye kalınlığını zaten içeriyor).
       } else {
         if(orient==='H'){
           svg += `<g class=&quot;svg-gap&quot; data-face=&quot;${fi}&quot; data-gap=&quot;${ci}&quot;><line class=&quot;gap-hint&quot; x1=&quot;${cursor}&quot; y1=&quot;${innerY}&quot; x2=&quot;${cursor}&quot; y2=&quot;${innerY+innerH}&quot; stroke=&quot;#55697c&quot; stroke-width=&quot;1.5&quot; stroke-dasharray=&quot;3,5&quot;/>`;
@@ -1351,36 +1635,44 @@ function drawFaceSVG(fi){
   if(hasDims && r.kalanAlong>1e-6){
     const kPx = Math.max(r.kalanAlong*scale, 10);
     if(orient==='H'){
-      const w = Math.min(kPx, ox+fw-kenarPx-cursor);
+      const w = Math.min(kPx, ox+fw-kenarPx-endPx);
       if(w>2){
-        svg += `<rect x=&quot;${cursor}&quot; y=&quot;${innerY}&quot; width=&quot;${w}&quot; height=&quot;${innerH}&quot; fill=&quot;#3a2a10&quot; fill-opacity=&quot;0.5&quot; stroke=&quot;#e0a13a&quot; stroke-width=&quot;1&quot; stroke-dasharray=&quot;4,3&quot;/>`;
-        svg += `<text x=&quot;${cursor+w/2}&quot; y=&quot;${innerY+innerH/2}&quot; fill=&quot;#e0a13a&quot; font-size=&quot;10&quot; text-anchor=&quot;middle&quot; transform=&quot;rotate(-90 ${cursor+w/2} ${innerY+innerH/2})&quot;>${r.kalanAlong.toFixed(0)} mm boş</text>`;
+        svg += `<rect x=&quot;${endPx}&quot; y=&quot;${innerY}&quot; width=&quot;${w}&quot; height=&quot;${innerH}&quot; fill=&quot;#3a2a10&quot; fill-opacity=&quot;0.5&quot; stroke=&quot;#e0a13a&quot; stroke-width=&quot;1&quot; stroke-dasharray=&quot;4,3&quot;/>`;
+        svg += `<text x=&quot;${endPx+w/2}&quot; y=&quot;${innerY+innerH/2}&quot; fill=&quot;#e0a13a&quot; font-size=&quot;10&quot; text-anchor=&quot;middle&quot; transform=&quot;rotate(-90 ${endPx+w/2} ${innerY+innerH/2})&quot;>${r.kalanAlong.toFixed(0)} mm boş</text>`;
       }
     } else {
-      const h = Math.min(kPx, oy+fh-kenarPx-cursor);
+      const h = Math.min(kPx, oy+fh-kenarPx-endPx);
       if(h>2){
-        svg += `<rect x=&quot;${innerX}&quot; y=&quot;${cursor}&quot; width=&quot;${innerW}&quot; height=&quot;${h}&quot; fill=&quot;#3a2a10&quot; fill-opacity=&quot;0.5&quot; stroke=&quot;#e0a13a&quot; stroke-width=&quot;1&quot; stroke-dasharray=&quot;4,3&quot;/>`;
-        svg += `<text x=&quot;${innerX+innerW/2}&quot; y=&quot;${cursor+h/2+3}&quot; fill=&quot;#e0a13a&quot; font-size=&quot;10&quot; text-anchor=&quot;middle&quot;>${r.kalanAlong.toFixed(0)} mm boş</text>`;
+        svg += `<rect x=&quot;${innerX}&quot; y=&quot;${endPx}&quot; width=&quot;${innerW}&quot; height=&quot;${h}&quot; fill=&quot;#3a2a10&quot; fill-opacity=&quot;0.5&quot; stroke=&quot;#e0a13a&quot; stroke-width=&quot;1&quot; stroke-dasharray=&quot;4,3&quot;/>`;
+        svg += `<text x=&quot;${innerX+innerW/2}&quot; y=&quot;${endPx+h/2+3}&quot; fill=&quot;#e0a13a&quot; font-size=&quot;10&quot; text-anchor=&quot;middle&quot;>${r.kalanAlong.toFixed(0)} mm boş</text>`;
       }
     }
   }
 
-  // Birleşik ARA takviyeler (2 bölüm arası): şimdi iki bölümün de piksel aralığı belli —
-  // tek parça olarak, sol bölümün başından sağ bölümün sonuna kadar çizilir
-  deferredJoins.forEach(dj=>{
-    const leftRange = colRangePx[dj.ci], rightRange = colRangePx[dj.ci+1];
-    if(!leftRange || !rightRange) return;
-    // Kademeli bir junction'da sağ sütunun kendi (naif) genişliği değil, çift-toplamı esas alınır
-    // (bkz. pairTotalPxByJunction) — böylece birleşik ara bar tam olarak sağ sütunun GERÇEK sağ kenarında biter.
-    const djAnaBar = r.bars.ana[dj.ci];
-    const isStaggered = djAnaBar && djAnaBar.stagger && djAnaBar.stagger.active && pairTotalPxByJunction[dj.ci]!=null;
-    const s0 = leftRange.startPx;
-    const s1 = isStaggered ? (leftRange.startPx + (djAnaBar.on?takviyePx:0) + pairTotalPxByJunction[dj.ci]) : (rightRange.startPx + rightRange.px);
+  // BİRLEŞİK (zincir) ARA TAKVİYELER — kaç bölüm sürerse sürsün TEK parça çizilir.
+  // Görsel tek dikdörtgen; üstüne her ÜYE bölüm için ayrı bir şeffaf tıklama alanı konur,
+  // böylece barın sağ yarısına tıklayıp zinciri bir bölüm daha uzatmak mümkün olur.
+  r.bars.araChains.forEach(ch=>{
+    const acrossPx = gapAcrossPx[ch.members[0].ci][ch.members[0].gi];
+    if(acrossPx==null) return;
+    const s0 = araSpanPx(ch.members[0]).left;
+    const s1 = araSpanPx(ch.members[ch.members.length-1]).right;
     if(s1-s0 < 1) return;
+    const anySel = ch.members.some(m=>face.selectedBars.some(s=>s.kind==='ara' && s.ci===m.ci && s.gi===m.gi));
+    const djStroke = anySel ? SEL_STROKE : NRM_STROKE;
+    // Üye sınırları: her üye bir sonrakinin başlangıcına kadar uzar (aradaki ana takviye dahil)
+    const edges = ch.members.map(m=>araSpanPx(m).left);
+    const hits = ch.members.map((m,ix)=>{
+      const h0 = ix===0 ? s0 : edges[ix];
+      const h1 = ix===ch.members.length-1 ? s1 : edges[ix+1];
+      return (orient==='H')
+        ? `<g class=&quot;svg-innergap&quot; data-face=&quot;${fi}&quot; data-col=&quot;${m.ci}&quot; data-gap=&quot;${m.gi}&quot;><rect x=&quot;${h0}&quot; y=&quot;${acrossPx-5}&quot; width=&quot;${Math.max(h1-h0,1)}&quot; height=&quot;${takviyePx+10}&quot; fill=&quot;transparent&quot;/></g>`
+        : `<g class=&quot;svg-innergap&quot; data-face=&quot;${fi}&quot; data-col=&quot;${m.ci}&quot; data-gap=&quot;${m.gi}&quot;><rect x=&quot;${acrossPx-5}&quot; y=&quot;${h0}&quot; width=&quot;${takviyePx+10}&quot; height=&quot;${Math.max(h1-h0,1)}&quot; fill=&quot;transparent&quot;/></g>`;
+    }).join('');
     if(orient==='H'){
-      innerBars.push(`<g class=&quot;svg-innergap&quot; data-face=&quot;${fi}&quot; data-col=&quot;${dj.ci}&quot; data-gap=&quot;${dj.gi}&quot;><rect x=&quot;${s0}&quot; y=&quot;${dj.acrossPx}&quot; width=&quot;${s1-s0}&quot; height=&quot;${takviyePx}&quot; fill=&quot;${CONT_FILL}&quot; stroke=&quot;#4a5d6e&quot; stroke-width=&quot;0.8&quot;/>${plastikPx>0?`<rect x=&quot;${s0}&quot; y=&quot;${dj.acrossPx}&quot; width=&quot;${plastikPx}&quot; height=&quot;${takviyePx}&quot; fill=&quot;${PL}&quot;/><rect x=&quot;${s1-plastikPx}&quot; y=&quot;${dj.acrossPx}&quot; width=&quot;${plastikPx}&quot; height=&quot;${takviyePx}&quot; fill=&quot;${PL}&quot;/>`:``}<rect x=&quot;${s0}&quot; y=&quot;${dj.acrossPx-5}&quot; width=&quot;${s1-s0}&quot; height=&quot;${takviyePx+10}&quot; fill=&quot;transparent&quot;/></g>`);
+      innerBars.push(`<rect x=&quot;${s0}&quot; y=&quot;${acrossPx}&quot; width=&quot;${s1-s0}&quot; height=&quot;${takviyePx}&quot; fill=&quot;${CONT_FILL}&quot; ${djStroke}/>${plastikPx>0?`<rect x=&quot;${s0}&quot; y=&quot;${acrossPx}&quot; width=&quot;${plastikPx}&quot; height=&quot;${takviyePx}&quot; fill=&quot;${PL}&quot;/><rect x=&quot;${s1-plastikPx}&quot; y=&quot;${acrossPx}&quot; width=&quot;${plastikPx}&quot; height=&quot;${takviyePx}&quot; fill=&quot;${PL}&quot;/>`:``}${hits}`);
     } else {
-      innerBars.push(`<g class=&quot;svg-innergap&quot; data-face=&quot;${fi}&quot; data-col=&quot;${dj.ci}&quot; data-gap=&quot;${dj.gi}&quot;><rect x=&quot;${dj.acrossPx}&quot; y=&quot;${s0}&quot; width=&quot;${takviyePx}&quot; height=&quot;${s1-s0}&quot; fill=&quot;${CONT_FILL}&quot; stroke=&quot;#4a5d6e&quot; stroke-width=&quot;0.8&quot;/>${plastikPx>0?`<rect x=&quot;${dj.acrossPx}&quot; y=&quot;${s0}&quot; width=&quot;${takviyePx}&quot; height=&quot;${plastikPx}&quot; fill=&quot;${PL}&quot;/><rect x=&quot;${dj.acrossPx}&quot; y=&quot;${s1-plastikPx}&quot; width=&quot;${takviyePx}&quot; height=&quot;${plastikPx}&quot; fill=&quot;${PL}&quot;/>`:``}<rect x=&quot;${dj.acrossPx-5}&quot; y=&quot;${s0}&quot; width=&quot;${takviyePx+10}&quot; height=&quot;${s1-s0}&quot; fill=&quot;transparent&quot;/></g>`);
+      innerBars.push(`<rect x=&quot;${acrossPx}&quot; y=&quot;${s0}&quot; width=&quot;${takviyePx}&quot; height=&quot;${s1-s0}&quot; fill=&quot;${CONT_FILL}&quot; ${djStroke}/>${plastikPx>0?`<rect x=&quot;${acrossPx}&quot; y=&quot;${s0}&quot; width=&quot;${takviyePx}&quot; height=&quot;${plastikPx}&quot; fill=&quot;${PL}&quot;/><rect x=&quot;${acrossPx}&quot; y=&quot;${s1-plastikPx}&quot; width=&quot;${takviyePx}&quot; height=&quot;${plastikPx}&quot; fill=&quot;${PL}&quot;/>`:``}${hits}`);
     }
   });
   svg += innerBars.join('') + colBars.join('');
@@ -1451,7 +1743,10 @@ function buildFaceHTML(fi){
           <span><i style=&quot;background:#547a96;&quot;></i> Takviye — sürekli/birleşik (tıkla: seç)</span>
           <span><i style=&quot;background:#10161d;&quot;></i> Köşe / takviye plastiği</span>
           <span><i style=&quot;background:transparent;border-color:#55697c;&quot;></i> Kapalı takviye (tıkla: aç)</span>
-          <span>Seçili takviyede Ayır / Birleştir / Kaldır — sağdaki düzenleyicide</span>
+          <span><i style=&quot;background:#4fb8a8;border-radius:50%;&quot;></i> Kesim noktası — tıkla: yalnız o seviyeden ayır/birleştir</span>
+          <span><b>Ctrl</b> + tıkla: çoklu seçim (aynı türden) → düzenleyicide toplu Ayır / Birleştir / Kaldır</span>
+          <span>Komşu kapakları Ctrl ile seçip <b>Kapakları Birleştir</b> → o satırda tek kapak (bölüm sayısı sınırsız; birleşik kapağı + yanındakini seçerek genişletebilirsiniz)</span>
+          <span>Kesilmiş bir dikey takviye her satırda kendi genişliğine göre kayar (kademeli) — art arda gelen bölümlerde de çalışır</span>
         </div>
       </div>
       <div class=&quot;face-side-editor&quot;>
@@ -1488,111 +1783,223 @@ function typeOptions(sel){
          `<optgroup label=&quot;Boş&quot;>${BOS_TYPES.map(t=>`<option value=&quot;${t}&quot;${sel===t?' selected':''}>${t}</option>`).join('')}</optgroup>`;
 }
 
+// Seçili kapakların TEK bir birleşik kapağa dönüşüp dönüşemeyeceğinin ön kontrolü — düğmeyi
+// etkinleştirmek ve sebebi göstermek için. NİHAİ karar computeFace'te verilir (geçersiz kalırsa
+// orada uyarıyla çözülür), böylece kural tek yerde kalır.
+function canMergeCells(r, face, cells){
+  if(!cells.length) return {ok:false, reason:'En az 2 kapak seçin'};
+  // Seçimi NORMALİZE et: zaten birleşik bir kapak seçiliyse kapladığı hücreler de kapsama
+  // girer (kaplanan bir hücre seçiliyse sahibinden başlanır) — böylece mevcut bir birleşim
+  // yanına bir bölüm daha eklenerek genişletilebilir.
+  const byCol = new Map();
+  const owners = [];
+  cells.forEach(c=>{
+    const p = r.colResults[c.col] && r.colResults[c.col].panels[c.idx];
+    if(!p) return;
+    const o = p.covered && p.spanOwner ? p.spanOwner : {col:c.col, idx:c.idx};
+    const op = r.colResults[o.col].panels[o.idx];
+    if(!owners.some(x=>x.col===o.col && x.idx===o.idx)) owners.push(o);
+    byCol.set(o.col, o.idx);
+    (op.spanCovers||[]).forEach(cv=>{ byCol.set(cv.col, cv.idx); });
+  });
+  if(byCol.size < 2) return {ok:false, reason:'En az 2 kapak seçin'};
+  const sorted = [...byCol.keys()].sort((a,b)=>a-b).map(col=>({col, idx:byCol.get(col)}));
+  for(let i=1;i<sorted.length;i++){
+    if(sorted[i].col !== sorted[i-1].col+1) return {ok:false, reason:'Kapaklar yan yana bölümlerde olmalı'};
+  }
+  // sharedGapLevels ile AYNI kümülatif eff uzayı — hizalama ölçütü her yerde aynı kalsın
+  const bounds = r.colResults.map(cRes=>{
+    const o=[]; let cum=0;
+    cRes.panels.forEach(p=>{ o.push({top:cum, bot:cum+p.eff}); cum+=p.eff; });
+    return o;
+  });
+  const first = bounds[sorted[0].col][sorted[0].idx];
+  for(const c of sorted){
+    const b = bounds[c.col][c.idx];
+    if(Math.abs(b.top-first.top)>0.51 || Math.abs(b.bot-first.bot)>0.51) return {ok:false, reason:'Seçili kapaklar aynı hizada değil'};
+    const col = face.columns[c.col];
+    if(c.idx>0 && !col.innerGaps[c.idx-1]) return {ok:false, reason:'Üst sınırda ara takviye yok (Bölüm '+(c.col+1)+')'};
+    if(c.idx<col.panels.length-1 && !col.innerGaps[c.idx]) return {ok:false, reason:'Alt sınırda ara takviye yok (Bölüm '+(c.col+1)+')'};
+  }
+  // Kapsamdaki eski birleşim sahipleri çözülür, en soldaki yeni base olur
+  return {ok:true, reason:'', base:sorted[0], span:sorted.length, cells:sorted, owners};
+}
+
 function editorInfo(r, ci, pi, orient){
   const c = r.colResults[ci];
   const p = c.panels[pi];
   let info = '';
+  if(p.spanN>1) info += `${p.spanN} bölüm birleşik — genişlik bölüm ölçülerinden türetilir: ${Math.round(p.pColSize)} mm. `;
   if(p.sabitW!==null) info += `SABİT w: ${p.sabitW.toFixed(0)} mm. `;
   if(p.sabitH!==null) info += `SABİT h: ${p.sabitH.toFixed(0)} mm. `;
   if(p.eleman) info += `Eleman — 0 tolerans: girilen ölçü kesim/sipariş ölçüsüdür. `;
   if(p.bos) info += `Boş Alan — kesim listesine girmez; son hücrede ölçüsüz bırakılırsa kalan alanı otomatik doldurur. `;
   const acrossLbl = orient==='V' ? 'Genişlik' : 'Yükseklik';
+  const alongLbl  = orient==='V' ? 'Yükseklik' : 'Genişlik';
   const rowLbl    = orient==='V' ? 'satır' : 'bölüm';
+  if(p.colAuto) info += `${alongLbl} otomatik — bu satırda kalan boşluk: ${Math.round(p.pColSize)} mm. `;
   if(p.auto) info += `${acrossLbl} otomatik (${rowLbl} iç ölçüsü: ${c.icColAcross.toFixed(0)} mm). `;
   if(!c.autoUsed && Math.abs(c.kalanAcross)>1e-6 && c.panels.length>1) info += `${rowLbl.charAt(0).toUpperCase()+rowLbl.slice(1)} dik yön kalanı: ${c.kalanAcross.toFixed(0)} mm.`;
   return info;
 }
 
+// Birleşik bir kapağın dik-yön ölçüsü ve tipi, KAPLADIĞI hücrelere de yazılır.
+// Bu hücreler kapak sayılmasa da kendi bölümlerinin bant yapısını belirler; senkron
+// kalmazlarsa bantlar hizadan çıkar ve computeFace birleşimi çözmek zorunda kalır.
+// Dönüş: model değişti mi (yeniden hesap gerekiyor mu).
+function syncSpannedCell(fi, ci, pi, patch){
+  const face = state.faces[fi];
+  const p = face.columns[ci] && face.columns[ci].panels[pi];
+  if(!p) return false;
+  const pre = computeFace(fi);   // hizalama HENÜZ bozulmadan kapladığı hücreleri bul
+  const pres = pre.colResults[ci] && pre.colResults[ci].panels[pi];
+  Object.assign(p, patch);
+  if(!pres || !pres.spanCovers) return true;
+  pres.spanCovers.forEach(c=>{
+    const t = face.columns[c.col] && face.columns[c.col].panels[c.idx];
+    if(t) Object.assign(t, patch);
+  });
+  return true;
+}
+
 function renderEditor(fi){
   const face = state.faces[fi];
-  if(face.selectedBar && !face.kapaksiz){ renderBarEditor(fi); return; }
-  const ed = document.getElementById(`f${fi}_editor`);
+  if(face.selectedBars.length && !face.kapaksiz){ renderBarEditor(fi); return; }
   const body = document.getElementById(`f${fi}_editor_body`);
-  if(!face.selected || face.kapaksiz){
-    document.getElementById(`f${fi}_editor_title`).textContent = 'Kapak Düzenleyici';
-    body.innerHTML='<div class=&quot;editor-placeholder&quot;>Bir kapak seçerek düzenleyin</div>';
-    document.getElementById(`f${fi}_ed_info`).textContent='';
+  const titleEl = document.getElementById(`f${fi}_editor_title`);
+  const infoEl = document.getElementById(`f${fi}_ed_info`);
+  if(!face.selectedCells.length || face.kapaksiz){
+    titleEl.textContent = 'Kapak Düzenleyici';
+    body.innerHTML='<div class=&quot;editor-placeholder&quot;>Bir kapak seçerek düzenleyin<br><span style=&quot;font-size:11px;opacity:.8;&quot;>Ctrl ile birden fazla seçip birleştirebilirsiniz</span></div>';
+    infoEl.textContent='';
     return;
   }
   const r = computeFace(fi);
-  const {col:ci, idx:pi} = face.selected;
-  const col = face.columns[ci];
-  const p = col.panels[pi];
   const orient = face.orient;
 
-  document.getElementById(`f${fi}_editor_title`).textContent = orient==='V' ? `Satır ${ci+1} / Kapak ${pi+1}` : `Bölüm ${ci+1} / Kapak ${pi+1}`;
+  // ÇOKLU SEÇİM → hücre birleştirme paneli (tekil düzenleme alanları anlamsız olurdu)
+  if(face.selectedCells.length > 1){
+    const chk = canMergeCells(r, face, face.selectedCells);
+    const liste = face.selectedCells.slice().sort((a,b)=>a.col-b.col)
+      .map(c=>'B'+(c.col+1)+'K'+(c.idx+1)).join(' + ');
+    titleEl.textContent = `${face.selectedCells.length} kapak seçili`;
+    body.innerHTML = `<div class=&quot;grid&quot;>
+      <div style=&quot;grid-column:1/-1;font-size:12.5px;color:var(--muted);&quot;>${liste}</div>
+      <div style=&quot;display:flex;gap:8px;flex-wrap:wrap;grid-column:1/-1;&quot;>
+        <button class=&quot;add-btn2&quot; id=&quot;f${fi}_cell_merge&quot; ${chk.ok?'':'disabled'} style=&quot;opacity:${chk.ok?1:0.45}&quot; title=&quot;${chk.reason}&quot;>Kapakları Birleştir</button>
+        <button class=&quot;add-btn2 ghost&quot; id=&quot;f${fi}_cell_clear&quot;>Seçimi Temizle</button>
+      </div>
+    </div>`;
+    infoEl.textContent = chk.ok
+      ? `${chk.span} bölüm tek kapak olur ve aradaki ana takviyeler YALNIZ bu bantta kalkar — böylece bu satır diğerlerinden farklı sayıda kapak içerebilir. Mevcut bir birleşimi seçip yanına bir bölüm daha ekleyerek genişletebilirsiniz.`
+      : chk.reason;
+    return;
+  }
+
+  const {col:ci, idx:pi} = face.selectedCells[0];
+  const col = face.columns[ci];
+  const p = col.panels[pi];
+  const pRes = r.colResults[ci].panels[pi];
+  const spanned = pRes.spanN > 1;
+
+  titleEl.textContent = (orient==='V' ? `Satır ${ci+1} / Kapak ${pi+1}` : `Bölüm ${ci+1} / Kapak ${pi+1}`)
+    + (spanned ? ` — ${pRes.spanN} bölüm birleşik` : '');
   const colLbl = orient==='H' ? 'Bu Kapak Genişliği w (mm)' : 'Kapak Yüksekliği h (mm)';
   const pLbl = orient==='H' ? 'Kapak Yüksekliği h (mm)' : 'Kapak Genişliği w (mm)';
   const single = col.panels.length===1;
   const colInputVal = orient==='H' ? (p.colSize||'') : (col.size||'');
   const colInputPh  = orient==='H' ? (col.size||'') : 'oto';
-  const colField = `<div><label>${colLbl}</label><input type=&quot;number&quot; id=&quot;f${fi}_ed_colsize&quot; value=&quot;${colInputVal}&quot; placeholder=&quot;${colInputPh}&quot;></div>`;
+  // Birleşik kapağın along ölçüsü kapladığı bölümlerden TÜRETİLİR — elle girilemez
+  const colField = spanned
+    ? `<div><label>${colLbl} — birleşik</label><input class=&quot;readonly&quot; type=&quot;text&quot; value=&quot;${Math.round(pRes.pColSize)}&quot; readonly></div>`
+    : `<div><label>${colLbl}</label><input type=&quot;number&quot; id=&quot;f${fi}_ed_colsize&quot; value=&quot;${colInputVal}&quot; placeholder=&quot;${colInputPh}&quot;></div>`;
   const pField = `<div><label>${pLbl}${single?' — boş = otomatik tam':''}</label><input type=&quot;number&quot; id=&quot;f${fi}_ed_psize&quot; value=&quot;${p.size||''}&quot; placeholder=&quot;${single?'oto':''}&quot;></div>`;
   const dimFields = orient==='V' ? pField + colField : colField + pField;
   body.innerHTML = `<div class=&quot;grid&quot;>
     ${dimFields}
     <div><label>Panel Tipi</label><select id=&quot;f${fi}_ed_type&quot;>${typeOptions(p.type)}</select></div>
-    <div style=&quot;display:flex;align-items:flex-end;gap:8px;&quot;>
+    <div style=&quot;display:flex;align-items:flex-end;gap:8px;flex-wrap:wrap;&quot;>
+      ${spanned?`<button class=&quot;add-btn2 ghost&quot; id=&quot;f${fi}_cell_unmerge&quot;>Birleşimi Çöz</button>`:''}
       <button class=&quot;del-btn&quot; id=&quot;f${fi}_ed_del&quot; ${(face.columns.length<=1 && single)?'disabled':''}>Kapağı Sil</button>
     </div>
   </div>`;
-  document.getElementById(`f${fi}_ed_info`).textContent = editorInfo(r, ci, pi, orient);
+  infoEl.textContent = editorInfo(r, ci, pi, orient);
+}
+
+// Bir ANA takviyenin bölünebilirlik durumu (tekil ve toplu düzenleyici aynı kaynağı kullanır)
+function anaBarState(r, i){
+  const b = r.bars.ana[i];
+  if(!b) return null;
+  return {bar:b, canSplit: b.levels.length>0, isSplit: b.splitValid,
+          reason: b.levels.length ? '' : 'Hizalı ara takviye seviyesi yok — komşu bölümlerin ara takviyeleri aynı yükseklikte olmalı'};
+}
+// Bir ARA takviyenin komşu bölüme geçebilirlik durumu
+function araBarState(r, face, ci, gi){
+  const b = r.bars.ara.find(x=>x.ci===ci && x.gi===gi);
+  if(!b) return null;
+  const anaBar = r.bars.ana[ci];
+  const hasAdjacent = ci < face.columns.length-1;
+  const levelShared = hasAdjacent && !!anaBar && anaBar.levels.some(l=>l.idxA===gi);
+  const blockedByAna = hasAdjacent && !!anaBar && anaBar.on && !anaBar.fullySuppressed && anaBar.cutLevels.indexOf(gi) < 0;
+  const canJoin = hasAdjacent && levelShared && !blockedByAna;
+  const reason = canJoin ? '' : (!hasAdjacent ? 'Son bölümün ara takviyesi birleştirilemez'
+    : blockedByAna ? 'Aradaki ana takviye önce bu seviyeden kesilmeli (bar üzerindeki noktaya tıklayın)'
+    : 'Komşu bölümde hizalı seviye yok');
+  // Bu bar bir zincirin (2, 3, … bölüm) parçasıysa zincirin kapsamı da döner
+  const ciX = r.bars.araChainIdx[ci] ? r.bars.araChainIdx[ci][gi] : undefined;
+  const chain = ciX!==undefined ? r.bars.araChains[ciX] : null;
+  return {bar:b, canJoin, isJoined:b.joinValid, reason, chain};
 }
 
 function renderBarEditor(fi){
   const face = state.faces[fi];
   const body = document.getElementById(`f${fi}_editor_body`);
+  const titleEl = document.getElementById(`f${fi}_editor_title`);
+  const infoEl = document.getElementById(`f${fi}_ed_info`);
   const r = computeFace(fi);
-  const sel = face.selectedBar;
   const orient = face.orient;
-  const btnStyle = disabled=>`style=&quot;opacity:${disabled?0.45:1}&quot;`;
+  const sel = selBar(face);
+  if(!sel){ face.selectedBars = []; renderEditor(fi); return; }
+  const isAna = sel.kind === 'ana';
+  // Seçim daima tek türden (bkz. attachListeners) — karışık seçim oluşamaz
+  const picks = face.selectedBars.filter(b=>b.kind===sel.kind);
+  const states = picks.map(b => isAna ? anaBarState(r, b.i) : araBarState(r, face, b.ci, b.gi));
+  if(states.some(s=>!s)){ face.selectedBars = []; renderEditor(fi); return; }
 
-  if(sel.kind==='ana'){
-    const i = sel.i;
-    const bAna = r.bars.ana[i];
-    if(!bAna){ face.selectedBar = null; renderEditor(fi); return; }
-    const yon = orient==='H' ? 'Dikey' : 'Yatay';
-    document.getElementById(`f${fi}_editor_title`).textContent = `Ana Takviye (${yon}) — Bölüm ${i+1}/${i+2} arası`;
-    const canSplit = bAna.levels.length>0;
-    const isSplit = bAna.splitValid;
-    const actionLbl = isSplit ? 'Birleştir (sürekli yap)' : 'Ayır (segmentli yap)';
-    const actionDisabled = !isSplit && !canSplit;
-    const actionTip = actionDisabled ? 'Hizalı ara takviye seviyesi yok — komşu bölümlerin ara takviyeleri aynı yükseklikte olmalı' : '';
-    body.innerHTML = `<div class=&quot;grid&quot;>
-      <div style=&quot;grid-column:1/-1;font-size:12.5px;color:var(--muted);&quot;>Durum: <b style=&quot;color:var(--text);&quot;>${isSplit?'Ayrılmış (segmentli)':'Sürekli (boydan boya)'}</b></div>
-      <div style=&quot;display:flex;gap:8px;flex-wrap:wrap;grid-column:1/-1;&quot;>
-        <button class=&quot;add-btn2&quot; id=&quot;f${fi}_bar_action&quot; ${actionDisabled?'disabled':''} ${btnStyle(actionDisabled)} title=&quot;${actionTip}&quot;>${actionLbl}</button>
-        <button class=&quot;del-btn&quot; id=&quot;f${fi}_bar_remove&quot;>Kaldır</button>
-      </div>
-    </div>`;
-    document.getElementById(`f${fi}_ed_info`).textContent = actionTip;
-  } else {
-    const {ci, gi} = sel;
-    const bAra = r.bars.ara.find(x=>x.ci===ci && x.gi===gi);
-    if(!bAra){ face.selectedBar = null; renderEditor(fi); return; }
-    const yon = orient==='H' ? 'Yatay' : 'Dikey';
-    document.getElementById(`f${fi}_editor_title`).textContent = `Ara Takviye (${yon}) — Bölüm ${ci+1}, Seviye ${gi+1}`;
-    const anaBar = r.bars.ana[ci];
-    const hasAdjacent = ci < face.columns.length-1;
-    const levelShared = hasAdjacent && !!anaBar && anaBar.levels.some(l=>l.idxA===gi);
-    const blockedByAna = hasAdjacent && !!anaBar && anaBar.on && !anaBar.splitValid;
-    const blockedByStagger = !!r.bars.staggerByRightCol[ci] && r.bars.staggerByRightCol[ci].stagger.visiblyStaggered;
-    const canJoin = hasAdjacent && levelShared && !blockedByAna && !blockedByStagger;
-    const isJoined = bAra.joinValid;
-    const actionLbl = isJoined ? 'Ayır (segmentli yap)' : 'Birleştir (sürekli yap)';
-    const actionDisabled = !isJoined && !canJoin;
-    const actionTip = actionDisabled
-      ? (!hasAdjacent ? 'Son bölümün ara takviyesi birleştirilemez' : blockedByStagger ? 'Bu bölüm başka bir kademeli takviyeye bitişik' : blockedByAna ? 'Aradaki ana takviye önce Ayır ile bölünmeli' : 'Komşu bölümde hizalı seviye yok')
-      : '';
-    body.innerHTML = `<div class=&quot;grid&quot;>
-      <div style=&quot;grid-column:1/-1;font-size:12.5px;color:var(--muted);&quot;>Durum: <b style=&quot;color:var(--text);&quot;>${isJoined?('Birleşik (Bölüm '+(ci+1)+'-'+(ci+2)+' arası sürekli)'):'Segmentli (kendi bölümünde)'}</b></div>
-      <div style=&quot;display:flex;gap:8px;flex-wrap:wrap;grid-column:1/-1;&quot;>
-        <button class=&quot;add-btn2&quot; id=&quot;f${fi}_bar_action&quot; ${actionDisabled?'disabled':''} ${btnStyle(actionDisabled)} title=&quot;${actionTip}&quot;>${actionLbl}</button>
-        <button class=&quot;del-btn&quot; id=&quot;f${fi}_bar_remove&quot;>Kaldır</button>
-      </div>
-    </div>`;
-    document.getElementById(`f${fi}_ed_info`).textContent = actionTip;
-  }
+  const yon = isAna ? (orient==='H' ? 'Dikey' : 'Yatay') : (orient==='H' ? 'Yatay' : 'Dikey');
+  const etiket = b => isAna ? `B${b.i+1}/B${b.i+2}` : `B${b.ci+1}·S${b.gi+1}`;
+
+  // ANA:  Birleştir = tüm kesimleri kaldır (boydan boya sürekli)
+  //       Ayır      = hizalı TÜM seviyelerden kes (tek nokta için bar üzerindeki tutamak kullanılır)
+  // ARA:  Birleştir = komşu bölümle sürekli   |  Ayır = kendi bölümünde segmentli
+  const joinN  = isAna ? states.length : states.filter(s=>s.canJoin).length;
+  const splitN = isAna ? states.filter(s=>s.canSplit).length : states.length;
+  const blockers = [...new Set(states.map(s=>s.reason).filter(Boolean))];
+  const multi = picks.length > 1;
+
+  titleEl.textContent = multi
+    ? `${picks.length} ${isAna?'Ana':'Ara'} Takviye (${yon}) seçili`
+    : (isAna ? `Ana Takviye (${yon}) — Bölüm ${sel.i+1}/${sel.i+2} arası`
+             : `Ara Takviye (${yon}) — Bölüm ${sel.ci+1}, Seviye ${sel.gi+1}`);
+
+  const durum = multi
+    ? picks.map(etiket).join(', ')
+    : (isAna ? (states[0].isSplit ? `Ayrılmış — ${states[0].bar.cutLevels.length} kesim` : 'Sürekli (boydan boya)')
+             : (states[0].chain ? `Birleşik (Bölüm ${states[0].chain.members.map(m=>m.ci+1).join('-')} arası sürekli)` : 'Segmentli (kendi bölümünde)'));
+
+  const btnStyle = disabled=>`style=&quot;opacity:${disabled?0.45:1}&quot;`;
+  body.innerHTML = `<div class=&quot;grid&quot;>
+    <div style=&quot;grid-column:1/-1;font-size:12.5px;color:var(--muted);&quot;>${multi?'Seçim':'Durum'}: <b style=&quot;color:var(--text);&quot;>${durum}</b></div>
+    <div style=&quot;display:flex;gap:8px;flex-wrap:wrap;grid-column:1/-1;&quot;>
+      <button class=&quot;add-btn2&quot; id=&quot;f${fi}_bar_join&quot; ${joinN?'':'disabled'} ${btnStyle(!joinN)} title=&quot;${joinN?'':blockers.join(' | ')}&quot;>Birleştir${multi?` (${joinN}/${picks.length})`:''}</button>
+      <button class=&quot;add-btn2 ghost&quot; id=&quot;f${fi}_bar_split&quot; ${splitN?'':'disabled'} ${btnStyle(!splitN)} title=&quot;${splitN?'':blockers.join(' | ')}&quot;>Ayır${multi?` (${splitN}/${picks.length})`:''}</button>
+      <button class=&quot;del-btn&quot; id=&quot;f${fi}_bar_remove&quot;>Kaldır${multi?` (${picks.length})`:''}</button>
+    </div>
+  </div>`;
+  infoEl.textContent = blockers.length
+    ? blockers.join(' | ')
+    : (isAna ? 'Tek bir noktadan bölmek için bar üzerindeki yuvarlak tutamağa tıklayın; buradaki Ayır hizalı TÜM seviyelerden keser.'
+             : 'Zinciri uzatmak için birleşik barın SAĞ ucuna (bir sonraki bölümün üzerine) tıklayıp Birleştir deyin — bölüm sayısı sınırsızdır.');
 }
 
 // Kesim listesi satırları — HTML tablosu ve Excel çıktısı aynı kaynaktan beslenir
@@ -1601,9 +2008,13 @@ function getCutRows(r){
   const fc = FACE_CODE[FACE_DEFS.indexOf(r.def)] || '';
   r.colResults.forEach((c,ci)=>{
     c.panels.forEach((p,pi)=>{
-      if(p.bos) return; // Boş Alan kesim listesine girmez
-      const istW = p.panelW>0 ? Math.round(p.panelW) : null;
-      const istH = p.panelH>0 ? Math.round(p.panelH)+(p.auto?' (oto)':'') : null;
+      if(p.bos || p.covered) return; // Boş Alan ve birleşik kapağın kapladığı hücre kesim listesine girmez
+      // &quot;(oto)&quot; işareti hangi eksende otomatik doldurma yapıldığına göre yerleşir:
+      // p.auto = dik eksen (bölüm içi), p.colAuto = ana eksen (satırda kalan boşluk)
+      const wAuto = r.orient==='H' ? p.colAuto : p.auto;
+      const hAuto = r.orient==='H' ? p.auto : p.colAuto;
+      const istW = p.panelW>0 ? Math.round(p.panelW)+(wAuto?' (oto)':'') : null;
+      const istH = p.panelH>0 ? Math.round(p.panelH)+(hAuto?' (oto)':'') : null;
       const sabH = p.sabitH!==null ? Math.round(p.sabitH) : null;
       out.push([fc+'-B'+(ci+1)+'K'+(pi+1), p.type, istW!==null?istW:'—', istH!==null?istH:'—',
         p.sabitW!==null?Math.round(p.sabitW):'—', sabH!==null?sabH:'—']);
@@ -1618,7 +2029,7 @@ function getSabitRows(r){
   const fc = FACE_CODE[FACE_DEFS.indexOf(r.def)] || '';
   r.colResults.forEach((c,ci)=>{
     c.panels.forEach((p,pi)=>{
-      if(p.bos) return; // Boş Alan kesim listesine girmez
+      if(p.bos || p.covered) return; // Boş Alan ve birleşik kapağın kapladığı hücre kesim listesine girmez
       const g = p.sabitW!==null ? Math.round(p.sabitW) : 'ÖLÇÜ EKSİK';
       const y = p.sabitH!==null ? Math.round(p.sabitH) : 'ÖLÇÜ EKSİK';
       out.push([fc+'-B'+(ci+1)+'K'+(pi+1), p.type, g, y]);
@@ -1687,6 +2098,8 @@ function renderFace(fi){
 function partialRender(fi){
   const r = computeFace(fi);
   const face = state.faces[fi];
+  // Kapak sayısı ölçü değişiminde de değişebilir (bir birleşim kurulabilir ya da çözülebilir)
+  document.getElementById(`f${fi}_adedi`).textContent = r.kapaksiz ? '—' : r.toplamKapak;
   document.getElementById(`f${fi}_anatak`).textContent = r.kapaksiz ? '0' : r.anaTakAdedi;
   document.getElementById(`f${fi}_aratak`).textContent = r.kapaksiz ? '0' : r.araTakToplam;
   document.getElementById(`f${fi}_ickull`).textContent = (!r.kapaksiz && r.icKullAlong!==null && r.faceW>0 && r.faceH>0) ? r.icKullAlong.toFixed(0)+' mm' : '—';
@@ -1696,8 +2109,9 @@ function partialRender(fi){
   st.textContent = r.status.text;
   renderCutTable(fi);
   renderProfilTable(fi);
-  if(face.selected){
-    document.getElementById(`f${fi}_ed_info`).textContent = editorInfo(r, face.selected.col, face.selected.idx, face.orient);
+  const s = (face.selectedCells.length === 1) ? face.selectedCells[0] : null;
+  if(s){
+    document.getElementById(`f${fi}_ed_info`).textContent = editorInfo(r, s.col, s.idx, face.orient);
   }
   renderGlobalSummary();
 }
@@ -1721,6 +2135,24 @@ function collectTakviyeRows(){
     });
   });
   return {rows, missing};
+}
+
+// SİPARİŞ listesi gruplaması — ekran ve Excel TEK kaynaktan beslenir.
+// YALNIZCA boya göre gruplanır: ana/ara ve yatay/dikey ayrımı burada anlamsızdır (hepsi aynı
+// takviye profilinden kesilir), ad ayrımı korunsaydı aynı ölçüdeki barlar ayrı satırlarda
+// kalır ve toplanamazdı. Hangi takviyenin nereye gittiği detay tablosunda durur.
+function groupTakviyeSiparis(rows){
+  const map = new Map();
+  let skipped = 0;
+  rows.forEach(x=>{
+    if(x.boy===null){ skipped += x.adet; return; }
+    const key = Math.round(x.boy);
+    if(!map.has(key)) map.set(key, {boy:key, adet:0});
+    map.get(key).adet += x.adet;
+  });
+  const groups = [...map.values()].sort((a,b)=> b.boy-a.boy);
+  groups.forEach(g=>{ g.metre = Number((g.boy*g.adet/1000).toFixed(2)); });
+  return {groups, skipped};
 }
 
 // Tüm AHU/modül/yüzleri tarar; kapaksız olmayıp &quot;good&quot; durumda olmayan (eksik/fazla ölçü,
@@ -1799,7 +2231,7 @@ function renderGlobalSummary(){
           const rk = computeFace(fi);
           if(rk.kapaksiz) return;
           rk.colResults.forEach(c=>c.panels.forEach(p=>{
-            if(p.bos) return;
+            if(p.bos || p.covered) return;
             const w = p.sabitW!==null ? Math.round(p.sabitW) : 'ÖLÇÜ EKSİK';
             const h = p.sabitH!==null ? Math.round(p.sabitH) : 'ÖLÇÜ EKSİK';
             const key = p.type+'|'+w+'|'+h;
@@ -1831,7 +2263,7 @@ function renderGlobalSummary(){
 
   if(rows.length===0){
     detail.innerHTML = '<tr><td colspan=&quot;5&quot;>Henüz takviye eklenmedi — görselde ara boşluklara tıklanarak eklenir</td></tr>';
-    group.innerHTML = '<tr><td colspan=&quot;4&quot;>—</td></tr>';
+    group.innerHTML = '<tr><td colspan=&quot;3&quot;>—</td></tr>';
     note.textContent = '';
     return;
   }
@@ -1840,22 +2272,12 @@ function renderGlobalSummary(){
     `<tr><td>${x.face}</td><td>${x.yon} ${x.tip}</td><td>${x.kaynak}</td><td>${x.adet}</td><td>${x.boy!==null?x.boy.toFixed(0):'⚠ ölçü eksik'}</td></tr>`
   ).join('');
 
-  // Boya göre grupla (yalnızca boyu hesaplanabilenler)
-  const map = new Map();
-  let skipped = 0;
-  rows.forEach(x=>{
-    if(x.boy===null){ skipped += x.adet; return; }
-    // Ana/Ara ayrımı korunur: profil kesiti aynı olsa da işleme farkı olabilir
-    const key = x.tip+'|'+x.boy.toFixed(0);
-    if(!map.has(key)) map.set(key, {tip:x.tip, boy:x.boy, adet:0});
-    map.get(key).adet += x.adet;
-  });
-  const groups = [...map.values()].sort((a,b)=> a.tip.localeCompare(b.tip) || b.boy-a.boy);
+  const {groups, skipped} = groupTakviyeSiparis(rows);
   group.innerHTML = groups.map(g=>
-    `<tr><td>${g.tip}</td><td>${g.boy.toFixed(0)}</td><td>${g.adet}</td><td>${(g.boy*g.adet/1000).toFixed(2)}</td></tr>`
-  ).join('') || '<tr><td colspan=&quot;4&quot;>—</td></tr>';
+    `<tr><td>${g.boy}</td><td>${g.adet}</td><td>${g.metre.toFixed(2)}</td></tr>`
+  ).join('') || '<tr><td colspan=&quot;3&quot;>—</td></tr>';
 
-  let noteTxt = 'Boylar otomatik türetilir: Ana Takviye = dik eksen − 2×Kenar − 2×Takviye Plastik (boydan boya) | Ara Takviye = bölüm ölçüsü − 2×Takviye Plastik (segment). Yön ekleri (yatay/dikey) sipariş listesinde birleştirilir; kesit aynıdır.';
+  let noteTxt = 'Boylar otomatik türetilir: Ana Takviye = dik eksen − 2×Kenar − 2×Takviye Plastik (boydan boya); kesilmişse her segment kendi bant yüksekliğinden. Ara Takviye = o satırdaki gerçek kaplama − 2×Takviye Plastik; birleşik (zincir) barlarda kapsadığı tüm bölümler + aradaki ana takviyeler tek parça sayılır. Sipariş listesinde ana/ara ve yatay/dikey ayrımı yapılmaz — kesit aynıdır, aynı boydakiler tek kalemde toplanır.';
   if(skipped>0) noteTxt = '⚠ '+skipped+' adet takviye eksik ölçü nedeniyle sipariş listesine dahil edilemedi. '+noteTxt;
   if(missing.length>0) noteTxt += ' Eksikler: '+[...new Set(missing)].join('; ')+'.';
   note.textContent = noteTxt;
@@ -1944,9 +2366,7 @@ function faceLayoutRects(fi){
   // Her takviye kendi süreklilik durumuna göre renklenir (bkz. drawFaceSVG'deki 2B aynası — r.bars)
   const CONT3 = '#547a96', SEG3 = '#3d5568';
   const innerBarR = [], colBarR = [];   // ayrılmış/birleşik barlar en son eklenir (3B'de üstte)
-  const colRangeMm = [];                // her bölümün along-eksen mm aralığı {startMm,mm} — birleşik ara bar için
   const gapAcrossMm = face.columns.map(()=>({})); // açık her ara takviyenin mm across-konumu, [ci][gi]
-  const deferredJoinsMm = [];           // birleşik ara takviyeler: iki bölüm tamamlanınca döngü sonrasında eklenir
   const rects = [], labels = [];
   rects.push({u0:0,v0:0,u1:FW,v1:FH, fill:'#131d27'});
   rects.push({u0:0,v0:0,u1:FW,v1:k, fill:'#22303d'});
@@ -1969,21 +2389,25 @@ function faceLayoutRects(fi){
   const tot = colSizes.reduce((a,b)=>a+(b>0?b:0),0);
   const zc = colSizes.filter(x=>x<=0).length;
   const phCol = zc>0 ? Math.max((icKullAlong-tot)/zc, icKullAlong*0.1) : 0;
-  let cur = k;
+
+  // SATIR BAZLI YERLEŞİM — 2B aynası drawFaceSVG ile BİREBİR aynı çözücü; tek fark birim
+  // (mm) ve ölçüsüz bölümler için yer tutucu (phCol) kullanılması.
+  const colMmOf = ci=>{ const c = r.colResults[ci]; return c.colSize>0 ? c.colSize : phCol; };
+  const cellMmOf = (ci,pi)=>{ const p = r.colResults[ci].panels[pi]; return (p.pColSize||0)>0 ? p.pColSize : colMmOf(ci); };
+  const L3 = resolveColumnLayout(r.colResults, face, r.bars.ana, cellMmOf, colMmOf, tk);
+  const startOf3 = (ci,pi)=> k + L3.start[ci][pi];
+  const junction3 = (ci,seg)=> k + L3.junctionX[ci][Math.min(seg, L3.junctionX[ci].length-1)];
+  const araSpan3 = m=>{
+    const cRes = r.colResults[m.ci];
+    const a = m.gi, b2 = Math.min(m.gi+1, cRes.panels.length-1);
+    return {left:  Math.max(startOf3(m.ci,a), startOf3(m.ci,b2)),
+            right: k + Math.max(L3.rightAt(m.ci,a), L3.rightAt(m.ci,b2))};
+  };
+
   r.colResults.forEach((cRes,ci)=>{
     const col = face.columns[ci];
-    const colMm = cRes.colSize>0?cRes.colSize:phCol;
-
-    // Kademeli (stagger) sütun: 2B aynası drawFaceSVG ile birebir aynı mantık (bkz. orada ki yorum)
-    const rStag = r.bars.staggerByRightCol[ci];
-    let segStartMm = null, pairTotalMm = null;
-    if(rStag){
-      const Lrange = colRangeMm[rStag.i];
-      segStartMm = rStag.stagger.leftW.map(lw => Lrange.startMm + (rStag.on?tk:0) + lw);
-      pairTotalMm = rStag.stagger.effectivePairTotal;
-    }
-    const colStartMm = segStartMm ? segStartMm[0] : cur;
-    const alongOf = pi => segStartMm ? segStartMm[rStag.stagger.segOfR[pi]] : cur;
+    const colMm = colMmOf(ci);
+    const alongOf = pi => startOf3(ci, pi);
 
     const icCol = icAcross - cRes.innerTakAdedi*tk;
     const effs = cRes.panels.map(p=>p.auto?icCol:p.entered);
@@ -2002,69 +2426,64 @@ function faceLayoutRects(fi){
       if(p.eleman){ rc.eleman = true; rc.elType = p.type; rc.lbl = FACE_CODE[fi]+'-B'+(ci+1)+'K'+(pi+1); }
       if(p.bos) rc.bos = true;
       if(p.acilir) rc.acilir = true;
-      rects.push(rc);
-      if(p.type==='Camlı Açılır'){
-        rects.push({circle:true, cu:(rc.u0+rc.u1)/2, cv:(rc.v0+rc.v1)/2,
-          r: Math.min(GLASS_R_MM, Math.min(rc.u1-rc.u0, rc.v1-rc.v0)*0.42), fill:'rgba(127,200,220,0.30)'});
+      // Birleştirilmiş kapağın kapladığı hücre 3B'de de üretilmez (2B aynası ile aynı kural) —
+      // soldaki yayılan kapağın tek geniş yüzeyi onun yerini de kaplar.
+      if(!p.covered){
+        rects.push(rc);
+        if(p.type==='Camlı Açılır'){
+          rects.push({circle:true, cu:(rc.u0+rc.u1)/2, cv:(rc.v0+rc.v1)/2,
+            r: Math.min(GLASS_R_MM, Math.min(rc.u1-rc.u0, rc.v1-rc.v0)*0.42), fill:'rgba(127,200,220,0.30)'});
+        }
+        if(!p.eleman) labels.push({u:(rc.u0+rc.u1)/2, v:(rc.v0+rc.v1)/2, text: p.bos ? 'BOŞ' : (excelKodModu ? kodFor(kodMap, mi, fi, ci, pi) : (FACE_CODE[fi]+'-B'+(ci+1)+'K'+(pi+1))), size: `${Math.round(rc.u1-rc.u0)}×${Math.round(rc.v1-rc.v0)}`, type: p.type, bos: !!p.bos});
       }
-      if(!p.eleman) labels.push({u:(rc.u0+rc.u1)/2, v:(rc.v0+rc.v1)/2, text: p.bos ? 'BOŞ' : (excelKodModu ? kodFor(kodMap, mi, fi, ci, pi) : (FACE_CODE[fi]+'-B'+(ci+1)+'K'+(pi+1))), size: `${Math.round(rc.u1-rc.u0)}×${Math.round(rc.v1-rc.v0)}`, type: p.type, bos: !!p.bos});
       pc += pm;
       if(pi<cRes.panels.length-1 && col.innerGaps[pi]){
         gapAcrossMm[ci][pi] = pc;
-        const consumed = !!(r.bars.consumedRight[ci] && r.bars.consumedRight[ci][pi]);
-        if(!consumed){
-          const bAra = r.bars.ara.find(x=>x.ci===ci && x.gi===pi);
-          if(bAra && bAra.joinValid){
-            deferredJoinsMm.push({ci, gi:pi, acrossMm: pc});
-          } else {
-            // Gerçek örtüşüm: staggered olmayan durumda alongOf(pi)===alongOf(pi+1)===cur ve
-            // pColMm===nextPColMm===colMm ise bugünkü [cur, cur+colMm] aralığına birebir eşittir.
-            const np = cRes.panels[pi+1];
-            const nextPColMm = (np.pColSize||0) > 0 ? np.pColSize : colMm;
-            const gapA = alongOf(pi), gapB = alongOf(pi+1);
-            const gapStart = Math.max(gapA, gapB);
-            const gapEnd = Math.min(gapA+pColMm, gapB+nextPColMm);
-            const tr = orient==='H'
-              ? {u0:gapStart,v0:pc,u1:gapEnd,v1:pc+tk}
-              : {u0:pc,v0:gapStart,u1:pc+tk,v1:gapEnd};
-            tr.fill=SEG3; innerBarR.push(tr);
-            if(tp3>0){
-              if(orient==='H'){
-                innerBarR.push({u0:tr.u0,v0:tr.v0,u1:tr.u0+tp3,v1:tr.v1, fill:PL3});
-                innerBarR.push({u0:tr.u1-tp3,v0:tr.v0,u1:tr.u1,v1:tr.v1, fill:PL3});
-              } else {
-                innerBarR.push({u0:tr.u0,v0:tr.v0,u1:tr.u1,v1:tr.v0+tp3, fill:PL3});
-                innerBarR.push({u0:tr.u0,v0:tr.v1-tp3,u1:tr.u1,v1:tr.v1, fill:PL3});
-              }
+        // Zincir üyesi barlar tek parça olarak döngü sonrasında eklenir
+        if(r.bars.araChainIdx[ci][pi] === undefined){
+          // Kademeli düzende bar EN DIŞ kenara kadar uzanır (2B aynası ile aynı kural);
+          // kademesiz durumda iki kenar zaten aynı olduğundan bugünkü sonuçla birebir aynıdır.
+          const sp = araSpan3({ci, gi:pi});
+          const tr = orient==='H'
+            ? {u0:sp.left,v0:pc,u1:sp.right,v1:pc+tk}
+            : {u0:pc,v0:sp.left,u1:pc+tk,v1:sp.right};
+          tr.fill=SEG3; innerBarR.push(tr);
+          if(tp3>0){
+            if(orient==='H'){
+              innerBarR.push({u0:tr.u0,v0:tr.v0,u1:tr.u0+tp3,v1:tr.v1, fill:PL3});
+              innerBarR.push({u0:tr.u1-tp3,v0:tr.v0,u1:tr.u1,v1:tr.v1, fill:PL3});
+            } else {
+              innerBarR.push({u0:tr.u0,v0:tr.v0,u1:tr.u1,v1:tr.v0+tp3, fill:PL3});
+              innerBarR.push({u0:tr.u0,v0:tr.v1-tp3,u1:tr.u1,v1:tr.v1, fill:PL3});
             }
           }
         }
         pc+=tk;
       }
     });
-    if(rStag) cur = colRangeMm[rStag.i].startMm + (rStag.on?tk:0) + pairTotalMm;
-    else cur += colMm;
-    colRangeMm[ci] = {startMm: colStartMm, mm: colMm};
     if(ci<r.colResults.length-1 && face.colGaps[ci]){
       const bAna = r.bars.ana[ci];
-      if(bAna && bAna.stagger && bAna.stagger.active){
-        // Kademeli (zigzag) bölücü: her segment KENDİ satırındaki gerçek panel genişliğine göre
-        // farklı along-konumda çizilir (2B aynası drawFaceSVG ile birebir aynı mantık)
+      // 2B aynası drawFaceSVG ile BİREBİR aynı mantık: bar, KESİLMİŞ seviyelerden
+      // (bAna.cutLevels) segmentlere ayrılır; birleşik kapağın kapladığı bant çizilmez.
+      // Hiç kesim yoksa tek segment çıkar = eski &quot;boydan boya sürekli&quot; çizimin aynısı.
+      if(bAna && !bAna.fullySuppressed){
         const aEnd = (orient==='H') ? FH-k : FW-k;
-        const boundsMm = bAna.levels.map(l=>gapAcrossMm[ci][l.idxA]).filter(v=>v!=null).sort((a,b)=>a-b);
+        const xOf = seg => junction3(ci, seg);
+        const fill3 = bAna.splitValid ? SEG3 : CONT3;
+        const boundsMm = bAna.cutLevels.map(ix=>gapAcrossMm[ci][ix]).filter(v=>v!=null).sort((a,b)=>a-b);
         let segStart = k;
         const bounds = [];
         boundsMm.forEach(b=>{ bounds.push([segStart,b]); segStart = b+tk; });
         bounds.push([segStart, aEnd]);
-        const segXsMm = bAna.stagger.leftW.map(lw=>colStartMm+lw);
         bounds.forEach((bd,seg)=>{
+          if(bAna.segments[seg] && bAna.segments[seg].suppressed) return; // o bant birleşik kapak
           const s0=bd[0], s1=bd[1];
           if(s1-s0 < 1) return;
-          const segX = segXsMm[seg];
+          const segX = xOf(seg);
           const tr = orient==='H'
             ? {u0:segX,v0:s0,u1:segX+tk,v1:s1}
             : {u0:s0,v0:segX,u1:s1,v1:segX+tk};
-          tr.fill=SEG3; colBarR.push(tr);
+          tr.fill=fill3; colBarR.push(tr);
           if(tp3>0){
             if(orient==='H'){
               colBarR.push({u0:tr.u0,v0:s0,u1:tr.u1,v1:s0+tp3, fill:PL3});
@@ -2076,71 +2495,26 @@ function faceLayoutRects(fi){
           }
         });
       }
-      else if(bAna && bAna.splitValid){
-        // Ayrılmış: bu junction'ın KENDİ hizalı seviyelerinde bölünür (gapAcrossMm[ci]), her segment ucunda plastik
-        const aEnd = (orient==='H') ? FH-k : FW-k;
-        const boundsMm = bAna.levels.map(l=>gapAcrossMm[ci][l.idxA]).filter(v=>v!=null).sort((a,b)=>a-b);
-        let segStart = k;
-        const bounds = [];
-        boundsMm.forEach(b=>{ bounds.push([segStart,b]); segStart = b+tk; });
-        bounds.push([segStart, aEnd]);
-        bounds.forEach(bd=>{
-          const s0=bd[0], s1=bd[1];
-          if(s1-s0 < 1) return;
-          const tr = orient==='H'
-            ? {u0:cur,v0:s0,u1:cur+tk,v1:s1}
-            : {u0:s0,v0:cur,u1:s1,v1:cur+tk};
-          tr.fill=SEG3; colBarR.push(tr);
-          if(tp3>0){
-            if(orient==='H'){
-              colBarR.push({u0:tr.u0,v0:s0,u1:tr.u1,v1:s0+tp3, fill:PL3});
-              colBarR.push({u0:tr.u0,v0:s1-tp3,u1:tr.u1,v1:s1, fill:PL3});
-            } else {
-              colBarR.push({u0:s0,v0:tr.v0,u1:s0+tp3,v1:tr.v1, fill:PL3});
-              colBarR.push({u0:s1-tp3,v0:tr.v0,u1:s1,v1:tr.v1, fill:PL3});
-            }
-          }
-        });
-      } else {
-        const tr = orient==='H'
-          ? {u0:cur,v0:k,u1:cur+tk,v1:FH-k}
-          : {u0:k,v0:cur,u1:FW-k,v1:cur+tk};
-        tr.fill=CONT3; colBarR.push(tr);
-        if(tp3>0){
-          if(orient==='H'){
-            colBarR.push({u0:tr.u0,v0:tr.v0,u1:tr.u1,v1:tr.v0+tp3, fill:PL3});
-            colBarR.push({u0:tr.u0,v0:tr.v1-tp3,u1:tr.u1,v1:tr.v1, fill:PL3});
-          } else {
-            colBarR.push({u0:tr.u0,v0:tr.v0,u1:tr.u0+tp3,v1:tr.v1, fill:PL3});
-            colBarR.push({u0:tr.u1-tp3,v0:tr.v0,u1:tr.u1,v1:tr.v1, fill:PL3});
-          }
-        }
-      }
-      cur+=tk;
     }
   });
-  // Birleşik ARA takviyeler (2 bölüm arası): iki bölümün mm aralığı belli olduğuna göre
-  // tek parça olarak, sol bölümün başından sağ bölümün sonuna kadar eklenir
-  deferredJoinsMm.forEach(dj=>{
-    const leftRange = colRangeMm[dj.ci], rightRange = colRangeMm[dj.ci+1];
-    if(!leftRange || !rightRange) return;
-    // Kademeli bir junction'da sağ sütunun naif genişliği değil, çift-toplamı (effectivePairTotal) esas alınır.
-    const djAnaBar = r.bars.ana[dj.ci];
-    const isStaggered = djAnaBar && djAnaBar.stagger && djAnaBar.stagger.active;
-    const s0 = leftRange.startMm;
-    const s1 = isStaggered ? (leftRange.startMm + (djAnaBar.on?tk:0) + djAnaBar.stagger.effectivePairTotal) : (rightRange.startMm + rightRange.mm);
+  // BİRLEŞİK (zincir) ARA TAKVİYELER — kaç bölüm sürerse sürsün TEK parça (2B aynası ile aynı)
+  r.bars.araChains.forEach(ch=>{
+    const acrossMm = gapAcrossMm[ch.members[0].ci][ch.members[0].gi];
+    if(acrossMm==null) return;
+    const s0 = araSpan3(ch.members[0]).left;
+    const s1 = araSpan3(ch.members[ch.members.length-1]).right;
     if(s1-s0 < 1) return;
     const tr = orient==='H'
-      ? {u0:s0,v0:dj.acrossMm,u1:s1,v1:dj.acrossMm+tk}
-      : {u0:dj.acrossMm,v0:s0,u1:dj.acrossMm+tk,v1:s1};
+      ? {u0:s0,v0:acrossMm,u1:s1,v1:acrossMm+tk}
+      : {u0:acrossMm,v0:s0,u1:acrossMm+tk,v1:s1};
     tr.fill=CONT3; innerBarR.push(tr);
     if(tp3>0){
       if(orient==='H'){
-        innerBarR.push({u0:s0,v0:dj.acrossMm,u1:s0+tp3,v1:dj.acrossMm+tk, fill:PL3});
-        innerBarR.push({u0:s1-tp3,v0:dj.acrossMm,u1:s1,v1:dj.acrossMm+tk, fill:PL3});
+        innerBarR.push({u0:s0,v0:acrossMm,u1:s0+tp3,v1:acrossMm+tk, fill:PL3});
+        innerBarR.push({u0:s1-tp3,v0:acrossMm,u1:s1,v1:acrossMm+tk, fill:PL3});
       } else {
-        innerBarR.push({u0:dj.acrossMm,v0:s0,u1:dj.acrossMm+tk,v1:s0+tp3, fill:PL3});
-        innerBarR.push({u0:dj.acrossMm,v0:s1-tp3,u1:dj.acrossMm+tk,v1:s1, fill:PL3});
+        innerBarR.push({u0:acrossMm,v0:s0,u1:acrossMm+tk,v1:s0+tp3, fill:PL3});
+        innerBarR.push({u0:acrossMm,v0:s1-tp3,u1:acrossMm+tk,v1:s1, fill:PL3});
       }
     }
   });
@@ -2338,16 +2712,10 @@ async function exportExcel(){
     rr = addTable(wsO, rr, 'TAKVİYE LİSTESİ — GRUPLU', ['Yön + Tip','Boy (mm)','Toplam Adet'],
       takDetRows.map(x=>[x.yon+' '+x.tip, x.boy, x.adet]));
 
-    const gmap = new Map();
-    takRows.forEach(x=>{
-      if(x.boy===null) return;
-      const key = x.tip+'|'+x.boy.toFixed(0);
-      if(!gmap.has(key)) gmap.set(key,{tip:x.tip, boy:Math.round(x.boy), adet:0});
-      gmap.get(key).adet += x.adet;
-    });
-    const groups = [...gmap.values()].sort((a,b)=> a.tip.localeCompare(b.tip) || b.boy-a.boy);
-    rr = addTable(wsO, rr, 'TOPLU SİPARİŞ LİSTESİ (BOYA GÖRE GRUPLU)', ['Profil','Boy (mm)','Toplam Adet'],
-      groups.map(g=>[g.tip, g.boy, g.adet]));
+    // Ekrandaki &quot;Toplu Sipariş Listesi&quot; ile TEK kaynaktan (groupTakviyeSiparis) beslenir
+    const {groups} = groupTakviyeSiparis(takRows);
+    rr = addTable(wsO, rr, 'TOPLU SİPARİŞ LİSTESİ (BOYA GÖRE GRUPLU)', ['Boy (mm)','Toplam Adet','Toplam Uzunluk (m)'],
+      groups.map(g=>[g.boy, g.adet, g.metre]));
 
     // Kapak toplamları (tip bazında, Boş Alan hariç) — Boğaz/Damper ayrı tabloda
     const kapakMap = new Map();
@@ -2358,7 +2726,7 @@ async function exportExcel(){
           const r = computeFace(fi);
           if(r.kapaksiz) return;
           r.colResults.forEach(c=>c.panels.forEach(p=>{
-            if(p.bos) return;
+            if(p.bos || p.covered) return;
             const map = isEleman(p.type) ? bogazDamperMap : kapakMap;
             map.set(p.type, (map.get(p.type)||0)+1);
           }));
@@ -2689,6 +3057,7 @@ function attachListeners(){
   });
 
   document.body.addEventListener('click', e=>{
+    const additive = e.ctrlKey || e.metaKey;   // Ctrl/Cmd: seçime ekle-çıkar
     // [+ BÖLÜM]
     const addBtn = e.target.closest('.svg-addbtn');
     if(addBtn){
@@ -2696,8 +3065,8 @@ function attachListeners(){
       const face = state.faces[fi];
       face.columns.push(newColumn());
       syncStructure(face);
-      face.selected = {col: face.columns.length-1, idx: 0};
-      face.selectedBar = null;
+      face.selectedCells = [{col: face.columns.length-1, idx: 0}];
+      face.selectedBars = [];
       renderFace(fi);
       const inp = document.getElementById(`f${fi}_ed_colsize`);
       if(inp) inp.focus();
@@ -2709,10 +3078,10 @@ function attachListeners(){
       const fi = Number(addP.dataset.face);
       const ci = Number(addP.dataset.col);
       const face = state.faces[fi];
-      face.columns[ci].panels.push({size:0, type:&quot;Normal Panel&quot;});
+      face.columns[ci].panels.push({size:0, type:&quot;Normal Panel&quot;, colSpan:1});
       syncStructure(face);
-      face.selected = {col: ci, idx: face.columns[ci].panels.length-1};
-      face.selectedBar = null;
+      face.selectedCells = [{col: ci, idx: face.columns[ci].panels.length-1}];
+      face.selectedBars = [];
       renderFace(fi);
       const inp = document.getElementById(`f${fi}_ed_psize`);
       if(inp) inp.focus();
@@ -2726,8 +3095,8 @@ function attachListeners(){
       const face = state.faces[fi];
       face.columns.splice(ci + 1, 0, newColumn());
       syncStructure(face);
-      face.selected = {col: ci + 1, idx: 0};
-      face.selectedBar = null;
+      face.selectedCells = [{col: ci + 1, idx: 0}];
+      face.selectedBars = [];
       renderFace(fi);
       const inp = document.getElementById(`f${fi}_ed_colsize`);
       if(inp) inp.focus();
@@ -2741,14 +3110,35 @@ function attachListeners(){
       const face = state.faces[fi];
       face.columns.splice(ci + 1, 0, newColumn());
       syncStructure(face);
-      face.selected = {col: ci + 1, idx: 0};
-      face.selectedBar = null;
+      face.selectedCells = [{col: ci + 1, idx: 0}];
+      face.selectedBars = [];
       renderFace(fi);
       const inp = document.getElementById(`f${fi}_ed_colsize`);
       if(inp) inp.focus();
       return;
     }
-    // Ana takviye: kapalıysa aç; açıksa seç/seçimi kaldır (kapatma artık editördeki Kaldır ile)
+    // KESİM NOKTASI — ana takviyeyi YALNIZ tıklanan seviyeden ayırır/birleştirir.
+    // .svg-gap'ten ÖNCE denenir (ikisi kardeş elemanlar; sıra niyeti netleştirir).
+    const cutG = e.target.closest('.svg-anacut');
+    if(cutG){
+      const fi = Number(cutG.dataset.face);
+      const gi = Number(cutG.dataset.gap);
+      const lvl = Number(cutG.dataset.lvl);
+      const face = state.faces[fi];
+      // '*' (eski projelerden gelen &quot;hepsi kesik&quot;) ilk dokunuşta gerçek listeye açılır
+      let cur = face.anaSplitLevels[gi];
+      if(cur === '*'){
+        const rNow = computeFace(fi);
+        cur = (rNow.bars.ana[gi] ? rNow.bars.ana[gi].levels.map(l=>l.idxA) : []);
+      }
+      cur = Array.isArray(cur) ? cur.slice() : [];
+      const at = cur.indexOf(lvl);
+      if(at >= 0) cur.splice(at, 1); else cur.push(lvl);
+      face.anaSplitLevels[gi] = cur;
+      renderFace(fi);
+      return;
+    }
+    // Ana takviye: kapalıysa aç; açıksa seç (Ctrl ile çoklu). Kapatma editördeki Kaldır ile.
     const gapG = e.target.closest('.svg-gap');
     if(gapG){
       const fi = Number(gapG.dataset.face);
@@ -2757,14 +3147,14 @@ function attachListeners(){
       if(!face.colGaps[gi]){
         face.colGaps[gi] = true;
       } else {
-        const already = face.selectedBar && face.selectedBar.kind==='ana' && face.selectedBar.i===gi;
-        face.selected = null;
-        face.selectedBar = already ? null : {kind:'ana', i:gi};
+        const mixed = face.selectedBars.some(b=>b.kind!=='ana');   // tür değişti → seçimi sıfırla
+        face.selectedCells = [];
+        face.selectedBars = toggleSel(mixed ? [] : face.selectedBars, {kind:'ana', i:gi}, sameBar, additive && !mixed);
       }
       renderFace(fi);
       return;
     }
-    // Ara takviye: kapalıysa aç; açıksa seç/seçimi kaldır (kapatma artık editördeki Kaldır ile)
+    // Ara takviye: kapalıysa aç; açıksa seç (Ctrl ile çoklu). Kapatma editördeki Kaldır ile.
     const inG = e.target.closest('.svg-innergap');
     if(inG){
       const fi = Number(inG.dataset.face);
@@ -2775,25 +3165,24 @@ function attachListeners(){
       if(!col.innerGaps[gi]){
         col.innerGaps[gi] = true;
       } else {
-        const already = face.selectedBar && face.selectedBar.kind==='ara' && face.selectedBar.ci===ci && face.selectedBar.gi===gi;
-        face.selected = null;
-        face.selectedBar = already ? null : {kind:'ara', ci, gi};
+        const mixed = face.selectedBars.some(b=>b.kind!=='ara');
+        face.selectedCells = [];
+        face.selectedBars = toggleSel(mixed ? [] : face.selectedBars, {kind:'ara', ci, gi}, sameBar, additive && !mixed);
       }
       renderFace(fi);
       return;
     }
-    // Panel seç
+    // Kapak seç (Ctrl ile çoklu — birleştirme için)
     const panelG = e.target.closest('.svg-panel');
     if(panelG){
       const fi = Number(panelG.dataset.face);
       const ci = Number(panelG.dataset.col);
       const pi = Number(panelG.dataset.panel);
       const face = state.faces[fi];
-      const already = face.selected && face.selected.col===ci && face.selected.idx===pi;
-      face.selected = already ? null : {col:ci, idx:pi};
-      face.selectedBar = null;
+      face.selectedBars = [];
+      face.selectedCells = toggleSel(face.selectedCells, {col:ci, idx:pi}, sameCell, additive);
       renderFace(fi);
-      if(face.selected){
+      if(face.selectedCells.length === 1){
         const inp = document.getElementById(`f${fi}_ed_colsize`);
         if(inp) inp.focus();
       }
@@ -2804,8 +3193,9 @@ function attachListeners(){
     if(m){
       const fi = Number(m[1]);
       const face = state.faces[fi];
-      if(!face.selected) return;
-      const {col:ci, idx:pi} = face.selected;
+      const s = selCell(face);
+      if(!s) return;
+      const {col:ci, idx:pi} = s;
       const col = face.columns[ci];
       if(col.panels.length>1){
         col.panels.splice(pi,1);
@@ -2813,35 +3203,83 @@ function attachListeners(){
         face.columns.splice(ci,1);
       } else return;
       syncStructure(face);
-      face.selected = null;
+      face.selectedCells = [];
       renderFace(fi);
       return;
     }
-    // Takviye bar: Ayır/Birleştir
-    let barActionM = e.target.id && e.target.id.match(/^f(\d+)_bar_action$/);
-    if(barActionM){
-      const fi = Number(barActionM[1]);
+    // KAPAKLARI BİRLEŞTİR — soldaki kapağa colSpan verilir, sağdakiler onun altında kalır
+    let cellMergeM = e.target.id && e.target.id.match(/^f(\d+)_cell_merge$/);
+    if(cellMergeM){
+      const fi = Number(cellMergeM[1]);
       const face = state.faces[fi];
-      const sel = face.selectedBar;
-      if(sel){
-        if(sel.kind==='ana') face.anaSplit[sel.i] = !face.anaSplit[sel.i];
-        else face.columns[sel.ci].araJoinNext[sel.gi] = !face.columns[sel.ci].araJoinNext[sel.gi];
+      const chk = canMergeCells(computeFace(fi), face, face.selectedCells);
+      if(chk.ok){
+        // Kapsamdaki eski birleşimler çözülür; en soldaki hücre yeni base olur (birleşim
+        // genişletme: 2'li bir birleşime 3. bölüm eklenebilsin)
+        chk.owners.forEach(o=>{ face.columns[o.col].panels[o.idx].colSpan = 1; });
+        const base = face.columns[chk.base.col].panels[chk.base.idx];
+        base.colSpan = chk.span;
+        // Kapsanan hücrelerin ölçü/tipini hemen base'e eşitle — bundan sonra tek kapak gibi davransın
+        chk.cells.slice(1).forEach(c=>{
+          Object.assign(face.columns[c.col].panels[c.idx], {size: base.size, type: base.type});
+        });
+        face.selectedCells = [chk.base];
         renderFace(fi);
       }
       return;
     }
-    // Takviye bar: Kaldır
+    // BİRLEŞİMİ ÇÖZ
+    let cellUnmergeM = e.target.id && e.target.id.match(/^f(\d+)_cell_unmerge$/);
+    if(cellUnmergeM){
+      const fi = Number(cellUnmergeM[1]);
+      const face = state.faces[fi];
+      const s = selCell(face);
+      if(s){
+        face.columns[s.col].panels[s.idx].colSpan = 1;
+        renderFace(fi);
+      }
+      return;
+    }
+    let cellClearM = e.target.id && e.target.id.match(/^f(\d+)_cell_clear$/);
+    if(cellClearM){
+      const fi = Number(cellClearM[1]);
+      state.faces[fi].selectedCells = [];
+      renderFace(fi);
+      return;
+    }
+    // Takviye bar: Birleştir / Ayır — SEÇİMİN TAMAMINA uygulanır, uygulanamayanlar atlanır
+    let barJoinM = e.target.id && e.target.id.match(/^f(\d+)_bar_(join|split)$/);
+    if(barJoinM){
+      const fi = Number(barJoinM[1]);
+      const join = barJoinM[2] === 'join';
+      const face = state.faces[fi];
+      const r = computeFace(fi);
+      face.selectedBars.forEach(b=>{
+        if(b.kind==='ana'){
+          // Birleştir = tüm kesimleri kaldır | Ayır = hizalı TÜM seviyelerden kes
+          const st = anaBarState(r, b.i);
+          if(join) face.anaSplitLevels[b.i] = [];
+          else if(st && st.canSplit) face.anaSplitLevels[b.i] = st.bar.levels.map(l=>l.idxA);
+        } else {
+          const st = araBarState(r, face, b.ci, b.gi);
+          if(join){ if(st && st.canJoin) face.columns[b.ci].araJoinNext[b.gi] = true; }
+          else face.columns[b.ci].araJoinNext[b.gi] = false;
+        }
+      });
+      renderFace(fi);
+      return;
+    }
+    // Takviye bar: Kaldır (seçimin tamamı)
     let barRemoveM = e.target.id && e.target.id.match(/^f(\d+)_bar_remove$/);
     if(barRemoveM){
       const fi = Number(barRemoveM[1]);
       const face = state.faces[fi];
-      const sel = face.selectedBar;
-      if(sel){
-        if(sel.kind==='ana') face.colGaps[sel.i] = false;
-        else face.columns[sel.ci].innerGaps[sel.gi] = false;
-        face.selectedBar = null;
-        renderFace(fi);
-      }
+      face.selectedBars.forEach(b=>{
+        if(b.kind==='ana') face.colGaps[b.i] = false;
+        else face.columns[b.ci].innerGaps[b.gi] = false;
+      });
+      face.selectedBars = [];
+      renderFace(fi);
       return;
     }
   });
@@ -2851,16 +3289,17 @@ function attachListeners(){
     if(m){
       const fi = Number(m[1]);
       const face = state.faces[fi];
-      if(face.selected){
+      const s = selCell(face);
+      if(s){
         const val = Number(e.target.value)||0;
-        const col = face.columns[face.selected.col];
+        const col = face.columns[s.col];
         if(face.orient === 'V'){
           // V modunda ed_colsize = satır yüksekliği (col.size); per-panel override kullanılmaz
           col.size = val;
           col.panels.forEach(pp => { pp.colSize = 0; });
         } else {
           // H modunda: bireysel kapak genişliği; col.size yeni kapaklar için varsayılan
-          col.panels[face.selected.idx].colSize = val;
+          col.panels[s.idx].colSize = val;
           col.size = val;
         }
         partialRender(fi);
@@ -2871,8 +3310,10 @@ function attachListeners(){
     if(m){
       const fi = Number(m[1]);
       const face = state.faces[fi];
-      if(face.selected){
-        face.columns[face.selected.col].panels[face.selected.idx].size = Number(e.target.value)||0;
+      const s = selCell(face);
+      if(s){
+        // Birleşik kapakta yükseklik kapladığı hücrelere de yazılır — yoksa birleşim çözülür
+        syncSpannedCell(fi, s.col, s.idx, {size: Number(e.target.value)||0});
         partialRender(fi);
       }
       return;
@@ -2884,8 +3325,10 @@ function attachListeners(){
     if(m){
       const fi = Number(m[1]);
       const face = state.faces[fi];
-      if(face.selected){
-        face.columns[face.selected.col].panels[face.selected.idx].type = e.target.value;
+      const s = selCell(face);
+      if(s){
+        // Birleşik kapakta tip de kapladığı hücrelere yazılır (tek kapak, tek tip)
+        syncSpannedCell(fi, s.col, s.idx, {type: e.target.value});
         syncStructure(face); // boğaz seçilirse bitişik ana takviyeler kalkar
         renderFace(fi);
       }
@@ -2896,13 +3339,14 @@ function attachListeners(){
       const face = state.faces[fi];
       if(e.target.value !== face.orient){
         face.orient = e.target.value;
-        face.selected = null;
-        face.selectedBar = null;
-        // Yönelim değişince tüm ölçüleri sıfırla — otomatik yerleşim devreye girsin
+        face.selectedCells = [];
+        face.selectedBars = [];
+        // Yönelim değişince tüm ölçüleri ve birleşimleri sıfırla — otomatik yerleşim devreye girsin
         face.columns.forEach(col => {
           col.size = 0;
-          col.panels.forEach(p => { p.size = 0; p.colSize = 0; });
+          col.panels.forEach(p => { p.size = 0; p.colSize = 0; p.colSpan = 1; });
         });
+        face.anaSplitLevels = face.anaSplitLevels.map(()=>[]);
       }
       renderFace(fi);
       return;
@@ -2910,8 +3354,8 @@ function attachListeners(){
     if(e.target.matches('[data-kapaksizface]')){
       const fi = Number(e.target.dataset.kapaksizface);
       state.faces[fi].kapaksiz = e.target.checked;
-      state.faces[fi].selected = null;
-      state.faces[fi].selectedBar = null;
+      state.faces[fi].selectedCells = [];
+      state.faces[fi].selectedBars = [];
       renderFace(fi);
       return;
     }
@@ -2987,7 +3431,7 @@ function buildActiveAhuKodMap(){
         var isAltUst = (fi === 2 || fi === 3);
         (r.colResults || []).forEach(function(col, ci) {
           (col.panels || []).forEach(function(p, pi) {
-            if (p.bos || p.eleman) return;
+            if (p.bos || p.eleman || p.covered) return;
             var mapped = KAPAK_TO_HYT[p.type];
             if (!mapped) return;
             var sw = p.sabitW, sh = p.sabitH;
@@ -3075,7 +3519,7 @@ function exportToDxf() {
           var isAltUst = (fi === 2 || fi === 3);
           (r.colResults || []).forEach(function(col, ci) {
             (col.panels || []).forEach(function(p, pi) {
-              if (p.bos || p.eleman) return;
+              if (p.bos || p.eleman || p.covered) return;
               var mapped = KAPAK_TO_HYT[p.type];
               if (!mapped) return;
               var sw = p.sabitW, sh = p.sabitH;
@@ -3136,7 +3580,7 @@ document.getElementById('btn_dxf').addEventListener('click', exportToDxf);
 // ---------- PROJE KAYDET / YÜKLE ----------
 function saveProject(){
   const data = {
-    version: 3,
+    version: 4,   // v4: panel.colSpan + face.anaSplitLevels (v3 dosyalar syncStructure'da göç eder)
     proje: state.proje,
     ahus: state.ahus,
     activeAhu: state.activeAhu
