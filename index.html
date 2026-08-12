@@ -3578,13 +3578,45 @@ function exportToDxf() {
 document.getElementById('btn_dxf').addEventListener('click', exportToDxf);
 
 // ---------- PROJE KAYDET / YÜKLE ----------
-function saveProject(){
-  const data = {
-    version: 4,   // v4: panel.colSpan + face.anaSplitLevels (v3 dosyalar syncStructure'da göç eder)
+// v4: panel.colSpan + face.anaSplitLevels (eski dosyaların alan göçü syncStructure'da yapılır)
+const PROJECT_VERSION = 4;
+
+function projectData(){
+  return {
+    version: PROJECT_VERSION,
     proje: state.proje,
     ahus: state.ahus,
     activeAhu: state.activeAhu
   };
+}
+
+// Ayrıştırılmış proje nesnesini modele uygular. Doğrulama sürüm numarasına DEĞİL BİÇİME
+// bakar — sürüm her arttığında yükleyiciyi güncellemeyi unutmak, kendi kaydettiğimiz
+// dosyanın &quot;geçersiz&quot; sayılmasına yol açıyordu. Alan farklarını syncStructure kapatır.
+// Dönüş: tanınan bir biçim miydi.
+function applyProjectData(data){
+  if(!data || typeof data !== 'object') return false;
+  if(Array.isArray(data.ahus)){
+    // v3+ : çok-AHU formatı
+    state.ahus = data.ahus;
+    state.activeAhu = typeof data.activeAhu==='number' ? Math.max(0, Math.min(data.activeAhu, data.ahus.length-1)) : 0;
+  } else if(Array.isArray(data.modules)){
+    // v2 : tek-AHU geriye uyumluluk
+    const ahu = newAhu(1);
+    ahu.modules = data.modules;
+    ahu.active = typeof data.active==='number' ? Math.max(0, Math.min(data.active, data.modules.length-1)) : 0;
+    if(data.varsayimlar) ahu.varsayimlar = data.varsayimlar;
+    state.ahus = [ahu];
+    state.activeAhu = 0;
+  } else {
+    return false;
+  }
+  if(data.proje) state.proje = data.proje;
+  return true;
+}
+
+function saveProject(){
+  const data = projectData();
   const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
@@ -3601,23 +3633,13 @@ function loadProject(file){
   reader.onload = e=>{
     try{
       const data = JSON.parse(e.target.result);
-      if(data.version === 3 && Array.isArray(data.ahus)){
-        // v3: çok-AHU formatı
-        state.ahus = data.ahus;
-        state.activeAhu = typeof data.activeAhu==='number' ? Math.min(data.activeAhu, data.ahus.length-1) : 0;
-      } else if(Array.isArray(data.modules)){
-        // v2: tek-AHU geriye uyumluluk
-        const ahu = newAhu(1);
-        ahu.modules = data.modules;
-        ahu.active = typeof data.active==='number' ? Math.min(data.active, data.modules.length-1) : 0;
-        if(data.varsayimlar) ahu.varsayimlar = data.varsayimlar;
-        state.ahus = [ahu];
-        state.activeAhu = 0;
-      } else {
+      if(!applyProjectData(data)){
         alert('Geçersiz proje dosyası.');
         return;
       }
-      if(data.proje) state.proje = data.proje;
+      if(Number(data.version) > PROJECT_VERSION){
+        alert('Bu dosya programın daha yeni bir sürümüyle kaydedilmiş (v'+data.version+' > v'+PROJECT_VERSION+'). Açıldı, ancak tanınmayan ayarlar korunmayabilir.');
+      }
       const isNoEl = document.getElementById('prj_isno');
       if(isNoEl) isNoEl.value = state.proje.isNo || '';
       renderAll(); // renderAll → renderAhuTabs → prj_ad synced to active AHU
