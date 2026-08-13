@@ -44,8 +44,7 @@ iframe.active{display:block;}
     --bg:#0a0d10; --panel:#17191d; --panel2:#1f2226; --border:rgba(255,255,255,.09);
     --text:#f2f3f5; --muted:#95999f; --accent:#3ecab3; --accent-soft:rgba(62,202,179,.15); --accent-ring:rgba(62,202,179,.35); --accent-fg:#06231f;
     --warn:#ffb340; --bad:#ff453a; --bad-soft:rgba(255,69,58,.14); --good:#32d74b;
-    --input-bg:#1b1e22; --canvas:#ffffff;
-    --header-bg:rgba(23,25,29,.72);
+    --input-bg:#1b1e22;    --header-bg:rgba(23,25,29,.72);
     --shadow-card:0 1px 2px rgba(0,0,0,.5),0 12px 28px -10px rgba(0,0,0,.6);
     --shadow-pop:0 16px 44px -10px rgba(0,0,0,.65);
     --shadow-sm-el:0 1px 3px rgba(0,0,0,.4);
@@ -55,8 +54,7 @@ iframe.active{display:block;}
     --bg:#111214; --panel:#1a1c1f; --panel2:#222528; --border:rgba(255,255,255,.08);
     --text:#eceeef; --muted:#98999e; --accent:#5aa9e6; --accent-soft:rgba(90,169,230,.15); --accent-ring:rgba(90,169,230,.35); --accent-fg:#ffffff;
     --warn:#e0a541; --bad:#ff453a; --bad-soft:rgba(255,69,58,.14); --good:#5fc26a;
-    --input-bg:#1c1e21; --canvas:#ffffff;
-    --header-bg:rgba(26,28,31,.72);
+    --input-bg:#1c1e21;    --header-bg:rgba(26,28,31,.72);
     --shadow-card:0 1px 2px rgba(0,0,0,.5),0 12px 28px -10px rgba(0,0,0,.6);
     --shadow-pop:0 16px 44px -10px rgba(0,0,0,.65);
     --shadow-sm-el:0 1px 3px rgba(0,0,0,.4);
@@ -65,8 +63,7 @@ iframe.active{display:block;}
     --bg:#f5f5f7; --panel:#ffffff; --panel2:#f7f8fa; --border:rgba(0,0,0,.08);
     --text:#1d1d1f; --muted:#6e6e73; --accent:#0071e3; --accent-soft:rgba(0,113,227,.08); --accent-ring:rgba(0,113,227,.28); --accent-fg:#ffffff;
     --warn:#c17f0a; --bad:#d70015; --bad-soft:rgba(215,0,21,.09); --good:#248a3d;
-    --input-bg:#ffffff; --canvas:#ffffff;
-    --header-bg:rgba(255,255,255,.72);
+    --input-bg:#ffffff;    --header-bg:rgba(255,255,255,.72);
     --shadow-card:0 1px 3px rgba(0,0,0,.04),0 10px 24px -8px rgba(0,0,0,.10);
     --shadow-pop:0 18px 40px -10px rgba(0,0,0,.16);
     --shadow-sm-el:0 1px 2px rgba(0,0,0,.08);
@@ -75,8 +72,7 @@ iframe.active{display:block;}
     --bg:#141110; --panel:#1c1815; --panel2:#241f1a; --border:rgba(255,255,255,.08);
     --text:#f2ece3; --muted:#a89b89; --accent:#e5a53c; --accent-soft:rgba(229,165,60,.15); --accent-ring:rgba(229,165,60,.35); --accent-fg:#241a06;
     --warn:#e5a53c; --bad:#ff453a; --bad-soft:rgba(255,69,58,.14); --good:#8fbf5a;
-    --input-bg:#1a1613; --canvas:#ffffff;
-    --header-bg:rgba(28,24,21,.72);
+    --input-bg:#1a1613;    --header-bg:rgba(28,24,21,.72);
     --shadow-card:0 1px 2px rgba(0,0,0,.5),0 12px 28px -10px rgba(0,0,0,.6);
     --shadow-pop:0 16px 44px -10px rgba(0,0,0,.65);
     --shadow-sm-el:0 1px 3px rgba(0,0,0,.4);
@@ -85,8 +81,7 @@ iframe.active{display:block;}
     --bg:#0b0f16; --panel:#141b25; --panel2:#1b2431; --border:rgba(255,255,255,.08);
     --text:#e8eef7; --muted:#8a9bb5; --accent:#5bc9e0; --accent-soft:rgba(91,201,224,.14); --accent-ring:rgba(91,201,224,.34); --accent-fg:#04222a;
     --warn:#e0b04a; --bad:#ff5e5a; --bad-soft:rgba(255,94,90,.14); --good:#5fbf8f;
-    --input-bg:#111826; --canvas:#ffffff;
-    --header-bg:rgba(20,27,37,.72);
+    --input-bg:#111826;    --header-bg:rgba(20,27,37,.72);
     --shadow-card:0 1px 2px rgba(0,0,0,.5),0 12px 28px -10px rgba(0,0,0,.6);
     --shadow-pop:0 16px 44px -10px rgba(0,0,0,.65);
     --shadow-sm-el:0 1px 3px rgba(0,0,0,.4);
@@ -99,7 +94,6 @@ iframe.active{display:block;}
     font-family:-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',Arial,sans-serif;
     font-size:14px;line-height:1.45;margin:0;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;}
   h1{font-size:19px;font-weight:700;letter-spacing:-.2px;margin:0;color:var(--text);}
-  .appsub{color:var(--muted);font-size:11px;display:block;margin-top:2px;}
   .appdev{color:var(--muted);font-size:10.5px;font-weight:600;letter-spacing:.2px;display:block;margin-top:4px;opacity:.8;}
 
   /* İnce kaydırma çubuğu */
@@ -228,13 +222,10 @@ iframe.active{display:block;}
   .svg-panel{cursor:pointer;}
   .svg-panel:hover .panel-rect{stroke:#4fb8a8;stroke-width:2.5;}
   .panel-rect.selected{stroke:#4fb8a8;stroke-width:3;}
-  .svg-addbtn, .svg-gap, .svg-innergap, .svg-addpanel, .svg-addrow, .svg-addcol, .svg-anacut{cursor:pointer;}
+  .svg-gap, .svg-innergap, .svg-addpanel, .svg-addrow, .svg-addcol, .svg-anacut{cursor:pointer;}
   .svg-anacut:hover circle:first-child{fill:#4fb8a8;r:6;}
-  .svg-addbtn:hover rect{fill:#2a4a44;}
   .svg-addpanel:hover rect, .svg-addrow:hover rect, .svg-addcol:hover rect{fill:#2a4a44;}
   .svg-gap:hover .gap-hint, .svg-innergap:hover .gap-hint{stroke:#4fb8a8;stroke-width:2;}
-  .face-hit3{cursor:copy;}
-  .face-hit3:hover{fill:rgba(79,184,168,0.12);stroke:#4fb8a8;stroke-width:2;}
 
   /* ---------- DÜZENLEYİCİ & LEJANT ---------- */
   .face-main-row{display:flex;gap:16px;align-items:flex-start;}
@@ -275,7 +266,7 @@ iframe.active{display:block;}
       </select>
     </div>
     <button class=&quot;add-btn2&quot; id=&quot;btn_save_proj&quot; style=&quot;background:linear-gradient(135deg,#2a6496,#3a85c4);color:#fff;&quot; title=&quot;Projeyi .ahu.json dosyasına indir&quot;>💾 Projeyi Kaydet</button>
-    <label class=&quot;add-btn2&quot; id=&quot;btn_load_proj_lbl&quot; style=&quot;background:linear-gradient(135deg,#3a5a3a,#4a7a4a);color:#fff;cursor:pointer;margin:0;&quot; title=&quot;Kaydedilmiş .ahu.json dosyasını yükle&quot;>
+    <label class=&quot;add-btn2&quot; style=&quot;background:linear-gradient(135deg,#3a5a3a,#4a7a4a);color:#fff;cursor:pointer;margin:0;&quot; title=&quot;Kaydedilmiş .ahu.json dosyasını yükle&quot;>
       📂 Proje Aç
       <input type=&quot;file&quot; id=&quot;btn_load_proj&quot; accept=&quot;.json&quot; style=&quot;display:none;&quot;>
     </label>
@@ -315,13 +306,13 @@ iframe.active{display:block;}
     <div class=&quot;note&quot;>Excel dosya adında ve özet sayfasında kullanılır.</div>
   </div>
 
-  <div class=&quot;section&quot; id=&quot;ahu-bar&quot; style=&quot;padding-bottom:8px;&quot;>
+  <div class=&quot;section&quot; style=&quot;padding-bottom:8px;&quot;>
     <h2 style=&quot;margin-bottom:6px;&quot;>AHU Listesi</h2>
     <div class=&quot;tabs&quot; id=&quot;ahutabs&quot; style=&quot;margin-bottom:8px;flex-wrap:wrap;gap:4px;&quot;></div>
     <button class=&quot;add-btn2 ghost&quot; id=&quot;btn_addahu&quot; style=&quot;width:100%;&quot;>+ Yeni AHU</button>
   </div>
 
-  <div class=&quot;section&quot; id=&quot;module-bar&quot;>
+  <div class=&quot;section&quot;>
     <h2>Modüller</h2>
     <div class=&quot;tabs&quot; id=&quot;modtabs&quot; style=&quot;margin-bottom:10px;&quot;></div>
     <button class=&quot;add-btn2 ghost&quot; id=&quot;btn_addmod&quot; style=&quot;width:100%;&quot;>+ Modül (aktifin SAĞına)</button>
@@ -379,7 +370,7 @@ iframe.active{display:block;}
   </div>
 
   <div id=&quot;view-v3d&quot; class=&quot;view active&quot;>
-    <div class=&quot;section&quot; id=&quot;threed-section&quot;>
+    <div class=&quot;section&quot;>
       <div class=&quot;flex-between&quot; style=&quot;margin-bottom:12px;justify-content:flex-end;&quot;>
         <button class=&quot;add-btn2 ghost&quot; id=&quot;v3_reset&quot;>Görünümü Sıfırla</button>
       </div>
@@ -394,7 +385,7 @@ iframe.active{display:block;}
   </div>
 
   <div id=&quot;view-vsum&quot; class=&quot;view&quot;>
-<div class=&quot;section&quot; id=&quot;global-summary-section&quot;>
+<div class=&quot;section&quot;>
   <h2>Cihaz İskeleti — 3B Çerçeve (Otomatik)</h2>
   <div style=&quot;overflow-x:auto;&quot;><table class=&quot;profil-table&quot;>
     <thead><tr><th>Eleman</th><th>Adet</th><th>Boy (mm)</th><th>Toplam Uzunluk (m)</th><th>Açıklama</th></tr></thead>
@@ -414,14 +405,8 @@ iframe.active{display:block;}
   <div class=&quot;note&quot; id=&quot;gsum_note&quot;></div>
 </div>
 
-<div class=&quot;section&quot; id=&quot;global-summary&quot;>
+<div class=&quot;section&quot;>
   <h2>Genel Kesim Özeti — Tüm Yüzler (Otomatik)</h2>
-  <div class=&quot;note&quot; style=&quot;margin-bottom:10px;&quot; id=&quot;global_note&quot;></div>
-  <h2 style=&quot;border:none;margin-bottom:8px;&quot;>Profiller</h2>
-  <div style=&quot;overflow-x:auto;&quot;><table class=&quot;profil-table&quot;>
-    <thead><tr><th>Profil</th><th>Boy (mm)</th><th>Toplam Adet</th></tr></thead>
-    <tbody id=&quot;global_profil&quot;></tbody>
-  </table></div>
   <h2 style=&quot;border:none;margin:16px 0 8px;&quot;>Kapaklar (SABİT kesim ölçüleri)</h2>
   <div style=&quot;overflow-x:auto;&quot;><table class=&quot;profil-table&quot;>
     <thead><tr><th>Tip</th><th>SABİT w (mm)</th><th>SABİT h (mm)</th><th>Toplam Adet</th></tr></thead>
@@ -455,9 +440,7 @@ const SABIT_TYPES = [&quot;Üst Panel&quot;,&quot;Normal Panel&quot;,&quot;Boğa
 const ACILIR_TYPES = [&quot;Camlı Açılır&quot;,&quot;Camsız Açılır&quot;];
 const ELEMAN_TYPES = [&quot;Damper&quot;,&quot;Boğaz&quot;,&quot;Tava&quot;];               // panel değil: 0 tolerans, girilen ölçü = kesim ölçüsü
 const BOS_TYPES = [&quot;Boş Alan&quot;];                             // bilinçli boşluk: yer kaplar, kesim listesine girmez
-const BOGAZ_TYPES = [&quot;Boğaz Uzun&quot;,&quot;Boğaz 2 Uzun&quot;,&quot;Boğaz&quot;];
 const isAcilir = t => ACILIR_TYPES.includes(t);
-const isBogaz = t => BOGAZ_TYPES.includes(t);
 const isEleman = t => ELEMAN_TYPES.includes(t);
 const isBos = t => BOS_TYPES.includes(t);
 
@@ -499,7 +482,6 @@ function newFaceSet(){
   return FACE_DEFS.map(()=>({
     kapaksiz: false,
     orient: 'H',
-    cont: 'ana',
     selectedCells: [],
     selectedBars: [],
     columns: [ newColumn() ],
@@ -703,8 +685,6 @@ function getV(){
   };
 }
 
-function colHasBogaz(col){ return col.panels.some(p=>isBogaz(p.type)); }
-
 function syncStructure(face){
   const needCG = Math.max(face.columns.length-1, 0);
   while(face.colGaps.length < needCG) face.colGaps.push(true);   // otomatik: yeni ara = takviyeli (boğaz bitişiği dahil)
@@ -785,13 +765,13 @@ function sharedGapLevels(colResA, faceColA, colResB, faceColB){
 //                    SATIRINDA kalan boşluğu doldurur (dik eksendeki &quot;oto&quot; kuralının aynısı).
 //                    Yalnız solundaki tüm hücreler girilmişse devreye girer.
 // Dönüş: start[ci][pi] (hücre along-başlangıcı), junctionX[i][seg] (ana takviye X'leri),
-//        segOfL/segOfR (segment haritaları), staggered/inconsistent (uyarı için),
+//        segOfL (segment haritası), inconsistent (uyarı için),
 //        endMax/endMin, autoWidth[pi] (son bölümde otomatik doldurulan genişlikler).
 function resolveColumnLayout(colResults, face, anaBars, widthOf, colWidthOf, gapW, autoEnd){
   const TOL = 0.51;
   const n = colResults.length;
   const start = colResults.map(c=>new Array(c.panels.length).fill(0));
-  const junctionX = [], segOfL = [], segOfR = [], staggered = [], inconsistent = [];
+  const junctionX = [], segOfL = [], inconsistent = [];
   const autoWidth = new Array(colResults[n-1].panels.length).fill(null);
   // complete[ci][pi] = bu hücrenin SOLUNDAKİ her şey gerçek ölçüyle girilmiş mi (satır bazında).
   // Otomatik doldurma yalnız bu doğruysa yapılır — aksi halde eksik veri &quot;TAM OTURDU&quot; gibi görünürdü.
@@ -842,9 +822,8 @@ function resolveColumnLayout(colResults, face, anaBars, widthOf, colWidthOf, gap
       if(hi[k]===null){ hi[k] = fb; lo[k] = fb; }
       else if(lo[k]!==null && hi[k]-lo[k] > TOL) bad = true;
     }
-    junctionX.push(hi); segOfL.push(mapL); segOfR.push(mapR);
+    junctionX.push(hi); segOfL.push(mapL);
     inconsistent.push(bad);
-    staggered.push(hi.some(v=>Math.abs(v-hi[0])>TOL));
     const g = face.colGaps[i] ? gapW : 0;
     colResults[i+1].panels.forEach((p,pj)=>{
       const sg = Math.min(mapR[pj], segCount-1);
@@ -873,7 +852,7 @@ function resolveColumnLayout(colResults, face, anaBars, widthOf, colWidthOf, gap
     const c = edgeOf(ci, pi);
     return c ? c.e : start[ci][pi] + colWidthOf(ci);
   }
-  return {start, junctionX, segOfL, segOfR, staggered, inconsistent, endMax, endMin, rightAt, autoWidth};
+  return {start, junctionX, segOfL, inconsistent, endMax, endMin, rightAt, autoWidth};
 }
 
 function computeFace(fi){
@@ -891,14 +870,9 @@ function computeFace(fi){
   const tolAcross = orient==='H' ? V.tolH : V.tolW;
   const icAcross = acrossDim - 2*V.kenar;
 
-  const profilBase = {
-    ustAlt: { boy: faceW - 2*V.kose },
-    dikey:  { boy: faceH - 2*V.kose }
-  };
-
   if(face.kapaksiz){
-    return {def, faceW, faceH, orient, V, icAcross, kapaksiz:true,
-      status:{cls:&quot;info&quot;, text:&quot;Bu yüz kapaksız — dolu panel&quot;}, profil:profilBase,
+    return {def, faceW, faceH, orient, V, kapaksiz:true,
+      status:{cls:&quot;info&quot;, text:&quot;Bu yüz kapaksız — dolu panel&quot;},
       colResults:[], anaTakAdedi:0, icKullAlong:null, kalanAlong:null, toplamKapak:0, araTakToplam:0};
   }
 
@@ -965,7 +939,7 @@ function computeFace(fi){
 
     const autoUsed = panels.some(pp=>pp.auto);
     const kalanAcross = autoUsed ? 0 : (icColAcross - toplamAcross);
-    return {colSize, colSizeDefault, panels, innerTakAdedi, icColAcross, kalanAcross, autoUsed, hasBogaz: colHasBogaz(col)};
+    return {colSize, panels, innerTakAdedi, icColAcross, kalanAcross, autoUsed};
   });
 
   // ---- GEÇİŞ 2: HÜCRE BİRLEŞTİRME (colSpan) ----
@@ -1104,7 +1078,6 @@ function computeFace(fi){
       applyDims(p);
     });
   }
-  bars.ana.forEach(b=>{ b.segX = layout.junctionX[b.i]; b.staggered = layout.staggered[b.i]; });
   layout.inconsistent.forEach((bad,i)=>{
     if(bad) barWarnings.push('Ana Takviye (Bölüm '+(i+1)+'/'+(i+2)+' arası): satırlar aynı hizada bitmiyor — en geniş satır esas alındı'+(bars.ana[i].staggerable ? '' : ' (bu takviye kesilirse her satır kendi genişliğini alabilir)'));
   });
@@ -1164,10 +1137,6 @@ function computeFace(fi){
   });
   bars.araChains = araChains;
   bars.araChainIdx = araChainIdx;
-  // Geriye uyum: &quot;bu bar bir birleşimin sağ ucu&quot; — zincirin baş üyesi hariç tüm üyeler
-  const consumedRight = face.columns.map(()=>({}));
-  araChains.forEach(ch=>{ ch.members.slice(1).forEach(m=>{ consumedRight[m.ci][m.gi] = true; }); });
-  bars.consumedRight = consumedRight;
 
   // Bir ara takviyenin along-eksen kaplaması. Kademeli düzende üstteki ve alttaki kapak
   // farklı genişlikte olabilir; bar EN GENİŞ kenara kadar uzanır ki dar taraftaki dikey
@@ -1267,9 +1236,9 @@ function computeFace(fi){
     });
   });
 
-  return {def, faceW, faceH, orient, V, icAcross, kapaksiz:false,
-    colResults, anaTakAdedi, anaTakBoy, anaTakYon, araTakYon, araTakToplam,
-    icKullAlong, kalanAlong, toplamKapak, status, profil:profilBase,
+  return {def, faceW, faceH, orient, V, kapaksiz:false,
+    colResults, anaTakAdedi, araTakToplam,
+    icKullAlong, kalanAlong, toplamKapak, status,
     takviyeRecords, bars, barWarnings};
 }
 
@@ -1750,7 +1719,7 @@ function buildFaceHTML(fi){
         </div>
       </div>
       <div class=&quot;face-side-editor&quot;>
-        <div class=&quot;editor&quot; id=&quot;f${fi}_editor&quot;>
+        <div class=&quot;editor&quot;>
           <div class=&quot;editor-title&quot; id=&quot;f${fi}_editor_title&quot;>Kapak Düzenleyici</div>
           <div id=&quot;f${fi}_editor_body&quot;><div class=&quot;editor-placeholder&quot;>Bir kapak seçerek düzenleyin</div></div>
           <div class=&quot;note&quot; id=&quot;f${fi}_ed_info&quot;></div>
@@ -3058,20 +3027,6 @@ function attachListeners(){
 
   document.body.addEventListener('click', e=>{
     const additive = e.ctrlKey || e.metaKey;   // Ctrl/Cmd: seçime ekle-çıkar
-    // [+ BÖLÜM]
-    const addBtn = e.target.closest('.svg-addbtn');
-    if(addBtn){
-      const fi = Number(addBtn.dataset.addface);
-      const face = state.faces[fi];
-      face.columns.push(newColumn());
-      syncStructure(face);
-      face.selectedCells = [{col: face.columns.length-1, idx: 0}];
-      face.selectedBars = [];
-      renderFace(fi);
-      const inp = document.getElementById(`f${fi}_ed_colsize`);
-      if(inp) inp.focus();
-      return;
-    }
     // Kapak ekle (aynı satıra)
     const addP = e.target.closest('.svg-addpanel');
     if(addP){
@@ -3462,22 +3417,15 @@ function exportToDxf() {
     return;
   }
   var proje = (state.proje.isNo || '').trim();
-  var basePath = window.location.href.replace(/\/[^\/]*$/, '/');
-  var dxfUrl = basePath + 'cenk%20panel/DXF%20URETME%20PROGRAMI.html';
   var origActiveAhu = state.activeAhu;
   var totalFound = 0;
 
-  function openDxfTab(panels, bogazList, projeLabel, seri, autoGen){
+  function openDxfTab(panels, bogazList, projeLabel, seri){
     var obj = { seri: seri, proje: projeLabel, panels: panels };
     if(bogazList && bogazList.length > 0) obj.bogazList = bogazList;
-    if(autoGen) obj.autoGenerate = true;
     if(window.parent !== window){
       window.parent.postMessage({ type: 'dxfExport', payload: obj }, '*');
-      return;
     }
-    var url = dxfUrl + '#kapak=' + encodeURIComponent(JSON.stringify(obj));
-    var wnd = window.open(url, '_blank');
-    if(!wnd) alert(panels.length+' panel hazırlandı ama tarayıcı popup\'ı engelledi.\nAdres çubuğunun yanındaki popup izni simgesine tıklayıp tekrar deneyin.');
   }
 
   // Tüm AHU'larda İç Sac seçili mi kontrol et
@@ -3563,7 +3511,7 @@ function exportToDxf() {
 
     var allPanels = mainPanels.concat(altUstPanels);
     if(allPanels.length > 0 || importedBogaz.length > 0){
-      openDxfTab(allPanels, importedBogaz, projeLabel, seri, false);
+      openDxfTab(allPanels, importedBogaz, projeLabel, seri);
       totalFound++;
     }
   });
@@ -3655,9 +3603,8 @@ function loadProject(file){
 // ve fonksiyonlara erişir. Modüller (ES module) klasik <script> içindeki const/function
 // tanımlarını doğrudan göremediğinden, ihtiyaç duyulan her şey burada açıkça köprülenir.
 window.APP = {
-  state, FACE_DEFS, TYPE_COLORS, ELEMAN_TYPES, isEleman,
-  EL3_DEPTH, PH3, FACE_ATT, EXT_KEY, GLASS_R_MM,
-  modExt, withModule, computeFace, faceLayoutRects, faceUVtoXYZ,
+  state, FACE_DEFS, EL3_DEPTH,
+  modExt, withModule, faceLayoutRects, faceUVtoXYZ,
   faceMated, detectCollisions, addModuleAt
 };
 </script>
@@ -4365,7 +4312,7 @@ function boot(){
           // Etiketin kaplayacağı alanın kabaca tahmini (mevcut 20px font ölçüsüne göre) —
           // yatay (genişlik) metni geniş/alçak, dikey (yükseklik) tarafı dar/uzun kabul edilir.
           const rectsOverlap = (a,b)=> a.minX<b.maxX && a.maxX>b.minX && a.minY<b.maxY && a.maxY>b.minY;
-          const H_LBL_W = 90, H_LBL_H = 22, V_LBL_W = 22, V_LBL_H = 90, GAP = 8;
+          const H_LBL_H = 22, V_LBL_W = 22, V_LBL_H = 90, GAP = 8;
           const sideFree = (me, dir)=>{
             const midX=(me.sMinX+me.sMaxX)/2, midY=(me.sMinY+me.sMaxY)/2;
             let test;
@@ -4561,7 +4508,6 @@ boot();
     .header h1 { font-size: 28px; font-weight: 700; color: #fff; letter-spacing: 2px; }
     .header h1 span { color: var(--accent); }
     .header-right { display: flex; align-items: center; gap: 14px; }
-    .header-info { font-size: 12px; color: var(--text-muted); }
 
 
     .main { display: flex; flex: 1; overflow: hidden; }
@@ -4612,29 +4558,6 @@ boot();
     }
     .btn-add:hover { opacity: 0.85; }
 
-    .btn-export {
-      background: var(--accent);
-      color: #fff;
-      font-size: 16px;
-      padding: 14px;
-      margin-top: auto;
-    }
-    .btn-export:hover { opacity: 0.9; }
-    .btn-export:disabled { opacity: 0.4; cursor: not-allowed; }
-
-    .layout-section {
-      background: var(--bg-input);
-      border-radius: 8px;
-      padding: 12px;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-    .layout-section h3 {
-      font-size: 12px; color: var(--accent);
-      text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;
-    }
-
     .content {
       flex: none; display: flex; flex-direction: column;
       padding: 16px; gap: 12px;
@@ -4678,7 +4601,6 @@ boot();
     .btn-del:hover { background: var(--accent); color: #fff; }
 
     .empty-msg { text-align: center; padding: 60px 20px; color: var(--text-placeholder); font-size: 14px; }
-    .table-watermark { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); opacity: 0.06; pointer-events: none; z-index: 0; width: 70%; max-width: 600px; }
 
     .statusbar {
       background: var(--bg-statusbar);
@@ -4690,10 +4612,6 @@ boot();
 
     .hidden { display: none !important; }
 
-    .logo-svg { display: inline-block; vertical-align: middle; }
-    .header-left { display: flex; align-items: center; gap: 12px; }
-    .sidebar-logo { display: flex; justify-content: center; align-items: center; padding: 8px 0; margin-top: auto; opacity: 0.6; }
-    .sidebar-logo:hover { opacity: 1; }
 
     ::-webkit-scrollbar { width: 8px; }
     ::-webkit-scrollbar-track { background: var(--bg-main); }
@@ -4749,7 +4667,7 @@ boot();
     /* ============ SATIR DUZENLEME ============ */
     tr.row-clickable { cursor: pointer; }
     tr.row-editing td { background: color-mix(in srgb, var(--accent) 18%, transparent) !important; outline: 1px solid var(--accent); }
-    .btn-edit, .b-btn-edit, .a-btn-edit {
+    .btn-edit, .b-btn-edit {
       background: transparent;
       border: 1px solid var(--border);
       color: var(--accent2);
@@ -4757,268 +4675,11 @@ boot();
       border-radius: 4px; cursor: pointer;
       font-size: 13px; line-height: 1;
     }
-    .btn-edit:hover, .b-btn-edit:hover, .a-btn-edit:hover {
+    .btn-edit:hover, .b-btn-edit:hover {
       background: var(--accent2); color: var(--bg-main); border-color: var(--accent2);
     }
 
-    /* ============ TEMA BAZLI ARKAPLAN ANIMASYONU ============ */
-    /* ============ MOD SECIM EKRANI ============ */
-    #mode-select {
-      position: fixed; inset: 0; z-index: 500;
-      display: none;
-      align-items: center; justify-content: center;
-      flex-direction: column;
-      background: var(--bg-main);
-      gap: 28px;
-      animation: fadeIn 0.4s ease;
-    }
-    #mode-select.active { display: flex; }
-    #mode-select-particles {
-      position: absolute; inset: 0; width: 100%; height: 100%;
-      z-index: 0; overflow: hidden; pointer-events: none;
-    }
-    #mode-select-content {
-      position: relative; z-index: 1;
-      display: flex; flex-direction: column; align-items: center; gap: 28px;
-    }
-    #mode-select-logo {
-      width: 480px; opacity: 0.9; margin-bottom: 8px;
-      filter: drop-shadow(0 6px 20px rgba(0,0,0,0.4));
-    }
-    #mode-select-title {
-      font-size: 30px; font-weight: 800; color: var(--accent);
-      letter-spacing: 3px; text-transform: uppercase;
-    }
-    #mode-select-sub {
-      font-size: 14px; color: var(--text-muted);
-      letter-spacing: 1.5px; margin-top: -18px; margin-bottom: 14px;
-    }
-    /* Kartlar satirda yan yana (4 kart), kucuk ekranda wrap */
-    .mode-cards-grid {
-      display: flex;
-      flex-direction: row;
-      flex-wrap: wrap;
-      justify-content: center;
-      align-items: stretch;
-      gap: 26px;
-      max-width: 1620px;
-      padding: 0 20px;
-    }
-    .mode-card {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: flex-start;
-      width: 290px; height: 380px;
-      padding: 34px 22px 26px;
-      background: var(--bg-sidebar);
-      border: 2px solid var(--border);
-      border-radius: 18px;
-      cursor: pointer;
-      transition: all 0.2s;
-      color: var(--text);
-      text-align: center;
-      font-family: inherit;
-      position: relative;
-    }
-    .mode-card:hover {
-      border-color: var(--accent);
-      background: var(--bg-row-hover);
-      transform: translateY(-4px);
-      box-shadow: 0 14px 34px rgba(0,0,0,0.35);
-    }
-    .mode-card-visual {
-      width: 200px; height: 200px;
-      margin: 0 0 22px;
-      flex-shrink: 0;
-      display: flex; align-items: center; justify-content: center;
-      border-radius: 16px;
-      background: rgba(0,0,0,0.18);
-      border: 1px solid rgba(255,255,255,0.06);
-      position: relative;
-    }
-    .mode-card-icon { width: 168px; height: 168px; }
-    .mode-card-icon line,
-    .mode-card-icon rect,
-    .mode-card-icon path { transition: all 0.2s; }
-    .mode-card:hover .mode-card-visual {
-      background: rgba(0,0,0,0.28);
-      border-color: var(--accent);
-    }
-    .mode-card-num {
-      position: absolute; top: -14px; left: -14px;
-      width: 42px; height: 42px; border-radius: 50%;
-      background: var(--accent); color: #fff;
-      font-size: 20px; font-weight: 800;
-      display: flex; align-items: center; justify-content: center;
-      box-shadow: 0 3px 12px rgba(0,0,0,0.4);
-      border: 3px solid var(--bg-sidebar);
-    }
-    .mode-card-text {
-      display: flex; flex-direction: column;
-      align-items: center;
-      gap: 8px;
-      width: 100%;
-    }
-    .mode-card-title {
-      font-size: 17px; font-weight: 700;
-      color: var(--text); letter-spacing: 0.5px;
-      line-height: 1.25;
-    }
-    .mode-card-desc {
-      font-size: 13px; color: var(--text-muted);
-      line-height: 1.4;
-    }
-
-    @media (max-width: 1280px) {
-      .mode-card { width: 260px; height: 360px; }
-      .mode-card-visual { width: 180px; height: 180px; }
-      .mode-card-icon { width: 150px; height: 150px; }
-    }
-
-    /* ============ GECMIS TASARIMLAR MODAL ============ */
-    #history-modal {
-      position: fixed; inset: 0; z-index: 820;
-      display: none;
-      align-items: center; justify-content: center;
-    }
-    #history-modal.active { display: flex; }
-    .history-backdrop {
-      position: absolute; inset: 0;
-      background: rgba(0,0,0,0.72);
-      backdrop-filter: blur(10px);
-    }
-    .history-panel {
-      position: relative;
-      background: var(--bg-main);
-      border: 1px solid var(--border);
-      border-radius: 18px;
-      padding: 22px 24px 20px;
-      width: min(94vw, 780px);
-      max-height: 86vh;
-      display: flex; flex-direction: column;
-      box-shadow: 0 22px 64px rgba(0,0,0,0.55);
-    }
-    .history-header {
-      display: flex; align-items: center; justify-content: space-between;
-      margin-bottom: 14px;
-    }
-    .history-title {
-      font-size: 22px; font-weight: 800;
-      color: var(--accent); letter-spacing: 1px;
-    }
-    .history-close {
-      background: transparent; border: 1px solid var(--border);
-      color: var(--text-muted);
-      width: 34px; height: 34px; border-radius: 50%;
-      cursor: pointer; font-size: 20px; line-height: 1;
-      display: flex; align-items: center; justify-content: center;
-      transition: all 0.15s;
-    }
-    .history-close:hover { color: var(--accent); border-color: var(--accent); }
-    .history-toolbar {
-      display: flex; gap: 10px; margin-bottom: 14px;
-    }
-    #history-search {
-      flex: 1; padding: 9px 14px;
-      background: var(--bg-input); color: var(--text);
-      border: 1px solid var(--border); border-radius: 8px;
-      font-size: 14px; font-family: inherit;
-      outline: none; transition: border-color 0.15s;
-    }
-    #history-search:focus { border-color: var(--accent); }
-    .history-clear-all {
-      padding: 9px 16px;
-      background: transparent; color: var(--text-muted);
-      border: 1px solid var(--border); border-radius: 8px;
-      cursor: pointer; font-size: 12px; font-weight: 700;
-      letter-spacing: 0.5px; transition: all 0.15s;
-      font-family: inherit;
-    }
-    .history-clear-all:hover {
-      color: #ff5555; border-color: #ff5555;
-    }
-    .history-list {
-      flex: 1; overflow-y: auto;
-      display: flex; flex-direction: column; gap: 8px;
-      min-height: 180px; max-height: 60vh;
-      padding-right: 4px;
-    }
-    .history-list::-webkit-scrollbar { width: 8px; }
-    .history-list::-webkit-scrollbar-thumb {
-      background: var(--scrollbar-thumb); border-radius: 4px;
-    }
-    .history-item {
-      display: flex; align-items: center; gap: 14px;
-      padding: 12px 14px;
-      background: var(--bg-sidebar);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      cursor: pointer;
-      transition: all 0.15s;
-    }
-    .history-item:hover {
-      border-color: var(--accent);
-      background: var(--bg-row-hover);
-      transform: translateX(3px);
-    }
-    .history-item-badge {
-      width: 52px; height: 52px; border-radius: 10px;
-      background: color-mix(in srgb, var(--accent) 14%, transparent);
-      border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
-      display: flex; align-items: center; justify-content: center;
-      flex-shrink: 0;
-      font-size: 10px; font-weight: 800;
-      color: var(--accent);
-      letter-spacing: 1px;
-      text-align: center;
-      line-height: 1.1;
-    }
-    .history-item-main {
-      flex: 1; min-width: 0;
-      display: flex; flex-direction: column; gap: 4px;
-    }
-    .history-item-name {
-      font-size: 15px; font-weight: 700; color: var(--text);
-      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-    }
-    .history-item-meta {
-      font-size: 12px; color: var(--text-muted);
-      display: flex; gap: 12px; flex-wrap: wrap;
-    }
-    .history-item-meta .dot {
-      color: var(--border);
-    }
-    .history-item-actions {
-      display: flex; gap: 6px; flex-shrink: 0;
-    }
-    .history-item-btn {
-      background: transparent; border: 1px solid var(--border);
-      color: var(--text-muted);
-      width: 32px; height: 32px; border-radius: 8px;
-      cursor: pointer; font-size: 14px; line-height: 1;
-      display: flex; align-items: center; justify-content: center;
-      transition: all 0.15s;
-    }
-    .history-item-btn:hover { color: var(--accent); border-color: var(--accent); }
-    .history-item-btn.del:hover { color: #ff5555; border-color: #ff5555; }
-    .history-empty {
-      display: none;
-      flex-direction: column; align-items: center; justify-content: center;
-      padding: 50px 20px; text-align: center;
-      color: var(--text-muted);
-      gap: 14px;
-    }
-    .history-empty.visible { display: flex; }
-    .history-empty-icon {
-      color: color-mix(in srgb, var(--accent) 40%, transparent);
-    }
-    .history-empty-text {
-      font-size: 13px; line-height: 1.7;
-      letter-spacing: 0.5px;
-    }
-
-    /* ---------- SAC NESTING MODALI (history-modal ile aynı görsel dil) ---------- */
+    /* ---------- SAC NESTING MODALI ---------- */
     #nest-modal {
       position: fixed; inset: 0; z-index: 820;
       display: none;
@@ -5089,37 +4750,6 @@ boot();
     .nest-sheet-link { background: transparent; border: 1px solid var(--border); color: var(--text-muted); padding: 6px 10px; border-radius: 6px; font-size: 11.5px; cursor: pointer; }
     .nest-sheet-link:hover { color: var(--accent); border-color: var(--accent); }
 
-    /* &quot;Yakinda&quot; kart varyasyonu - tiklanabilir degil, hafif soluk */
-    .mode-card.mode-card-soon {
-      cursor: not-allowed;
-      opacity: 0.72;
-      filter: grayscale(0.35);
-    }
-    .mode-card.mode-card-soon:hover {
-      transform: none;
-      border-color: var(--border);
-      background: var(--bg-sidebar);
-      box-shadow: none;
-    }
-    .mode-card.mode-card-soon:hover .mode-card-visual {
-      background: rgba(0,0,0,0.18);
-      border-color: rgba(255,255,255,0.06);
-    }
-    .mode-card.mode-card-soon .mode-card-num {
-      background: #7a6a2a;
-    }
-    .mode-card-soon-desc {
-      font-size: 14px;
-      color: var(--accent);
-      font-weight: 800;
-      letter-spacing: 4px;
-      animation: modeSoonPulse 1.8s ease-in-out infinite alternate;
-    }
-    @keyframes modeSoonPulse {
-      0%   { opacity: 0.55; }
-      100% { opacity: 1; }
-    }
-
     /* ============ UNIFIED LAYOUT ============ */
     .left-col {
       width: 480px; min-width: 480px;
@@ -5134,298 +4764,6 @@ boot();
     .sidebar + .sidebar { border-top: 2px solid var(--accent); }
     .content + .content { border-top: 1px solid var(--border); }
 
-    /* Mode degistir (ust bara) butonu */
-    .btn-mode-switch {
-      background: var(--accent);
-      border: 2px solid var(--accent);
-      color: #fff;
-      padding: 8px 16px;
-      border-radius: 8px;
-      font-size: 13px;
-      font-weight: 700;
-      letter-spacing: 0.5px;
-      cursor: pointer;
-      margin-right: 12px;
-      transition: all 0.15s;
-      text-transform: uppercase;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-    }
-    .btn-mode-switch:hover {
-      background: transparent;
-      color: var(--accent);
-      transform: translateY(-1px);
-      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-    }
-
-    /* ============ RULET MODAL ============ */
-    #rouletteModal {
-      position: fixed; inset: 0; z-index: 900;
-      display: none;
-      align-items: center; justify-content: center;
-    }
-    #rouletteModal.active { display: flex; }
-    .roulette-backdrop {
-      position: absolute; inset: 0;
-      background: rgba(0,0,0,0.85);
-      backdrop-filter: blur(10px);
-    }
-    .roulette-box {
-      position: relative;
-      text-align: center;
-      padding: 20px 24px;
-    }
-    .roulette-title {
-      font-size: 13px; color: #aaa;
-      letter-spacing: 4px; text-transform: uppercase;
-      margin-bottom: 6px;
-    }
-    .roulette-sub {
-      font-size: 11px; color: #666;
-      letter-spacing: 2px;
-      margin-bottom: 24px;
-    }
-    #rouletteCard {
-      margin: 0 auto;
-      width: 380px;
-      border-radius: 14px;
-      border: 3px solid var(--accent);
-      overflow: hidden;
-      background: var(--bg-main);
-      transition: transform 0.12s ease-out;
-      box-shadow: 0 0 36px var(--accent);
-    }
-    #rouletteCard.locked {
-      animation: rouletteWin 0.6s ease-in-out 2;
-    }
-    @keyframes rouletteWin {
-      0%, 100% { transform: scale(1.08) rotate(0); box-shadow: 0 0 40px var(--accent); }
-      50%      { transform: scale(1.14) rotate(-1deg); box-shadow: 0 0 70px var(--accent2), 0 0 100px var(--accent); }
-    }
-    .roulette-card-preview {
-      height: 130px;
-      display: flex; position: relative;
-      background: var(--bg-main);
-    }
-    .roulette-card-preview-left {
-      width: 36%; background: var(--bg-sidebar);
-      border-right: 1px solid var(--border);
-    }
-    .roulette-card-preview-right {
-      flex: 1;
-      background: linear-gradient(135deg, var(--bg-header2), var(--bg-main));
-      position: relative;
-    }
-    .roulette-dot {
-      position: absolute; width: 32px; height: 32px; border-radius: 50%;
-      box-shadow: 0 0 22px currentColor, 0 0 8px currentColor;
-    }
-    .roulette-dot-1 { top: 24px; left: 38px; background: var(--accent); color: var(--accent); }
-    .roulette-dot-2 { bottom: 24px; right: 38px; background: var(--accent2); color: var(--accent2); }
-    .roulette-card-name {
-      padding: 14px 10px;
-      font-size: 20px; font-weight: 700;
-      color: var(--text);
-      background: var(--bg-input);
-      border-top: 1px solid var(--border);
-      letter-spacing: 1px;
-    }
-
-    /* ============ FOTO ANALIZ MODAL ============ */
-    .btn-foto {
-      width: 100%;
-      background: linear-gradient(135deg, var(--accent), var(--accent2));
-      color: #fff;
-      border: none;
-      padding: 12px;
-      font-size: 14px;
-      font-weight: 700;
-      letter-spacing: 0.5px;
-      cursor: pointer;
-      border-radius: 8px;
-      margin-bottom: 14px;
-      transition: opacity 0.15s, transform 0.1s;
-    }
-    .btn-foto:hover { opacity: 0.9; }
-    .btn-foto:active { transform: scale(0.98); }
-
-    #foto-modal {
-      position: fixed; inset: 0; z-index: 830;
-      display: none;
-      align-items: center; justify-content: center;
-    }
-    #foto-modal.active { display: flex; }
-    .foto-backdrop {
-      position: absolute; inset: 0;
-      background: rgba(0,0,0,0.72);
-      backdrop-filter: blur(10px);
-    }
-    .foto-panel {
-      position: relative;
-      background: var(--bg-main);
-      border: 1px solid var(--border);
-      border-radius: 18px;
-      padding: 22px 24px 20px;
-      width: min(94vw, 880px);
-      max-height: 88vh;
-      display: flex; flex-direction: column;
-      box-shadow: 0 22px 64px rgba(0,0,0,0.55);
-    }
-    .foto-header {
-      display: flex; align-items: center; justify-content: space-between;
-      margin-bottom: 14px;
-    }
-    .foto-title {
-      font-size: 20px; font-weight: 800;
-      color: var(--accent); letter-spacing: 1px;
-    }
-    .foto-close {
-      background: transparent; border: 1px solid var(--border);
-      color: var(--text-muted);
-      width: 34px; height: 34px; border-radius: 50%;
-      cursor: pointer; font-size: 20px; line-height: 1;
-      display: flex; align-items: center; justify-content: center;
-      transition: all 0.15s;
-    }
-    .foto-close:hover { color: var(--accent); border-color: var(--accent); }
-    .foto-body { flex: 1; overflow-y: auto; padding-right: 4px; }
-    .foto-body::-webkit-scrollbar { width: 8px; }
-    .foto-body::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 4px; }
-
-    .foto-drop {
-      border: 2px dashed var(--border);
-      border-radius: 12px;
-      padding: 36px 20px;
-      text-align: center;
-      cursor: pointer;
-      transition: all 0.15s;
-      color: var(--text-muted);
-    }
-    .foto-drop:hover { border-color: var(--accent); color: var(--accent); }
-    .foto-drop.dragover { border-color: var(--accent2); background: color-mix(in srgb, var(--accent2) 8%, transparent); }
-    .foto-drop-icon { font-size: 42px; margin-bottom: 8px; }
-    .foto-drop-text { font-size: 15px; font-weight: 600; }
-    .foto-drop-hint { font-size: 12px; margin-top: 6px; color: var(--text-placeholder); }
-
-    .foto-preview-wrap {
-      margin-top: 14px;
-      display: flex; gap: 14px;
-      align-items: flex-start;
-    }
-    .foto-preview-img {
-      max-width: 280px;
-      max-height: 280px;
-      border-radius: 8px;
-      border: 1px solid var(--border);
-      object-fit: contain;
-      background: var(--bg-sidebar);
-    }
-    .foto-preview-info {
-      flex: 1;
-      font-size: 13px; color: var(--text-muted);
-      line-height: 1.6;
-    }
-
-    .foto-spinner {
-      display: inline-block;
-      width: 18px; height: 18px;
-      border: 2px solid var(--text-muted);
-      border-top-color: var(--accent);
-      border-radius: 50%;
-      animation: fotoSpin 0.8s linear infinite;
-      vertical-align: middle;
-      margin-right: 8px;
-    }
-    @keyframes fotoSpin { to { transform: rotate(360deg); } }
-
-    .foto-status {
-      margin-top: 14px;
-      padding: 12px 14px;
-      background: var(--bg-input);
-      border-radius: 8px;
-      font-size: 13px;
-      color: var(--text);
-    }
-    .foto-status.error {
-      background: color-mix(in srgb, #ff5555 16%, transparent);
-      color: #ffaaaa;
-      border: 1px solid #ff5555;
-    }
-
-    .foto-result-table {
-      width: 100%; border-collapse: collapse;
-      margin-top: 14px;
-      font-size: 13px;
-    }
-    .foto-result-table th, .foto-result-table td {
-      padding: 7px 10px;
-      border-bottom: 1px solid var(--border);
-      text-align: left;
-    }
-    .foto-result-table th {
-      background: var(--bg-table-head);
-      color: var(--accent2);
-      font-weight: 700;
-      letter-spacing: 0.5px;
-      position: sticky; top: 0;
-    }
-    .foto-result-table tr:hover td { background: var(--bg-row-hover); }
-    .foto-tip-chip {
-      display: inline-block;
-      padding: 2px 8px;
-      border-radius: 10px;
-      font-size: 11px;
-      font-weight: 700;
-      background: color-mix(in srgb, var(--accent2) 18%, transparent);
-      color: var(--accent2);
-    }
-
-    .foto-footer {
-      display: flex; gap: 10px; justify-content: flex-end;
-      margin-top: 16px; padding-top: 14px;
-      border-top: 1px solid var(--border);
-    }
-    .foto-btn {
-      padding: 10px 20px;
-      border-radius: 8px;
-      border: 1px solid var(--border);
-      background: var(--bg-input);
-      color: var(--text);
-      cursor: pointer;
-      font-weight: 600;
-      font-size: 13px;
-      transition: all 0.15s;
-      font-family: inherit;
-    }
-    .foto-btn:hover { border-color: var(--accent); color: var(--accent); }
-    .foto-btn-primary {
-      background: var(--accent);
-      color: #fff;
-      border-color: var(--accent);
-    }
-    .foto-btn-primary:hover { opacity: 0.9; color: #fff; }
-    .foto-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-
-    .foto-key-input {
-      width: 100%;
-      padding: 10px 12px;
-      background: var(--bg-input);
-      color: var(--text);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      font-size: 13px;
-      font-family: monospace;
-      outline: none;
-      margin-top: 8px;
-    }
-    .foto-key-input:focus { border-color: var(--accent); }
-    .foto-key-help {
-      font-size: 12px;
-      color: var(--text-muted);
-      margin-top: 6px;
-      line-height: 1.5;
-    }
-    .foto-key-help a { color: var(--accent2); text-decoration: none; }
-    .foto-key-help a:hover { text-decoration: underline; }
   </style>
   <script>
     // Splash flash'ini onlemek icin temayi body render olmadan once uygula.
@@ -5462,7 +4800,7 @@ boot();
   <div class=&quot;main&quot;>
     <div class=&quot;left-col&quot;>
     <!-- SOL: FORM (PANEL MODU) -->
-    <div class=&quot;sidebar&quot; id=&quot;sidebar-panel&quot;>
+    <div class=&quot;sidebar&quot;>
       <div class=&quot;form-group&quot;>
         <label>Panel Kalınlığı</label>
         <select id=&quot;kalinlik&quot;>
@@ -5574,7 +4912,7 @@ boot();
     <div class=&quot;right-col&quot;>
 
     <!-- SAG: TABLO (PANEL MODU) -->
-    <div class=&quot;content&quot; id=&quot;content-panel&quot;>
+    <div class=&quot;content&quot;>
       <div class=&quot;table-header&quot;>
         <h2>Panel Listesi</h2>
         <div>
@@ -5619,7 +4957,7 @@ boot();
     </div>
 
     <!-- SAG: TABLO (BOGAZ MODU) -->
-    <div class=&quot;content&quot; id=&quot;content-bogaz&quot;>
+    <div class=&quot;content&quot;>
       <div class=&quot;table-header&quot;>
         <h2>Boğaz Listesi</h2>
         <div>
@@ -5650,25 +4988,7 @@ boot();
 
   </div>
 
-  <!-- RULET MODAL -->
-  <div id=&quot;rouletteModal&quot;>
-    <div class=&quot;roulette-backdrop&quot;></div>
-    <div class=&quot;roulette-box&quot;>
-      <div class=&quot;roulette-title&quot;>Rasgele Tema Seçiliyor</div>
-      <div class=&quot;roulette-sub&quot;>bir saniye bekleyin...</div>
-      <div id=&quot;rouletteCard&quot;>
-        <div class=&quot;roulette-card-preview&quot;>
-          <div class=&quot;roulette-card-preview-left&quot;></div>
-          <div class=&quot;roulette-card-preview-right&quot;>
-            <div class=&quot;roulette-dot roulette-dot-1&quot;></div>
-            <div class=&quot;roulette-dot roulette-dot-2&quot;></div>
-          </div>
-        </div>
-        <div class=&quot;roulette-card-name&quot;>-</div>
-      </div>
-    </div>
-    </div><!-- end right-col -->
-  </div>
+  </div><!-- end right-col -->
 
   <div class=&quot;statusbar&quot;>
     <span id=&quot;status-msg&quot;>Hazır.</span>
@@ -6212,25 +5532,6 @@ function _pasClr(dir, fixed, pos, pR, vidaList) {
 // her aralik <= maxSp olacak sekilde esit araliklı percin daireleri ekler.
 // Bolucu konumlarinin kendisine percin KONULMAZ (orada vida vardir).
 // vidaList: clearance icin vida geometrileri (yukaridaki _pasClr).
-function addPercinDiv(dxf, ox, oy, fixed, p0, p1, r, dir, maxSp, layer, dividers, vidaList) {
-  var pts = [p0];
-  (dividers || []).forEach(function (d) {
-    if (d > p0 + 0.01 && d < p1 - 0.01) pts.push(d);
-  });
-  pts.push(p1);
-  pts.sort(function (a, b) { return a - b; });
-  for (var s = 0; s < pts.length - 1; s++) {
-    var a = pts[s], b = pts[s + 1], span = b - a;
-    var n = Math.ceil(span / maxSp);
-    for (var i = 1; i < n; i++) {
-      var pos = a + i * span / n;
-      pos = _pasClr(dir, fixed, pos, r, vidaList);
-      if (pos < p0) pos = p0; else if (pos > p1) pos = p1;
-      if (dir === 'V') dxf.addCircle(ox + fixed, oy + pos, r, layer);
-      else dxf.addCircle(ox + pos, oy + fixed, r, layer);
-    }
-  }
-}
 
 // Dis paneldeki vidaya karsilik gelen oval slot (2x R5 ark + 2 cizgi).
 // orient 'H' = slot kenar boyunca yatay (alt/ust kenar),
@@ -7311,40 +6612,6 @@ function drawDisAcilir(dxf, ox, oy, B, K, cam, kod) {
 // Ic bukum cizimi (L-profil R5+R1, KULAKLI) - eski ACILIR ic panel bukumu.
 // ARTIK KULLANILMIYOR (2026-06-11: acilir ic kulagi kaldirildi, kose birlesik
 // sabit stiline gecti). Referans/gerekirse diye birakildi.
-function drawIcBukum(dxf, ox, oy, W, H, layer) {
-  // Alt-Sol
-  dxf.addLine(ox + 0, oy + 36, ox + 0, oy + 23, layer);
-  dxf.addArc(ox + 5, oy + 23, 5, 180, 270, layer);
-  dxf.addLine(ox + 5, oy + 18, ox + 18, oy + 18, layer);
-  dxf.addLine(ox + 18, oy + 18, ox + 18, oy + 36, layer);
-  dxf.addLine(ox + 18, oy + 36, ox + 35, oy + 36, layer);
-  dxf.addArc(ox + 36, oy + 36, 1, 270, 180, layer);
-  dxf.addLine(ox + 36, oy + 35, ox + 36, oy + 0, layer);
-  // Ust-Sol
-  dxf.addLine(ox + 0, oy + H - 36, ox + 0, oy + H - 23, layer);
-  dxf.addArc(ox + 5, oy + H - 23, 5, 90, 180, layer);
-  dxf.addLine(ox + 5, oy + H - 18, ox + 18, oy + H - 18, layer);
-  dxf.addLine(ox + 18, oy + H - 18, ox + 18, oy + H - 36, layer);
-  dxf.addLine(ox + 18, oy + H - 36, ox + 35, oy + H - 36, layer);
-  dxf.addArc(ox + 36, oy + H - 36, 1, 180, 90, layer);
-  dxf.addLine(ox + 36, oy + H - 35, ox + 36, oy + H, layer);
-  // Alt-Sag
-  dxf.addLine(ox + W, oy + 36, ox + W, oy + 23, layer);
-  dxf.addArc(ox + W - 5, oy + 23, 5, 270, 360, layer);
-  dxf.addLine(ox + W - 5, oy + 18, ox + W - 18, oy + 18, layer);
-  dxf.addLine(ox + W - 18, oy + 18, ox + W - 18, oy + 36, layer);
-  dxf.addLine(ox + W - 18, oy + 36, ox + W - 35, oy + 36, layer);
-  dxf.addArc(ox + W - 36, oy + 36, 1, 0, 270, layer);
-  dxf.addLine(ox + W - 36, oy + 35, ox + W - 36, oy + 0, layer);
-  // Ust-Sag
-  dxf.addLine(ox + W, oy + H - 36, ox + W, oy + H - 23, layer);
-  dxf.addArc(ox + W - 5, oy + H - 23, 5, 0, 90, layer);
-  dxf.addLine(ox + W - 5, oy + H - 18, ox + W - 18, oy + H - 18, layer);
-  dxf.addLine(ox + W - 18, oy + H - 18, ox + W - 18, oy + H - 36, layer);
-  dxf.addLine(ox + W - 18, oy + H - 36, ox + W - 35, oy + H - 36, layer);
-  dxf.addArc(ox + W - 36, oy + H - 36, 1, 90, 0, layer);
-  dxf.addLine(ox + W - 36, oy + H - 35, ox + W - 36, oy + H, layer);
-}
 
 // -------------------------------------------------------
 // IC ACILIR PANEL (50'lik)
@@ -7708,10 +6975,17 @@ function addPV(dxf, x, y0, y1, xofs, cn, cf, layer, vidaYs) {
 // dış hat dikdörtgenidir (ör. 60'lık İÇ için BI,KI — çağıran taraf hangi B/K veya BI/KI
 // geçerliyse onu W/H olarak verir). isGlass=true ise (camlı açılır, dış+iç ikisi de) etiket
 // merkezden kaydırılır ki cama denk gelmesin.
+
+// Camlı açılırda etiketin cam hattından ek uzaklığı (mm). Cam, parça merkezinden
+// ±130 mm uzanır; H*0.22 konumu bazı boylarda cam hattına değdiği için etiket bu
+// kadar daha AŞAĞI alınır. İç ve dış paneller ile 50/60 serisinin tamamı bu tek
+// noktadan beslenir — değeri burada değiştirmek hepsini birden etkiler.
+var KOD_CAM_KACIS = 20;
+
 function addBigKodLabel(writer, ox, oy, W, H, kod, isGlass) {
   if (!kod) return;
   var lx = ox + W / 2;
-  var ly = isGlass ? (oy + H * 0.22) : (oy + H / 2);
+  var ly = isGlass ? (oy + H * 0.22 - KOD_CAM_KACIS) : (oy + H / 2);
   writer.addText(lx, ly, 35, kod, 'KOD_BUYUK', 0, 1, 2);
 }
 
@@ -7745,52 +7019,6 @@ function drawFoldDis(dxf, ox, oy, B, K, layer) {
 // -------------------------------------------------------
 // IC PANEL BUKUM (24 cizgi + 8 arc)
 // -------------------------------------------------------
-function drawFoldIc(dxf, ox, oy, BI, KI, layer) {
-  var L = function(x1, y1, x2, y2) { dxf.addLine(x1, y1, x2, y2, layer); };
-  var A = function(cx, cy, r, sa, ea) { dxf.addArc(cx, cy, r, sa, ea, layer); };
-
-  // Alt fold (36mm)
-  L(ox, oy - 1, ox, oy - 36);
-  L(ox, oy - 36, ox + BI, oy - 36);
-  L(ox + BI, oy - 36, ox + BI, oy - 1);
-  // Ust fold
-  L(ox, oy + KI + 1, ox, oy + KI + 36);
-  L(ox, oy + KI + 36, ox + BI, oy + KI + 36);
-  L(ox + BI, oy + KI + 36, ox + BI, oy + KI + 1);
-  // Sol flange ana + uzantilar
-  L(ox - 36, oy, ox - 36, oy + KI);
-  L(ox - 36, oy, ox - 36, oy - 13);
-  L(ox - 36, oy + KI, ox - 36, oy + KI + 13);
-  // Sol alt tab
-  A(ox - 31, oy - 13, 5, 180, 270);
-  L(ox - 31, oy - 18, ox - 18, oy - 18);
-  L(ox - 18, oy - 18, ox - 18, oy);
-  L(ox - 18, oy, ox - 1, oy);
-  A(ox, oy, 1, 270, 180);
-  // Sol ust tab
-  A(ox - 31, oy + KI + 13, 5, 90, 180);
-  L(ox - 31, oy + KI + 18, ox - 18, oy + KI + 18);
-  L(ox - 18, oy + KI + 18, ox - 18, oy + KI);
-  L(ox - 18, oy + KI, ox - 1, oy + KI);
-  A(ox, oy + KI, 1, 180, 90);
-  // Sag flange
-  L(ox + BI + 36, oy, ox + BI + 36, oy + KI);
-  L(ox + BI + 36, oy, ox + BI + 36, oy - 13);
-  L(ox + BI + 36, oy + KI, ox + BI + 36, oy + KI + 13);
-  // Sag alt tab
-  A(ox + BI + 31, oy - 13, 5, 270, 0);
-  L(ox + BI + 31, oy - 18, ox + BI + 18, oy - 18);
-  L(ox + BI + 18, oy - 18, ox + BI + 18, oy);
-  L(ox + BI + 18, oy, ox + BI + 1, oy);
-  A(ox + BI, oy, 1, 0, 270);
-  // Sag ust tab
-  A(ox + BI + 31, oy + KI + 13, 5, 0, 90);
-  L(ox + BI + 31, oy + KI + 18, ox + BI + 18, oy + KI + 18);
-  L(ox + BI + 18, oy + KI + 18, ox + BI + 18, oy + KI);
-  L(ox + BI + 18, oy + KI, ox + BI + 1, oy + KI);
-  A(ox + BI, oy + KI, 1, 90, 0);
-}
-
 // -------------------------------------------------------
 // IC PANEL BUKUM - SABIT/BOGAZ (kulak yok, UST stili)
 // -------------------------------------------------------
@@ -8294,14 +7522,10 @@ var elBogazGroup = document.getElementById('bogaz-group');
 var elKod = document.getElementById('kod');
 var elAdet = document.getElementById('adet');
 var elBtnAdd = document.getElementById('btn-add');
-var elBtnExport = document.getElementById('btn-export');
 var elTable = document.getElementById('panel-table');
 var elEmpty = document.getElementById('empty-msg');
 var elCount = document.getElementById('panel-count');
 var elStatus = document.getElementById('status-msg');
-var elSatirN = document.getElementById('satirN');
-var elGapCol = document.getElementById('gapCol');
-var elGapRow = document.getElementById('gapRow');
 
 // Tip degisince cam/bogaz alanlarini goster/gizle
 elTip.addEventListener('change', function() {
@@ -8574,212 +7798,6 @@ function setStatus(msg) {
 renderTable();
 
 // =====================================================================
-// MOD (Program) YONETIMI
-// =====================================================================
-function setMode(mode) {
-  document.body.classList.remove('mode-panel', 'mode-bogaz', 'mode-combined');
-  document.body.classList.add('mode-' + mode);
-  var barVer = document.getElementById('app-version-bar');
-  if (barVer) {
-    var baseText = 'Panel + Bou011faz Otomatik';
-    var cur = barVer.textContent || '';
-    var verMatch = cur.match(/v[\d.]+/);
-    barVer.textContent = baseText + (verMatch ? ' ' + verMatch[0] : '');
-  }
-  var modeSel = document.getElementById('mode-select');
-  if (modeSel) modeSel.classList.remove('active');
-  localStorage.setItem('hytCurrentMode', mode);
-}
-
-document.querySelectorAll('#mode-select .mode-card').forEach(function(btn) {
-  btn.addEventListener('click', function() {
-    var m = btn.getAttribute('data-mode');
-    if (m === 'gecmis') { openHistoryModal(); return; }
-    if (btn.classList.contains('mode-card-soon')) return;
-    if (m === 'panel' || m === 'bogaz') { setMode('combined'); return; }
-    setMode(m);
-  });
-});
-
-// ===================================================================
-// GECMIS TASARIMLAR - localStorage tabanli proje gecmisi
-// ===================================================================
-var HISTORY_KEY = 'pcp_history_v1';
-var HISTORY_MAX = 200;
-
-function historyLoad() {
-  try {
-    var raw = localStorage.getItem(HISTORY_KEY);
-    if (!raw) return [];
-    var arr = JSON.parse(raw);
-    return Array.isArray(arr) ? arr : [];
-  } catch (e) { return []; }
-}
-function historySave(list) {
-  try { localStorage.setItem(HISTORY_KEY, JSON.stringify(list)); } catch (e) {}
-}
-function historyAdd(entry) {
-  entry.id = 'h_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
-  entry.date = Date.now();
-  var list = historyLoad();
-  list.unshift(entry);
-  if (list.length > HISTORY_MAX) list.length = HISTORY_MAX;
-  historySave(list);
-}
-function historyRemove(id) {
-  var list = historyLoad().filter(function(x){ return x.id !== id; });
-  historySave(list);
-}
-function historyClear() {
-  historySave([]);
-}
-function historyFormatDate(ts) {
-  var d = new Date(ts);
-  var pad = function(n){ return n < 10 ? '0' + n : '' + n; };
-  return pad(d.getDate()) + '.' + pad(d.getMonth()+1) + '.' + d.getFullYear() +
-         ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
-}
-function historyBadgeLabel(mode) {
-  return mode === 'panel' ? 'PANEL'
-       : mode === 'bogaz' ? 'BOGAZ'
-       : mode.toUpperCase();
-}
-
-function renderHistoryList(filter) {
-  var list = historyLoad();
-  if (filter) {
-    var q = filter.toLowerCase();
-    list = list.filter(function(x){
-      return (x.name || '').toLowerCase().indexOf(q) >= 0
-          || (x.mode || '').toLowerCase().indexOf(q) >= 0;
-    });
-  }
-  var container = document.getElementById('history-list');
-  var empty = document.getElementById('history-empty');
-  if (!container) return;
-  container.innerHTML = '';
-  if (list.length === 0) {
-    empty.classList.add('visible');
-    container.style.display = 'none';
-    return;
-  }
-  empty.classList.remove('visible');
-  container.style.display = 'flex';
-  list.forEach(function(entry) {
-    var item = document.createElement('div');
-    item.className = 'history-item';
-    item.setAttribute('data-id', entry.id);
-    var badge = document.createElement('div');
-    badge.className = 'history-item-badge';
-    badge.textContent = historyBadgeLabel(entry.mode);
-    var main = document.createElement('div');
-    main.className = 'history-item-main';
-    var name = document.createElement('div');
-    name.className = 'history-item-name';
-    name.textContent = entry.name || '(isimsiz)';
-    var meta = document.createElement('div');
-    meta.className = 'history-item-meta';
-    meta.innerHTML = '<span>' + historyFormatDate(entry.date) + '</span>'
-                   + '<span class=&quot;dot&quot;>&middot;</span>'
-                   + '<span>' + (entry.count || 0) + ' kayıt</span>';
-    main.appendChild(name);
-    main.appendChild(meta);
-    var actions = document.createElement('div');
-    actions.className = 'history-item-actions';
-    var delBtn = document.createElement('button');
-    delBtn.className = 'history-item-btn del';
-    delBtn.title = 'Sil';
-    delBtn.innerHTML = '&times;';
-    delBtn.addEventListener('click', function(e) {
-      e.stopPropagation();
-      if (confirm('Bu kaydi silmek istediginizden emin misiniz?')) {
-        historyRemove(entry.id);
-        renderHistoryList(document.getElementById('history-search').value);
-      }
-    });
-    actions.appendChild(delBtn);
-    item.appendChild(badge);
-    item.appendChild(main);
-    item.appendChild(actions);
-    item.addEventListener('click', function() {
-      restoreHistoryEntry(entry.id);
-    });
-    container.appendChild(item);
-  });
-}
-
-function openHistoryModal() {
-  var m = document.getElementById('history-modal');
-  if (!m) return;
-  var s = document.getElementById('history-search');
-  if (s) s.value = '';
-  renderHistoryList('');
-  m.classList.add('active');
-}
-function closeHistoryModal() {
-  var m = document.getElementById('history-modal');
-  if (m) m.classList.remove('active');
-}
-
-function restoreHistoryEntry(id) {
-  var entry = historyLoad().find(function(x){ return x.id === id; });
-  if (!entry) return;
-  var d = entry.data || {};
-  if (entry.mode === 'panel') {
-    panels.length = 0;
-    (d.panels || []).forEach(function(p){ panels.push(p); });
-    var el50 = document.getElementById('dosyaAdi50');
-    var el60 = document.getElementById('dosyaAdi60');
-    if (el50) el50.value = d.dosyaAdi50 || '';
-    if (el60) el60.value = d.dosyaAdi60 || '';
-    renderTable();
-    setMode('combined');
-  } else if (entry.mode === 'bogaz') {
-    bogazList.length = 0;
-    (d.bogazList || []).forEach(function(b){ bogazList.push(b); });
-    var elb = document.getElementById('b-dosyaAdi');
-    if (elb) elb.value = d.dosyaAdi || '';
-    renderBogazTable();
-    setMode('combined');
-  }
-  closeHistoryModal();
-  setStatus('Geçmiş tasarım yüklendi: ' + (entry.name || ''));
-}
-
-// Modal olay baglari
-(function initHistoryModal(){
-  var closeBtn = document.getElementById('history-close');
-  if (closeBtn) closeBtn.addEventListener('click', closeHistoryModal);
-  var backdrop = document.querySelector('#history-modal .history-backdrop');
-  if (backdrop) backdrop.addEventListener('click', closeHistoryModal);
-  var search = document.getElementById('history-search');
-  if (search) search.addEventListener('input', function(){ renderHistoryList(this.value); });
-  var clearBtn = document.getElementById('history-clear-all');
-  if (clearBtn) clearBtn.addEventListener('click', function(){
-    if (historyLoad().length === 0) return;
-    if (confirm('Tüm geçmiş kayıtları silmek istediğinizden emin misiniz?')) {
-      historyClear();
-      renderHistoryList('');
-    }
-  });
-  document.addEventListener('keydown', function(e){
-    if (e.key === 'Escape') {
-      var m = document.getElementById('history-modal');
-      if (m && m.classList.contains('active')) closeHistoryModal();
-    }
-  });
-})();
-
-var btnModeSwitch = document.getElementById('btn-mode-switch');
-if (btnModeSwitch) {
-  btnModeSwitch.addEventListener('click', function() {
-    document.body.classList.remove('mode-panel', 'mode-bogaz', 'mode-combined');
-    var modeSel = document.getElementById('mode-select');
-    if (modeSel) modeSel.classList.add('active');
-  });
-}
-
-// =====================================================================
 // BOGAZ MODU - State & Handlers
 // =====================================================================
 var bogazList = [];
@@ -8787,7 +7805,6 @@ var elBYbp = document.getElementById('b-ybp');
 var elBDbp = document.getElementById('b-dbp');
 var elBAdet = document.getElementById('b-adet');
 var elBBtnAdd = document.getElementById('b-btn-add');
-var elBBtnExport = document.getElementById('b-btn-export');
 var elBTable = document.getElementById('b-table');
 var elBEmpty = document.getElementById('b-empty');
 var elBCount = document.getElementById('b-count');
@@ -9368,524 +8385,6 @@ function updatePanelPreview() {
   updatePanelPreview();
   updateBogazPreview();
 
-  // ============================================================
-  // FOTO ANALIZ - El yazisi is emri kagidi -> panel listesi
-  // ============================================================
-  var FOTO_KEY_STORAGE = 'panelOtomatikGeminiKey';
-  var FOTO_MODEL = 'gemini-2.5-flash';
-  // Bagimsiz kopya: gomulu sirket anahtari yok, kullanici kendi ucretsiz
-  // Gemini anahtarini girer (localStorage'da saklanir).
-  var FOTO_HARDCODED_KEY = '';
-  var fotoModal = document.getElementById('foto-modal');
-  if (!fotoModal) return;
-  var fotoBody = document.getElementById('foto-body');
-  var fotoFooter = document.getElementById('foto-footer');
-  var fotoClose = document.getElementById('foto-close');
-  var fotoBtnCancel = document.getElementById('foto-btn-cancel');
-  var fotoBtnConfirm = document.getElementById('foto-btn-confirm');
-  var fotoFileInput = document.getElementById('foto-file-input');
-  var fotoBtnTrigger = document.getElementById('btn-foto-analiz');
-
-  // Son analiz sonucu (onay icin saklanir)
-  var fotoLastResult = null;
-  var fotoLastDxfAdi = ''; // FORMAT B (tablo) basligi -> DXF dosya adina yazilir
-
-  function fotoGetKey() {
-    return localStorage.getItem(FOTO_KEY_STORAGE) || FOTO_HARDCODED_KEY;
-  }
-
-  function fotoOpen() {
-    fotoLastResult = null;
-    fotoFooter.style.display = 'none';
-    if (!fotoGetKey()) {
-      fotoShowKeyPrompt();
-    } else {
-      fotoShowFilePicker();
-    }
-    fotoModal.classList.add('active');
-  }
-
-  function fotoCloseModal() {
-    fotoModal.classList.remove('active');
-    fotoBody.innerHTML = '';
-    fotoFooter.style.display = 'none';
-    fotoLastResult = null;
-    fotoFileInput.value = '';
-  }
-
-  function fotoEscapeHtml(s) {
-    return String(s == null ? '' : s)
-      .replace(/&/g, '&amp;amp;').replace(/</g, '&amp;lt;').replace(/>/g, '&amp;gt;')
-      .replace(/&quot;/g, '&amp;quot;').replace(/'/g, '&amp;#39;');
-  }
-
-  function fotoShowKeyPrompt() {
-    fotoBody.innerHTML =
-      '<div style=&quot;font-size:14px;line-height:1.6;color:var(--text);&quot;>' +
-        '<b>İlk kurulum:</b> Fotoğraf analizi için Google Gemini API anahtarına ihtiyacımız var. ' +
-        'Anahtar <b>ücretsiz</b>, sadece bir kez girilir, tarayıcıda saklanır.' +
-      '</div>' +
-      '<div class=&quot;foto-key-help&quot; style=&quot;margin-top:14px;&quot;>' +
-        '<b>Anahtarı nasıl alırım?</b><br>' +
-        '1. <a href=&quot;https://aistudio.google.com/app/apikey&quot; target=&quot;_blank&quot;>aistudio.google.com/app/apikey</a> sayfasına git<br>' +
-        '2. Google hesabınla giriş yap (Gmail)<br>' +
-        '3. <b>&quot;Create API key&quot;</b> butonuna bas<br>' +
-        '4. Çıkan uzun metni (AIza... ile başlar) aşağıya yapıştır' +
-      '</div>' +
-      '<input type=&quot;password&quot; class=&quot;foto-key-input&quot; id=&quot;foto-key-input&quot; placeholder=&quot;AIza...&quot; autocomplete=&quot;off&quot;>' +
-      '<div class=&quot;foto-footer&quot; style=&quot;display:flex;margin-top:14px;&quot;>' +
-        '<button class=&quot;foto-btn&quot; id=&quot;foto-key-cancel&quot;>İptal</button>' +
-        '<button class=&quot;foto-btn foto-btn-primary&quot; id=&quot;foto-key-save&quot;>Kaydet ve Devam Et</button>' +
-      '</div>';
-    document.getElementById('foto-key-cancel').onclick = fotoCloseModal;
-    document.getElementById('foto-key-save').onclick = function() {
-      var val = document.getElementById('foto-key-input').value.trim();
-      if (!val || val.length < 20) {
-        alert('Geçerli bir API anahtarı yapıştırın.');
-        return;
-      }
-      localStorage.setItem(FOTO_KEY_STORAGE, val);
-      fotoShowFilePicker();
-    };
-    setTimeout(function(){ document.getElementById('foto-key-input').focus(); }, 50);
-  }
-
-  function fotoShowFilePicker() {
-    fotoBody.innerHTML =
-      '<div class=&quot;foto-drop&quot; id=&quot;foto-drop&quot;>' +
-        '<div class=&quot;foto-drop-icon&quot;>📷</div>' +
-        '<div class=&quot;foto-drop-text&quot;>Fotoğrafı buraya sürükle veya tıkla</div>' +
-        '<div class=&quot;foto-drop-hint&quot;>JPG, PNG, WEBP — el yazısı iş emri kağıdı veya basılı panel listesi tablosu</div>' +
-      '</div>' +
-      '<div class=&quot;foto-key-help&quot; style=&quot;margin-top:12px;text-align:right;&quot;>' +
-        '<a href=&quot;#&quot; id=&quot;foto-key-change&quot;>Anahtarı kaldır / değiştir</a>' +
-      '</div>';
-    var drop = document.getElementById('foto-drop');
-    drop.onclick = function() { fotoFileInput.click(); };
-    drop.ondragover = function(e) { e.preventDefault(); drop.classList.add('dragover'); };
-    drop.ondragleave = function() { drop.classList.remove('dragover'); };
-    drop.ondrop = function(e) {
-      e.preventDefault();
-      drop.classList.remove('dragover');
-      if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-        fotoHandleFile(e.dataTransfer.files[0]);
-      }
-    };
-    document.getElementById('foto-key-change').onclick = function(e) {
-      e.preventDefault();
-      if (confirm('Kayıtlı Gemini anahtarın silinsin mi?')) {
-        localStorage.removeItem(FOTO_KEY_STORAGE);
-        fotoShowKeyPrompt();
-      }
-    };
-  }
-
-  fotoFileInput.addEventListener('change', function() {
-    if (this.files && this.files[0]) fotoHandleFile(this.files[0]);
-  });
-
-  function fotoHandleFile(file) {
-    if (!file.type.startsWith('image/')) {
-      alert('Lütfen bir görsel dosya seç (JPG, PNG, WEBP).');
-      return;
-    }
-    var reader = new FileReader();
-    reader.onload = function(e) {
-      var dataUrl = e.target.result;
-      var base64 = dataUrl.split(',')[1];
-      var mime = (dataUrl.match(/^data:([^;]+);/) || [])[1] || 'image/jpeg';
-      fotoShowAnalyzing(dataUrl);
-      fotoCallGemini(base64, mime).then(function(res) {
-        fotoShowResult(dataUrl, res.panels, res.dxfAdi);
-      }).catch(function(err) {
-        fotoShowError(dataUrl, err);
-      });
-    };
-    reader.readAsDataURL(file);
-  }
-
-  function fotoShowAnalyzing(dataUrl) {
-    fotoBody.innerHTML =
-      '<div class=&quot;foto-preview-wrap&quot;>' +
-        '<img src=&quot;' + fotoEscapeHtml(dataUrl) + '&quot; class=&quot;foto-preview-img&quot; alt=&quot;&quot;>' +
-        '<div class=&quot;foto-preview-info&quot;>' +
-          '<div class=&quot;foto-status&quot;><span class=&quot;foto-spinner&quot;></span><b>Fotoğraf analiz ediliyor...</b></div>' +
-          '<div style=&quot;margin-top:10px;font-size:13px;color:var(--text-muted);&quot;>Lütfen sayfayı kapatmayınız, bu işlem 5-15 saniye sürebilir.</div>' +
-          '<div style=&quot;margin-top:24px;display:flex;justify-content:center;&quot;>' +
-          '</div>' +
-        '</div>' +
-      '</div>';
-    fotoFooter.style.display = 'none';
-  }
-
-  function fotoShowError(dataUrl, err) {
-    fotoBody.innerHTML =
-      '<div class=&quot;foto-preview-wrap&quot;>' +
-        '<img src=&quot;' + fotoEscapeHtml(dataUrl) + '&quot; class=&quot;foto-preview-img&quot; alt=&quot;&quot;>' +
-        '<div class=&quot;foto-preview-info&quot;>' +
-          '<div class=&quot;foto-status error&quot;><b>Hata:</b><br>' + fotoEscapeHtml(err && err.message ? err.message : err) + '</div>' +
-          '<div style=&quot;margin-top:10px;font-size:12px;&quot;>Tekrar denemek için fotoğrafı yeniden seç.</div>' +
-        '</div>' +
-      '</div>' +
-      '<div style=&quot;margin-top:14px;text-align:center;&quot;>' +
-        '<button class=&quot;foto-btn&quot; id=&quot;foto-err-retry&quot;>Başka Fotoğraf Seç</button>' +
-      '</div>';
-    document.getElementById('foto-err-retry').onclick = fotoShowFilePicker;
-    fotoFooter.style.display = 'none';
-  }
-
-  function fotoBuildPrompt() {
-    return [
-      'Sen Türkçe HVAC panel iş emirlerini okuyan bir uzmansın.',
-      'Görevin: Fotoğrafı oku ve yapılandırılmış JSON olarak döndür.',
-      '',
-      'ÖNCE FORMATI BELİRLE — iki olası format var:',
-      '- FORMAT A = EL YAZISI iş emri kağıdı (mavi/siyah kalemle elle yazılmış ölçüler, süslü parantezler, &quot;Kod:1&quot; gibi notlar).',
-      '- FORMAT B = BASILI/DİJİTAL TABLO (bilgisayar çıktısı, kenarlıklı hücreler; kolon başlıkları &quot;EN | BOY | ADET | KONUM | KOD&quot;; en üstte ortalanmış bir başlık satırı).',
-      'Fotoğraf düzgün ızgaralı bir tablo ve &quot;EN/BOY/ADET/KONUM/KOD&quot; başlıkları içeriyorsa FORMAT B kurallarını uygula; aksi halde FORMAT A.',
-      'İKİ FORMATIN KURALLARINI KARIŞTIRMA. Özellikle: FORMAT B\'de nokta-binlik ve -1 mm kuralları UYGULANMAZ.',
-      '',
-      '==================== FORMAT A (EL YAZISI) ====================',
-      'KAĞIDIN YAPISI:',
-      '- Başlık satırı şu bilgileri içerir: İş emri numarası (&quot;213=AHU-01&quot; gibi), profil (&quot;50lik&quot; veya &quot;60lik&quot;), kod (&quot;Kod:1&quot; veya &quot;Kod:2&quot;).',
-      '- Başlık altındaki satırlar ölçü satırlarıdır: &quot;GENİŞLİK x YÜKSEKLİK = ADET Ad. ETİKET&quot;.',
-      '- Bazen sayfa sol/sağ iki sütuna bölünür; her sütunun KENDİ başlığı ve kod\'u olur.',
-      '- Bazı satır grupları süslü parantezle birleştirilir; parantezin yanına &quot;ALT&quot; veya &quot;ÜST&quot; yazılır.',
-      '',
-      'NOTASYON KURALI (KRİTİK):',
-      '- Sayılardaki nokta BİNLİK ayracıdır, ondalık DEĞİL.',
-      '- &quot;139.9&quot; gerçekte 1399 mm anlamına gelir.',
-      '- &quot;54.7&quot; gerçekte 547 mm anlamına gelir.',
-      '- &quot;40.0&quot; gerçekte 400 mm anlamına gelir.',
-      '',
-      'ÖLÇÜ -1 mm KURALI:',
-      '- Çıktıdaki B ve K alanlarına HER İKİ boyuttan da 1 mm DÜŞMÜŞ değeri yaz.',
-      '- &quot;1401 x 729&quot; -> B=1400, K=728',
-      '- &quot;1399 x 547&quot; -> B=1398, K=546',
-      '- &quot;1451 x 400&quot; -> B=1450, K=399',
-      '',
-      'PANEL TİPLERİ (etiket -> çıktı alanları):',
-      '- Etiket yoksa (boş) veya etiket &quot;ALT&quot; ise: tip=&quot;SABIT&quot;, cam=&quot;H&quot;, bogazTip=&quot;-&quot;',
-      '- Etiket &quot;Kapı&quot;: tip=&quot;ACILIR&quot;, cam=&quot;H&quot;, bogazTip=&quot;-&quot;',
-      '- Etiket &quot;Kapı cam&quot;: tip=&quot;ACILIR&quot;, cam=&quot;E&quot;, bogazTip=&quot;-&quot;',
-      '- Etiket &quot;Boğaz&quot;: tip=&quot;BOGAZ&quot;, cam=&quot;H&quot;, bogazTip=&quot;B&quot;',
-      '- Etiket &quot;Boğaz 2 uzun&quot;: tip=&quot;BOGAZ&quot;, cam=&quot;H&quot;, bogazTip=&quot;B2&quot;',
-      '- Etiket &quot;ÜST&quot; (veya &quot;UST&quot;): tip=&quot;UST&quot;, cam=&quot;H&quot;, bogazTip=&quot;-&quot;',
-      '',
-      'ÜST / ALT GRUPLAMA (EN SIK YAPILAN HATA — DİKKAT):',
-      '- DİKKAT: Bu etiketler ve süslü parantezler genelde ölçü sütununun SAĞINDA, biraz uzakta durur. Soldaki ölçü sütununa kilitlenip sağdaki &quot;ALT&quot;/&quot;ÜST&quot; yazılarını ve parantezleri ATLAMA. Önce sağdaki gruplamayı tespit et.',
-      '- Satırlar çoğu zaman süslü parantez &quot;{&quot; veya &quot;}&quot; ile gruplanır; parantezin yanında &quot;ÜST&quot; ya da &quot;ALT&quot; yazar.',
-      '- Bu etiket o parantezin kapsadığı TÜM satırlara uygulanır. Etiketi yalnız ilk satıra değil, gruptaki HER satıra dağıt.',
-      '- &quot;ÜST&quot; grubundaki her satır tip=&quot;UST&quot; olmalıdır. Bu satırları SAKIN tip=&quot;SABIT&quot; yapma; parantezi/etiketi gözden kaçırıp varsayılan SABIT\'e düşme.',
-      '- &quot;ALT&quot; grubundaki her satır tip=&quot;SABIT&quot; olur.',
-      '- Bir kağıtta hem ALT hem ÜST grubu birlikte bulunabilir. İkisini ayrı ayrı, doğru tiplerle döndür; ÜST satırlarını atlama.',
-      '',
-      'KOD ve PROFİL:',
-      '- Başlıkta &quot;Kod:1&quot; varsa o gruptaki TÜM satırlar için kod=&quot;1&quot;.',
-      '- Başlıkta &quot;Kod:2&quot; varsa kod=&quot;2&quot;.',
-      '- PROFİL (&quot;50lik&quot; / &quot;60lik&quot;) ÇOK ÖNEMLİ, dikkatle oku: &quot;50lik&quot; -> kalinlik=&quot;50&quot;, &quot;60lik&quot; -> kalinlik=&quot;60&quot;. Tahmin etme, kağıttaki rakamı oku.',
-      '- Profil çoğu zaman DAİRE/ÇEMBER içine alınmış olur (ör. &quot;60lik&quot; rakamının etrafında elle çizilmiş çember). Çemberi yok say, içindeki rakamı oku. Çember içindeki yazı başlığın profilidir, onu kaçırma.',
-      '- 50 ile 60 el yazısında karışır; &quot;6&quot; rakamının üst kıvrımına bak. Emin değilsen 50\'ye DEĞİL, kağıtta yazana göre karar ver.',
-      '- Sayfada birden fazla başlık/sütun ya da ALT/ÜST grubu varsa, her grubun KENDİ başlığındaki profili kullan. ÜST grubunun profili ALT grubunkinden FARKLI olabilir (ör. ALT 50lik, ÜST 60lik); birini diğerine kopyalama.',
-      '- Profili net okuyamıyorsan o başlığın altındaki en yakın &quot;50lik/60lik&quot; yazısına bak; yine de emin değilsen en olası değeri yaz ama 50\'yi otomatik varsayma.',
-      '',
-      '==================== FORMAT B (BASILI TABLO) ====================',
-      'TABLONUN YAPISI:',
-      '- En üstte ortalanmış BAŞLIK satırı vardır, ör: &quot;H-007-0160  KS-6-14  60 LIK ALT PANEL LİSTESİ&quot;.',
-      '- Başlığın TAMAMINI &quot;dxfAdi&quot; alanına aynen yaz (DXF dosya adı olacak).',
-      '- Başlıktaki &quot;60 LIK&quot; / &quot;50 LIK&quot; -> tüm satırlar için kalinlik=&quot;60&quot; / &quot;50&quot;. (Başlık tek profil verir, tüm tabloya uygulanır.)',
-      '- Kolonlar: EN | BOY | ADET | KONUM | KOD.',
-      '',
-      'TABLO ÖLÇÜLERİ (FORMAT A\'dan FARKLI):',
-      '- Değerler ZATEN gerçek mm cinsindendir (ör. 1349, 1018, 899). NOKTA-BİNLİK YOK, -1 mm YOK. Hücredeki sayıyı OLDUĞU GİBİ kullan.',
-      '- EN -> B alanı, BOY -> K alanı. (İkisinden büyüğü zaten B olmalı; küçük olan K.)',
-      '- ADET kolonu -> adet.',
-      '',
-      'KONUM KOLONU -> tip (büyük/küçük harf ve Türkçe karakter farkını yok say):',
-      '- &quot;ALT&quot; -> tip=&quot;SABIT&quot;',
-      '- &quot;ÜST&quot; / &quot;UST&quot; -> tip=&quot;UST&quot;',
-      '- &quot;SABİT&quot; / &quot;SABIT&quot; -> tip=&quot;SABIT&quot;',
-      '- &quot;AÇILIR&quot; (tek başına, &quot;cam&quot; yok) -> tip=&quot;ACILIR&quot;, cam=&quot;H&quot;',
-      '- &quot;AÇILIR CAM&quot; / &quot;AÇILIR CAMLI&quot; -> tip=&quot;ACILIR&quot;, cam=&quot;E&quot;',
-      '- &quot;BOĞAZ&quot; -> tip=&quot;BOGAZ&quot;, bogazTip=&quot;B&quot;',
-      '- &quot;BOĞAZ 2 UZUN&quot; -> tip=&quot;BOGAZ&quot;, bogazTip=&quot;B2&quot;',
-      '',
-      'BİRLEŞTİRİLMİŞ HÜCRELER (ÖNEMLİ):',
-      '- KONUM ve KOD kolonlarında bir değer dikey olarak birden çok satırı kapsayacak şekilde birleştirilmiş (merge) olabilir; metin sadece bir kez yazılıdır.',
-      '- O birleştirilmiş değeri kapsadığı HER satıra uygula. Alttaki satır boş görünse bile üstteki birleşik değeri devral, satırı atlama.',
-      '- KOD kolonundaki sayıyı her satırın &quot;kod&quot; alanına yaz.',
-      '',
-      '==================== ORTAK KURALLAR ====================',
-      'B/K KONVANSİYONU:',
-      '- B her zaman BÜYÜK boyut, K KÜÇÜK boyut. İkisinden büyüğü B olur.',
-      '',
-      'ATLA:',
-      '- FORMAT A\'da &quot;birleşti&quot; gibi başlık yanı notları, &quot;AHU-01&quot; gibi iş emri numarasını GÖRMEZDEN GEL (kod ve profil dışında).',
-      '- Emin olmadığın satırı UYDURMA, atla.',
-      '',
-      'ÇIKTI FORMATI: Sadece aşağıdaki yapıda JSON döndür, başka açıklama YAZMA.',
-      '- &quot;format&quot;: Hangi formatı okuduysan onu yaz: FORMAT A için &quot;A&quot;, FORMAT B için &quot;B&quot;.',
-      '- &quot;dxfAdi&quot;: SADECE FORMAT B\'de başlık metnini yaz. FORMAT A\'da boş string &quot;&quot; bırak.',
-      '- FORMAT B\'de B/K değerlerini tablodaki gibi HAM (gerçek mm) yaz; -1 mm DÜŞME, programın kendisi düşecek.',
-      '{',
-      '  &quot;format&quot;: &quot;A|B&quot;,',
-      '  &quot;dxfAdi&quot;: &quot;<FORMAT B ise başlık, değilse boş>&quot;,',
-      '  &quot;panels&quot;: [',
-      '    {&quot;kalinlik&quot;:&quot;50|60&quot;,&quot;tip&quot;:&quot;SABIT|ACILIR|BOGAZ|UST&quot;,&quot;B&quot;:<int>,&quot;K&quot;:<int>,&quot;cam&quot;:&quot;H|E&quot;,&quot;bogazTip&quot;:&quot;-|B|B2&quot;,&quot;kod&quot;:&quot;1|2|...&quot;,&quot;adet&quot;:<int>}',
-      '  ]',
-      '}'
-    ].join('\n');
-  }
-
-  // 429 (kota), 500/503 (sunucu yogunlugu) gibi gecici hatalarda otomatik tekrar dener.
-  // Ana model yogunsa daha hafif Flash modeline gecer.
-  var FOTO_RETRY_MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.5-flash-lite'];
-
-  function fotoSleep(ms) { return new Promise(function(r){ setTimeout(r, ms); }); }
-
-  function fotoCallOnce(model, key, base64, mime) {
-    var url = 'https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent?key=' + encodeURIComponent(key);
-    var body = {
-      contents: [{
-        parts: [
-          { text: fotoBuildPrompt() },
-          { inline_data: { mime_type: mime, data: base64 } }
-        ]
-      }],
-      generationConfig: {
-        temperature: 0.1,
-        responseMimeType: 'application/json'
-      }
-    };
-    return fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
-    }).then(function(res) {
-      return res.json().then(function(json) {
-        if (!res.ok) {
-          var rawMsg = (json && json.error && json.error.message) || '';
-          var err = new Error(rawMsg || ('HTTP ' + res.status));
-          err.status = res.status;
-          err.rawMessage = rawMsg;
-          throw err;
-        }
-        return json;
-      });
-    });
-  }
-
-  function fotoTrPretty(err) {
-    var s = (err && err.rawMessage) || (err && err.message) || '';
-    if (err && (err.status === 503 || /high demand|UNAVAILABLE|overloaded/i.test(s))) {
-      return 'Gemini sunucuları şu anda çok yoğun. Birkaç saniye sonra otomatik tekrar denedik, yine olmadı. Lütfen 1-2 dakika sonra tekrar dene.';
-    }
-    if (err && err.status === 429) {
-      return 'Günlük ücretsiz kota dolmuş görünüyor (~250 istek). Yarın sıfırlanır, ya da kişisel anahtarını kullan.';
-    }
-    if (err && (err.status === 400 || err.status === 401 || err.status === 403)) {
-      return 'API anahtarı reddedildi (' + err.status + '). Anahtarı kontrol et ya da &quot;Kendi Gemini anahtarımı kullan&quot; ile yenisini gir.';
-    }
-    return s || 'Bilinmeyen hata.';
-  }
-
-  function fotoCallGemini(base64, mime) {
-    var key = fotoGetKey();
-    if (!key) return Promise.reject(new Error('API anahtarı yok.'));
-
-    // Once ana modelde 3 deneme (2s, 4s backoff). Hala olmazsa fallback modellere gec.
-    var attempts = [];
-    FOTO_RETRY_MODELS.forEach(function(m, mi) {
-      var perModel = mi === 0 ? 3 : 1; // ana modelde 3 deneme, fallback'larda 1
-      for (var i = 0; i < perModel; i++) {
-        attempts.push({ model: m, delay: i === 0 ? 0 : Math.min(8000, 2000 * Math.pow(2, i - 1)) });
-      }
-    });
-
-    var lastErr = null;
-    var p = Promise.resolve();
-    attempts.forEach(function(att, idx) {
-      p = p.then(function(result) {
-        if (result) return result;
-        return fotoSleep(att.delay).then(function() {
-          fotoUpdateStatusRetry(idx + 1, attempts.length, att.model);
-          return fotoCallOnce(att.model, key, base64, mime).catch(function(err) {
-            lastErr = err;
-            // sadece 429/500/503'de devam et; yetki/parametre hatasinda dur
-            if (err.status === 401 || err.status === 403 || err.status === 400) throw err;
-            return null;
-          });
-        });
-      });
-    });
-
-    return p.then(function(json) {
-      if (!json) throw lastErr || new Error('Tüm denemeler başarısız.');
-      var text = '';
-      try { text = json.candidates[0].content.parts[0].text; }
-      catch (e) { throw new Error('Gemini yanıtı boş veya okunamadı.'); }
-      var parsed;
-      try { parsed = JSON.parse(text); }
-      catch (e) {
-        var m = text.match(/\{[\s\S]*\}/);
-        if (!m) throw new Error('Gemini geçerli JSON döndürmedi.');
-        parsed = JSON.parse(m[0]);
-      }
-      if (!parsed || !Array.isArray(parsed.panels)) {
-        throw new Error('JSON içinde &quot;panels&quot; listesi bulunamadı.');
-      }
-      var dxfAdi = (parsed.dxfAdi == null ? '' : String(parsed.dxfAdi)).trim();
-      // FORMAT B (basili tablo): model &quot;format&quot;:&quot;B&quot; doner ya da dxfAdi dolu olur.
-      // Tablo gercek mm verdiginden cizim icin -1 mm kodda uygulanir.
-      var fmt = String(parsed.format || '').trim().toUpperCase();
-      var isFormatB = (fmt === 'B') || (!!dxfAdi);
-      return { panels: fotoSanitize(parsed.panels, isFormatB), dxfAdi: dxfAdi };
-    }).catch(function(err) {
-      err.message = fotoTrPretty(err);
-      throw err;
-    });
-  }
-
-  function fotoUpdateStatusRetry(current, total, model) {
-    var el = document.querySelector('#foto-body .foto-status');
-    if (!el) return;
-    if (current === 1) return; // ilk denemede orijinal mesaj kalsin
-    el.innerHTML = '<span class=&quot;foto-spinner&quot;></span><b>Sunucu yoğun, tekrar deniyorum… (' + current + '/' + total + ')</b><br>' +
-      '<span style=&quot;font-size:12px;color:var(--text-muted);&quot;>Model: ' + fotoEscapeHtml(model) + '</span>';
-  }
-
-  // applyMinus1: FORMAT B (basili tablo) icin true. Tablo gercek mm verir;
-  // cizilecek olcu icin her iki boyuttan da 1 mm dusulur. FORMAT A'da -1 zaten
-  // promptta (notasyon ile birlikte) yapildigindan burada tekrar yapilmaz.
-  function fotoSanitize(arr, applyMinus1) {
-    var validTip = { SABIT:1, ACILIR:1, BOGAZ:1, UST:1 };
-    var validCam = { H:1, E:1 };
-    var validBogaz = { '-':1, N:1, B:1, B2:1 };
-    var out = [];
-    arr.forEach(function(p) {
-      if (!p) return;
-      var kalinlik = String(p.kalinlik || '50');
-      if (kalinlik !== '50' && kalinlik !== '60') kalinlik = '50';
-      var tip = String(p.tip || 'SABIT').toUpperCase();
-      if (!validTip[tip]) tip = 'SABIT';
-      var B = Math.round(Number(p.B) || 0);
-      var K = Math.round(Number(p.K) || 0);
-      if (applyMinus1) { B -= 1; K -= 1; }
-      if (B < 1 || K < 1) return;
-      if (K > B) { var t = B; B = K; K = t; }
-      var cam = String(p.cam || 'H').toUpperCase();
-      if (!validCam[cam]) cam = 'H';
-      var bogazTip = String(p.bogazTip || '-');
-      if (!validBogaz[bogazTip]) bogazTip = '-';
-      var adet = parseInt(p.adet, 10);
-      if (!adet || adet < 1) adet = 1;
-      var kodStr = p.kod == null ? '' : String(p.kod).trim();
-      // Ust panellerde kod basina otomatik 'U' on eki ekle (UST tipi icin),
-      // ama kullanici/Gemini zaten U ile baslattiysa ekleme.
-      if (tip === 'UST' && kodStr && !/^U/i.test(kodStr)) {
-        kodStr = 'U' + kodStr;
-      }
-      out.push({
-        kalinlik: kalinlik,
-        tip: tip,
-        B: B, K: K,
-        cam: tip === 'ACILIR' ? cam : 'H',
-        bogazTip: tip === 'BOGAZ' ? (bogazTip === '-' ? 'B' : bogazTip) : '-',
-        kod: kodStr,
-        adet: adet
-      });
-    });
-    return out;
-  }
-
-  function fotoTipLabel(p) {
-    if (p.tip === 'SABIT') return 'Sabit';
-    if (p.tip === 'UST') return 'Üst';
-    if (p.tip === 'ACILIR') return p.cam === 'E' ? 'Açılır (Cam)' : 'Açılır';
-    if (p.tip === 'BOGAZ') {
-      if (p.bogazTip === 'B2') return 'Boğaz 2 Uzun';
-      return 'Boğaz';
-    }
-    return p.tip;
-  }
-
-  function fotoShowResult(dataUrl, panelsArr, dxfAdi) {
-    fotoLastResult = panelsArr;
-    fotoLastDxfAdi = (dxfAdi || '').trim();
-    if (!panelsArr.length) {
-      fotoBody.innerHTML =
-        '<div class=&quot;foto-preview-wrap&quot;>' +
-          '<img src=&quot;' + fotoEscapeHtml(dataUrl) + '&quot; class=&quot;foto-preview-img&quot; alt=&quot;&quot;>' +
-          '<div class=&quot;foto-preview-info&quot;>' +
-            '<div class=&quot;foto-status error&quot;>Gemini fotoğrafta panel bulamadı. Daha net bir fotoğrafla tekrar dene.</div>' +
-          '</div>' +
-        '</div>' +
-        '<div style=&quot;margin-top:14px;text-align:center;&quot;>' +
-          '<button class=&quot;foto-btn&quot; id=&quot;foto-empty-retry&quot;>Başka Fotoğraf Seç</button>' +
-        '</div>';
-      document.getElementById('foto-empty-retry').onclick = fotoShowFilePicker;
-      fotoFooter.style.display = 'none';
-      return;
-    }
-    var totalAdet = 0;
-    panelsArr.forEach(function(p){ totalAdet += p.adet; });
-    var rowsHtml = panelsArr.map(function(p, i) {
-      return '<tr>' +
-        '<td>' + (i+1) + '</td>' +
-        '<td>' + fotoEscapeHtml(p.kalinlik) + &quot;'lik</td>&quot; +
-        '<td><span class=&quot;foto-tip-chip&quot;>' + fotoEscapeHtml(fotoTipLabel(p)) + '</span></td>' +
-        '<td>' + p.B + '</td>' +
-        '<td>' + p.K + '</td>' +
-        '<td>' + fotoEscapeHtml(p.kod || '-') + '</td>' +
-        '<td>' + p.adet + '</td>' +
-      '</tr>';
-    }).join('');
-    var dxfAdiHtml = fotoLastDxfAdi
-      ? '<div class=&quot;foto-status&quot; style=&quot;margin-top:8px;&quot;>📄 DXF adı: <b>' + fotoEscapeHtml(fotoLastDxfAdi) + '</b><br><span style=&quot;font-size:12px;color:var(--text-muted);&quot;>Listeye Ekle\'ye basınca dosya adı alanına otomatik yazılır.</span></div>'
-      : '';
-    fotoBody.innerHTML =
-      '<div class=&quot;foto-preview-wrap&quot;>' +
-        '<img src=&quot;' + fotoEscapeHtml(dataUrl) + '&quot; class=&quot;foto-preview-img&quot; alt=&quot;&quot;>' +
-        '<div class=&quot;foto-preview-info&quot;>' +
-          '<div class=&quot;foto-status&quot;><b>✓ Analiz tamam.</b> ' + panelsArr.length + ' satır, toplam ' + totalAdet + ' panel okundu. Aşağıdan kontrol et.</div>' +
-          dxfAdiHtml +
-          '<div style=&quot;margin-top:18px;display:flex;justify-content:center;&quot;>' +
-          '</div>' +
-        '</div>' +
-      '</div>' +
-      '<table class=&quot;foto-result-table&quot;>' +
-        '<thead><tr><th>#</th><th>Profil</th><th>Tip</th><th>Yükseklik (mm)</th><th>Genişlik (mm)</th><th>Kod</th><th>Adet</th></tr></thead>' +
-        '<tbody>' + rowsHtml + '</tbody>' +
-      '</table>';
-    fotoFooter.style.display = 'flex';
-  }
-
-  // Onaylanan paneller ana listeye eklenir
-  fotoBtnConfirm.addEventListener('click', function() {
-    if (!fotoLastResult || !fotoLastResult.length) return;
-    fotoLastResult.forEach(function(p) { panels.push(p); });
-    // FORMAT B (tablo): basligi ilgili kalinligin DXF dosya adi alanina yaz
-    if (fotoLastDxfAdi) {
-      var kalinliklarSet = {};
-      fotoLastResult.forEach(function(p){ kalinliklarSet[p.kalinlik] = 1; });
-      Object.keys(kalinliklarSet).forEach(function(k) {
-        var el = k === '60' ? document.getElementById('dosyaAdi60')
-                            : document.getElementById('dosyaAdi50');
-        if (el) el.value = fotoLastDxfAdi;
-      });
-    }
-    renderTable();
-    setStatus(fotoLastResult.length + ' satır eklendi (fotoğraf analizi).');
-    fotoCloseModal();
-  });
-
-  fotoBtnCancel.addEventListener('click', fotoCloseModal);
-  fotoClose.addEventListener('click', fotoCloseModal);
-  fotoBtnTrigger.addEventListener('click', fotoOpen);
-  // ESC ile kapat
-  document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape' && fotoModal.classList.contains('active')) fotoCloseModal();
-  });
 })();
 
 // =====================================================================
@@ -9936,13 +8435,6 @@ function topluDxfUret() {
         if (result && result.success) exportedNames.push(result.filename);
       });
     });
-    try {
-      var el50 = document.getElementById('dosyaAdi50');
-      var el60 = document.getElementById('dosyaAdi60');
-      historyAdd({ mode: 'panel', name: exportedNames.slice(-1)[0] || '', count: panels.length,
-        data: { panels: JSON.parse(JSON.stringify(panels)), dosyaAdi50: el50?el50.value:'', dosyaAdi60: el60?el60.value:'' }
-      });
-    } catch(e) {}
     panels.length = 0;
     panelEditIndex = null;
     if (elBtnAdd) elBtnAdd.textContent = '+ Listeye Ekle';
@@ -9954,9 +8446,6 @@ function topluDxfUret() {
     var bRes = generateAndDownloadBogazDxf(bogazList);
     if (bRes && bRes.success) {
       exportedNames.push(bRes.filename);
-      try { historyAdd({ mode: 'bogaz', name: bRes.filename, count: bogazList.length,
-        data: { bogazList: JSON.parse(JSON.stringify(bogazList)), dosyaAdi: elBDosyaAdi?elBDosyaAdi.value:'' }
-      }); } catch(e) {}
       bogazList.length = 0;
       bogazEditIndex = null;
       if (elBBtnAdd) elBBtnAdd.textContent = '+ Listeye Ekle';
