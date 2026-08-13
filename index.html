@@ -4612,23 +4612,6 @@ boot();
 
     .main { display: flex; flex: 1; overflow: hidden; }
 
-    .sidebar {
-      width: 100%;
-      background: var(--bg-sidebar);
-      padding: 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-
-    .form-group { display: flex; flex-direction: column; gap: 4px; }
-    .form-group label {
-      font-size: 12px; font-weight: 600; color: var(--text-muted);
-      text-transform: uppercase; letter-spacing: 0.5px;
-    }
-    .form-row { display: flex; gap: 8px; }
-    .form-row .form-group { flex: 1; }
-
     input, select {
       background: var(--bg-input);
       border: 1px solid var(--border);
@@ -4643,20 +4626,6 @@ boot();
     input::placeholder { color: var(--text-placeholder); }
     select { cursor: pointer; }
     select option { background: var(--bg-sidebar); }
-
-    .btn {
-      padding: 10px 16px; border: none; border-radius: 6px;
-      font-size: 14px; font-weight: 600; cursor: pointer;
-      transition: all 0.2s; text-transform: uppercase; letter-spacing: 0.5px;
-    }
-    .btn:active { transform: scale(0.97); }
-
-    .btn-add {
-      background: var(--bg-input);
-      color: var(--accent2);
-      border: 1px solid var(--accent2);
-    }
-    .btn-add:hover { opacity: 0.85; }
 
     .content {
       flex: none; display: flex; flex-direction: column;
@@ -4710,74 +4679,10 @@ boot();
     }
     .status-msg { color: var(--accent2); font-weight: 600; }
 
-    .hidden { display: none !important; }
-
-
     ::-webkit-scrollbar { width: 8px; }
     ::-webkit-scrollbar-track { background: var(--bg-main); }
     ::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 4px; }
     ::-webkit-scrollbar-thumb:hover { opacity: 0.8; }
-
-    /* ============ CANLI ONIZLEME ============ */
-    .preview-section {
-      background: rgba(0,0,0,0.2);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 10px;
-      display: flex; flex-direction: column; gap: 6px;
-    }
-    .preview-label {
-      font-size: 11px; font-weight: 600;
-      color: var(--accent2);
-      text-transform: uppercase;
-      letter-spacing: 1.5px;
-    }
-    .preview-svg-box {
-      height: 130px;
-      display: flex; align-items: center; justify-content: center;
-      color: var(--accent);
-      background: rgba(0,0,0,0.25);
-      border-radius: 6px;
-      overflow: hidden;
-      position: relative;
-      cursor: zoom-in;
-    }
-    .preview-svg-box svg {
-      max-width: 100%; max-height: 100%;
-      transform: scale(var(--preview-zoom, 1)) translate(var(--preview-tx, 0px), var(--preview-ty, 0px));
-      transform-origin: center center;
-      transition: transform 0.08s ease-out;
-    }
-    .preview-zoom-badge {
-      position: absolute; top: 4px; right: 6px;
-      font-size: 10px; color: var(--text-muted);
-      background: rgba(0,0,0,0.5); padding: 2px 6px;
-      border-radius: 10px; pointer-events: none;
-      opacity: 0; transition: opacity 0.3s;
-    }
-    .preview-svg-box.zoomed .preview-zoom-badge { opacity: 1; }
-    .preview-svg-box.zoomed { cursor: grab; }
-    .preview-svg-box.zoomed:active { cursor: grabbing; }
-    .preview-dim {
-      font-size: 11px; color: var(--text-muted);
-      text-align: center;
-      font-family: 'Consolas', monospace;
-    }
-
-    /* ============ SATIR DUZENLEME ============ */
-    tr.row-clickable { cursor: pointer; }
-    tr.row-editing td { background: color-mix(in srgb, var(--accent) 18%, transparent) !important; outline: 1px solid var(--accent); }
-    .btn-edit, .b-btn-edit {
-      background: transparent;
-      border: 1px solid var(--border);
-      color: var(--accent2);
-      padding: 2px 8px; margin-right: 4px;
-      border-radius: 4px; cursor: pointer;
-      font-size: 13px; line-height: 1;
-    }
-    .btn-edit:hover, .b-btn-edit:hover {
-      background: var(--accent2); color: var(--bg-main); border-color: var(--accent2);
-    }
 
     /* ---------- SAC NESTING MODALI ---------- */
     #nest-modal {
@@ -4851,17 +4756,11 @@ boot();
     .nest-sheet-link:hover { color: var(--accent); border-color: var(--accent); }
 
     /* ============ UNIFIED LAYOUT ============ */
-    .left-col {
-      width: 480px; min-width: 480px;
-      overflow-y: auto;
-      border-right: 1px solid var(--border);
-      display: flex; flex-direction: column;
-    }
+    /* Elle giris sutunu (.left-col) kaldirildi; listeler tum genisligi kaplar. */
     .right-col {
       flex: 1; overflow-y: auto;
       display: flex; flex-direction: column;
     }
-    .sidebar + .sidebar { border-top: 2px solid var(--accent); }
     .content + .content { border-top: 1px solid var(--border); }
 
   </style>
@@ -4899,117 +4798,13 @@ boot();
   </div>
 
   <div class=&quot;main&quot;>
-    <div class=&quot;left-col&quot;>
-    <!-- SOL: FORM (PANEL MODU) -->
-    <div class=&quot;sidebar&quot;>
-      <div class=&quot;form-group&quot;>
-        <label>Panel Kalınlığı</label>
-        <select id=&quot;kalinlik&quot;>
-          <option value=&quot;50&quot;>50'lik Galvaniz</option>
-          <option value=&quot;60&quot;>60'lık Galvaniz</option>
-          <option value=&quot;50P&quot;>50'lik Paslanmaz</option>
-          <option value=&quot;60P&quot;>60'lık Paslanmaz</option>
-        </select>
-      </div>
-
-      <div class=&quot;form-group&quot;>
-        <label>Panel Tipi</label>
-        <select id=&quot;tip&quot;>
-          <option value=&quot;SABIT&quot;>Sabit</option>
-          <option value=&quot;ACILIR&quot;>Açılır</option>
-          <option value=&quot;UST&quot;>Üst</option>
-          <option value=&quot;BOGAZ&quot;>Boğaz</option>
-        </select>
-      </div>
-
-      <div class=&quot;form-row&quot;>
-        <div class=&quot;form-group&quot;>
-          <label>Ölçü 1 (mm)</label>
-          <input type=&quot;number&quot; id=&quot;buyuk&quot; placeholder=&quot;1200&quot; min=&quot;1&quot; step=&quot;1&quot;>
-        </div>
-        <div class=&quot;form-group&quot;>
-          <label>Ölçü 2 (mm)</label>
-          <input type=&quot;number&quot; id=&quot;kucuk&quot; placeholder=&quot;800&quot; min=&quot;1&quot; step=&quot;1&quot;>
-        </div>
-      </div>
-
-      <div class=&quot;form-group&quot; id=&quot;cam-group&quot;>
-        <label>Cam Bölmesi</label>
-        <select id=&quot;cam&quot;>
-          <option value=&quot;H&quot;>Hayır</option>
-          <option value=&quot;E&quot;>Evet</option>
-        </select>
-      </div>
-
-      <div class=&quot;form-group hidden&quot; id=&quot;bogaz-group&quot;>
-        <label>Boğaz Tipi</label>
-        <select id=&quot;bogazTip&quot;>
-          <option value=&quot;N&quot;>Normal</option>
-          <option value=&quot;B&quot;>Boğaz</option>
-          <option value=&quot;B2&quot;>Boğaz 2 Uzun</option>
-        </select>
-      </div>
-
-      <div class=&quot;form-row&quot;>
-        <div class=&quot;form-group&quot;>
-          <label>Kodlama</label>
-          <input type=&quot;text&quot; id=&quot;kod&quot; placeholder=&quot;Örnek: P-01&quot;>
-        </div>
-        <div class=&quot;form-group&quot;>
-          <label>Adet</label>
-          <input type=&quot;number&quot; id=&quot;adet&quot; value=&quot;1&quot; min=&quot;1&quot; step=&quot;1&quot;>
-        </div>
-      </div>
-
-      <button class=&quot;btn btn-add&quot; id=&quot;btn-add&quot;>+ Listeye Ekle</button>
-
-      <input type=&quot;hidden&quot; id=&quot;dosyaAdi50&quot; value=&quot;&quot;>
-      <input type=&quot;hidden&quot; id=&quot;dosyaAdi60&quot; value=&quot;&quot;>
-
-      <input type=&quot;hidden&quot; id=&quot;satirN&quot; value=&quot;1&quot;>
-      <input type=&quot;hidden&quot; id=&quot;gapCol&quot; value=&quot;700&quot;>
-      <input type=&quot;hidden&quot; id=&quot;gapRow&quot; value=&quot;1000&quot;>
-
-      <div class=&quot;preview-section&quot;>
-        <div class=&quot;preview-label&quot;>Canlı Önizleme</div>
-        <div class=&quot;preview-svg-box&quot; id=&quot;p-preview-svg&quot;></div>
-        <div class=&quot;preview-dim&quot; id=&quot;p-preview-dim&quot;>-</div>
-      </div>
-
-      
-    </div>
-
-    <!-- SOL: FORM (BOGAZ MODU) -->
-    <div class=&quot;sidebar&quot; id=&quot;sidebar-bogaz&quot;>
-      <div class=&quot;form-row&quot;>
-        <div class=&quot;form-group&quot;>
-          <label>Yatay Boğaz Parçası (YBP) mm</label>
-          <input type=&quot;number&quot; id=&quot;b-ybp&quot; placeholder=&quot;1200&quot; min=&quot;50&quot; step=&quot;1&quot;>
-        </div>
-        <div class=&quot;form-group&quot;>
-          <label>Dikey Boğaz Parçası (DBP) mm</label>
-          <input type=&quot;number&quot; id=&quot;b-dbp&quot; placeholder=&quot;800&quot; min=&quot;14&quot; step=&quot;1&quot;>
-        </div>
-      </div>
-
-      <div class=&quot;form-group&quot;>
-        <label>Adet</label>
-        <input type=&quot;number&quot; id=&quot;b-adet&quot; value=&quot;1&quot; min=&quot;1&quot; step=&quot;1&quot;>
-      </div>
-
-      <button class=&quot;btn btn-add&quot; id=&quot;b-btn-add&quot;>+ Listeye Ekle</button>
-
-      <input type=&quot;hidden&quot; id=&quot;b-dosyaAdi&quot; value=&quot;&quot;>
-
-      <div class=&quot;preview-section&quot;>
-        <div class=&quot;preview-label&quot;>Canlı Önizleme</div>
-        <div class=&quot;preview-svg-box&quot; id=&quot;b-preview-svg&quot;></div>
-        <div class=&quot;preview-dim&quot; id=&quot;b-preview-dim&quot;>-</div>
-      </div>
-
-
-    </div>
-    </div><!-- end left-col -->
+    <!-- Proje adi tasiyicilari. Gorunur arayuz degil, saklama alani: Kapak Hesabi
+         sekmesinden gelen yukte doldurulur (applyKapakData) ve DXF dosya adlandirmasi
+         okur (generateAndDownloadDxf, bogaz disa aktarimi, nesting). Elle giris formu
+         kaldirilinca burada kaldilar — silinirlerse dosya adlari bozulur. -->
+    <input type=&quot;hidden&quot; id=&quot;dosyaAdi50&quot; value=&quot;&quot;>
+    <input type=&quot;hidden&quot; id=&quot;dosyaAdi60&quot; value=&quot;&quot;>
+    <input type=&quot;hidden&quot; id=&quot;b-dosyaAdi&quot; value=&quot;&quot;>
     <div class=&quot;right-col&quot;>
 
     <!-- SAG: TABLO (PANEL MODU) -->
@@ -5051,8 +4846,8 @@ boot();
           </tbody>
         </table>
         <div class=&quot;empty-msg&quot; id=&quot;empty-msg&quot;>
-          Henuz panel eklenmedi.<br>
-          Soldaki formu kullanarak panel ekleyin.
+          Henüz panel yok.<br>
+          <b>Kapak Hesabı</b> sekmesinde hesabı yapıp <b>DXF'e Aktar</b> deyin.
         </div>
       </div>
     </div>
@@ -5081,8 +4876,8 @@ boot();
           </tbody>
         </table>
         <div class=&quot;empty-msg&quot; id=&quot;b-empty&quot;>
-          Henuz bogaz eklenmedi.<br>
-          Soldaki formu kullanarak bogaz ekleyin.
+          Henüz boğaz yok.<br>
+          <b>Kapak Hesabı</b> sekmesinden boğazlı panellerle birlikte aktarılır.
         </div>
       </div>
     </div>
@@ -7611,130 +7406,16 @@ function generateAndDownloadDxf(panelList, kalinlik, satirN, gapCol, gapRow, cus
 // Panel listesi
 var panels = [];
 
-// DOM elemanlari
-var elKalinlik = document.getElementById('kalinlik');
-var elTip = document.getElementById('tip');
-var elBuyuk = document.getElementById('buyuk');
-var elKucuk = document.getElementById('kucuk');
-var elCam = document.getElementById('cam');
-var elCamGroup = document.getElementById('cam-group');
-var elBogazTip = document.getElementById('bogazTip');
-var elBogazGroup = document.getElementById('bogaz-group');
-var elKod = document.getElementById('kod');
-var elAdet = document.getElementById('adet');
-var elBtnAdd = document.getElementById('btn-add');
+// DOM elemanlari. Panel listesi artik YALNIZCA Kapak Hesabi sekmesinden gelir
+// (applyKapakData); elle giris formu kaldirildigi icin form alanlari da yok.
 var elTable = document.getElementById('panel-table');
 var elEmpty = document.getElementById('empty-msg');
 var elCount = document.getElementById('panel-count');
 var elStatus = document.getElementById('status-msg');
 
-// Tip degisince cam/bogaz alanlarini goster/gizle
-elTip.addEventListener('change', function() {
-  var tip = elTip.value;
-  elCamGroup.classList.toggle('hidden', tip !== 'ACILIR');
-  elBogazGroup.classList.toggle('hidden', tip !== 'BOGAZ');
-});
-
-// Baslangicta SABIT secili - cam ve bogaz gizli
-elCamGroup.classList.add('hidden');
-elBogazGroup.classList.add('hidden');
-
-// Listeye ekle
-elBtnAdd.addEventListener('click', addPanel);
-
-// Enter tusu ile listeye ekle (sadece panel sidebar'ina ozgu alanlar)
-['kalinlik','tip','buyuk','kucuk','cam','bogazTip','kod','adet'].forEach(function(id) {
-  var el = document.getElementById(id);
-  if (!el) return;
-  el.addEventListener('keydown', function(e) {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      addPanel();
-    }
-  });
-});
-
-var panelEditIndex = null;
-
-function addPanel() {
-  var v1 = parseFloat(elBuyuk.value);
-  var v2 = parseFloat(elKucuk.value);
-  var adet = parseInt(elAdet.value) || 1;
-
-  if (!v1 || v1 < 1) {
-    setStatus('Hata: Ölçü 1 giriniz!');
-    elBuyuk.focus();
-    return;
-  }
-  if (!v2 || v2 < 1) {
-    setStatus('Hata: Ölçü 2 giriniz!');
-    elKucuk.focus();
-    return;
-  }
-  // Buyuk/kucuk otomatik ayrim: en buyuk = B, digeri = K
-  var B = Math.max(v1, v2);
-  var K = Math.min(v1, v2);
-  if (B < 100) {
-    setStatus('Hata: Büyük ölçü en az 100 mm olmalı!');
-    elBuyuk.focus();
-    return;
-  }
-
-  var panel = {
-    kalinlik: elKalinlik.value,
-    tip: elTip.value,
-    B: B,
-    K: K,
-    cam: elTip.value === 'ACILIR' ? elCam.value : 'H',
-    bogazTip: elTip.value === 'BOGAZ' ? elBogazTip.value : '-',
-    kod: elKod.value.trim(),
-    adet: adet
-  };
-
-  if (panelEditIndex !== null) {
-    panels[panelEditIndex] = panel;
-    setStatus('Panel güncellendi: ' + panel.tip + ' ' + panel.B + 'x' + panel.K);
-    panelEditIndex = null;
-    elBtnAdd.textContent = '+ Listeye Ekle';
-  } else {
-    panels.push(panel);
-    setStatus('Panel eklendi: ' + panel.tip + ' ' + panel.B + 'x' + panel.K + ' mm (' + adet + ' adet)');
-  }
-  renderTable();
-
-  // Buyuk olcu ve Kod, kullanici manuel degistirmedikce korunur (seri girist kolayligi).
-  elKucuk.value = '';
-  elAdet.value = '1';
-  elKucuk.focus();
-}
-
-function editPanel(index) {
-  var p = panels[index];
-  if (!p) return;
-  panelEditIndex = index;
-  elKalinlik.value = p.kalinlik;
-  elTip.value = p.tip;
-  elTip.dispatchEvent(new Event('change'));
-  elBuyuk.value = p.B;
-  elKucuk.value = p.K;
-  if (p.cam) elCam.value = p.cam;
-  if (p.bogazTip && p.bogazTip !== '-') elBogazTip.value = p.bogazTip;
-  elKod.value = p.kod || '';
-  elAdet.value = p.adet;
-  elBtnAdd.textContent = '\u2713 G\u00fcncelle';
-  renderTable();
-  elBuyuk.focus();
-  setStatus('Düzenleme modu: #' + (index + 1));
-}
-
+// Satirlar yalnizca silinebilir; elle ekleme/duzenleme formu kaldirildi.
 function removePanel(index) {
   panels.splice(index, 1);
-  if (panelEditIndex === index) {
-    panelEditIndex = null;
-    elBtnAdd.textContent = '+ Listeye Ekle';
-  } else if (panelEditIndex !== null && index < panelEditIndex) {
-    panelEditIndex--;
-  }
   renderTable();
   setStatus('Panel silindi.');
 }
@@ -7762,8 +7443,6 @@ function renderTable() {
   panels.forEach(function(p, i) {
     totalAdet += p.adet;
     var tr = document.createElement('tr');
-    tr.className = 'row-clickable' + (panelEditIndex === i ? ' row-editing' : '');
-    tr.title = 'Cift tikla: duzenle';
     tr.innerHTML =
       '<td style=&quot;text-align:center;&quot;><input type=&quot;checkbox&quot; class=&quot;row-chk&quot; data-idx=&quot;' + i + '&quot; style=&quot;cursor:pointer;width:14px;height:14px;accent-color:var(--accent);&quot;></td>' +
       '<td>' + (i + 1) + '</td>' +
@@ -7776,21 +7455,13 @@ function renderTable() {
       '<td>' + (p.kod || '-') + '</td>' +
       '<td>' + p.adet + '</td>' +
       '<td class=&quot;td-actions&quot;>' +
-        '<button class=&quot;btn-edit&quot; data-idx=&quot;' + i + '&quot; title=&quot;Düzenle&quot;>&#9998;</button>' +
         '<button class=&quot;btn-del&quot; data-idx=&quot;' + i + '&quot; title=&quot;Sil&quot;>Sil</button>' +
       '</td>';
-    tr.addEventListener('dblclick', function(){ editPanel(i); });
     elTable.appendChild(tr);
   });
 
   elCount.textContent = panels.length + ' kayıt / ' + totalAdet + ' panel';
 
-  document.querySelectorAll('#panel-table .btn-edit').forEach(function(btn) {
-    btn.addEventListener('click', function(e) {
-      e.stopPropagation();
-      editPanel(parseInt(btn.dataset.idx));
-    });
-  });
   document.querySelectorAll('#panel-table .btn-del').forEach(function(btn) {
     btn.addEventListener('click', function(e) {
       e.stopPropagation();
@@ -7904,72 +7575,14 @@ renderTable();
 // BOGAZ MODU - State & Handlers
 // =====================================================================
 var bogazList = [];
-var elBYbp = document.getElementById('b-ybp');
-var elBDbp = document.getElementById('b-dbp');
-var elBAdet = document.getElementById('b-adet');
-var elBBtnAdd = document.getElementById('b-btn-add');
 var elBTable = document.getElementById('b-table');
 var elBEmpty = document.getElementById('b-empty');
 var elBCount = document.getElementById('b-count');
-var elBDosyaAdi = document.getElementById('b-dosyaAdi');
+var elBDosyaAdi = document.getElementById('b-dosyaAdi');   // gizli: DXF dosya adi tasiyicisi
 
-var bogazEditIndex = null;
-
-function addBogaz() {
-  var ybp = parseFloat(elBYbp.value);
-  var dbp = parseFloat(elBDbp.value);
-  var adet = parseInt(elBAdet.value) || 1;
-
-  if (!ybp || ybp < 50) {
-    setStatus('Hata: YBP en az 50 mm olmalı!');
-    elBYbp.focus();
-    return;
-  }
-  if (!dbp || dbp < 14) {
-    setStatus('Hata: DBP en az 14 mm olmalı!');
-    elBDbp.focus();
-    return;
-  }
-
-  var entry = { ybp: ybp, dbp: dbp, adet: adet };
-  if (bogazEditIndex !== null) {
-    bogazList[bogazEditIndex] = entry;
-    setStatus('Boğaz güncellendi: YBP ' + ybp + ' / DBP ' + dbp);
-    bogazEditIndex = null;
-    elBBtnAdd.textContent = '+ Listeye Ekle';
-  } else {
-    bogazList.push(entry);
-    setStatus('Boğaz eklendi: YBP ' + ybp + ' / DBP ' + dbp + ' (' + adet + ' adet)');
-  }
-  renderBogazTable();
-
-  elBYbp.value = '';
-  elBDbp.value = '';
-  elBAdet.value = '1';
-  elBYbp.focus();
-}
-
-function editBogaz(index) {
-  var b = bogazList[index];
-  if (!b) return;
-  bogazEditIndex = index;
-  elBYbp.value = b.ybp;
-  elBDbp.value = b.dbp;
-  elBAdet.value = b.adet;
-  elBBtnAdd.textContent = '\u2713 G\u00fcncelle';
-  renderBogazTable();
-  elBYbp.focus();
-  setStatus('Düzenleme modu: #' + (index + 1));
-}
-
+// Bogaz listesi de yalnizca Kapak Hesabi sekmesinden dolar; elle ekleme/duzenleme yok.
 function removeBogaz(index) {
   bogazList.splice(index, 1);
-  if (bogazEditIndex === index) {
-    bogazEditIndex = null;
-    elBBtnAdd.textContent = '+ Listeye Ekle';
-  } else if (bogazEditIndex !== null && index < bogazEditIndex) {
-    bogazEditIndex--;
-  }
   renderBogazTable();
   setStatus('Boğaz silindi.');
 }
@@ -7987,28 +7600,18 @@ function renderBogazTable() {
   bogazList.forEach(function(b, i) {
     totalAdet += b.adet;
     var tr = document.createElement('tr');
-    tr.className = 'row-clickable' + (bogazEditIndex === i ? ' row-editing' : '');
-    tr.title = 'Cift tikla: duzenle';
     tr.innerHTML =
       '<td>' + (i + 1) + '</td>' +
       '<td>' + b.ybp + '</td>' +
       '<td>' + b.dbp + '</td>' +
       '<td>' + b.adet + '</td>' +
       '<td class=&quot;td-actions&quot;>' +
-        '<button class=&quot;b-btn-edit&quot; data-idx=&quot;' + i + '&quot; title=&quot;Düzenle&quot;>&#9998;</button>' +
         '<button class=&quot;b-btn-del&quot; data-idx=&quot;' + i + '&quot; title=&quot;Sil&quot;>Sil</button>' +
       '</td>';
-    tr.addEventListener('dblclick', function(){ editBogaz(i); });
     elBTable.appendChild(tr);
   });
   elBCount.textContent = bogazList.length + ' kayıt / ' + totalAdet + ' boğaz';
 
-  document.querySelectorAll('.b-btn-edit').forEach(function(btn) {
-    btn.addEventListener('click', function(e) {
-      e.stopPropagation();
-      editBogaz(parseInt(btn.dataset.idx));
-    });
-  });
   document.querySelectorAll('.b-btn-del').forEach(function(btn) {
     btn.addEventListener('click', function(e) {
       e.stopPropagation();
@@ -8017,13 +7620,6 @@ function renderBogazTable() {
   });
 }
 
-if (elBBtnAdd) elBBtnAdd.addEventListener('click', addBogaz);
-
-document.querySelectorAll('#sidebar-bogaz input').forEach(function(el) {
-  el.addEventListener('keydown', function(e) {
-    if (e.key === 'Enter') addBogaz();
-  });
-});
 
 // =====================================================================
 // BOGAZ GEOMETRI CIZIMI (BOGAZ_OTOMATIK.lsp portu)
@@ -8293,202 +7889,11 @@ SvgWriter.prototype.toSvg = function(width, height) {
 };
 
 
-// =====================================================================
-// CANLI ONIZLEME + ZOOM/PAN
-// =====================================================================
-
-var previewState = {
-  'p-preview-svg': { zoom: 1, tx: 0, ty: 0 },
-  'b-preview-svg': { zoom: 1, tx: 0, ty: 0 },
-  'a-preview-svg': { zoom: 1, tx: 0, ty: 0 },
-  'e-preview-svg': { zoom: 1, tx: 0, ty: 0 }
-};
-
-function setPreviewSvg(boxId, svgHtml) {
-  var box = document.getElementById(boxId);
-  if (!box) return;
-  var st = previewState[boxId] || { zoom: 1, tx: 0, ty: 0 };
-  var content = svgHtml || '<span style=&quot;color:var(--text-muted);font-size:12px&quot;>Ölçü girin...</span>';
-  var zoomText = '<span class=&quot;preview-zoom-badge&quot;>' + st.zoom.toFixed(1) + 'x</span>';
-  box.innerHTML = zoomText + content;
-  box.style.setProperty('--preview-zoom', st.zoom);
-  box.style.setProperty('--preview-tx', st.tx + 'px');
-  box.style.setProperty('--preview-ty', st.ty + 'px');
-  box.classList.toggle('zoomed', st.zoom > 1.001 || st.zoom < 0.999 || st.tx !== 0 || st.ty !== 0);
-}
-
-function attachPreviewZoom(boxId) {
-  var box = document.getElementById(boxId);
-  if (!box) return;
-  var st = previewState[boxId];
-
-  box.addEventListener('wheel', function(e) {
-    e.preventDefault();
-    var delta = e.deltaY > 0 ? 0.85 : 1.18;
-    var newZoom = Math.max(0.4, Math.min(12, st.zoom * delta));
-    st.zoom = newZoom;
-    if (newZoom <= 1.001) { st.tx = 0; st.ty = 0; }
-    box.style.setProperty('--preview-zoom', st.zoom);
-    box.style.setProperty('--preview-tx', st.tx + 'px');
-    box.style.setProperty('--preview-ty', st.ty + 'px');
-    var badge = box.querySelector('.preview-zoom-badge');
-    if (badge) badge.textContent = st.zoom.toFixed(1) + 'x';
-    box.classList.toggle('zoomed', st.zoom > 1.001 || st.zoom < 0.999 || st.tx !== 0 || st.ty !== 0);
-  }, { passive: false });
-
-  // Cift tik: zoom sifirla
-  box.addEventListener('dblclick', function() {
-    st.zoom = 1; st.tx = 0; st.ty = 0;
-    box.style.setProperty('--preview-zoom', 1);
-    box.style.setProperty('--preview-tx', '0px');
-    box.style.setProperty('--preview-ty', '0px');
-    var badge = box.querySelector('.preview-zoom-badge');
-    if (badge) badge.textContent = '1.0x';
-    box.classList.remove('zoomed');
-  });
-
-  // Zoomluyken tutup kaydirma (pan)
-  var panning = false, startX = 0, startY = 0, baseTx = 0, baseTy = 0;
-  box.addEventListener('mousedown', function(e) {
-    if (st.zoom <= 1.001) return;
-    panning = true;
-    startX = e.clientX; startY = e.clientY;
-    baseTx = st.tx; baseTy = st.ty;
-    e.preventDefault();
-  });
-  window.addEventListener('mousemove', function(e) {
-    if (!panning) return;
-    var scale = st.zoom;
-    st.tx = baseTx + (e.clientX - startX) / scale;
-    st.ty = baseTy + (e.clientY - startY) / scale;
-    box.style.setProperty('--preview-tx', st.tx + 'px');
-    box.style.setProperty('--preview-ty', st.ty + 'px');
-  });
-  window.addEventListener('mouseup', function() { panning = false; });
-}
-
-function updateBogazPreview() {
-  var ybpRaw = parseFloat(elBYbp.value);
-  var dbpRaw = parseFloat(elBDbp.value);
-  var box = document.getElementById('b-preview-svg');
-  var dim = document.getElementById('b-preview-dim');
-  if (!box || !dim) return;
-
-  var ybp = (!isNaN(ybpRaw) && ybpRaw >= 50) ? ybpRaw : 1350;
-  var dbp = (!isNaN(dbpRaw) && dbpRaw >= 14) ? dbpRaw : 600;
-
-  var sw = new SvgWriter();
-  try { drawBogazSet(sw, 0, 0, ybp, dbp); } catch(e){}
-  setPreviewSvg('b-preview-svg', sw.toSvg(260, 130));
-
-  var totalW = (ybp >= 1950) ? (163.768*3 + 100*2 + (ybp+50) + 300) : (163.768*2 + 100*2 + (ybp+50));
-  var totalH = 163.768*2 + 100*2 + (dbp + 46.884);
-  dim.textContent = 'Set boyutu: ' + Math.round(totalW) + ' x ' + Math.round(totalH) + ' mm';
-}
-
-// Panel onizleme: gercek cizim fonksiyonlarini kullanir (DIS + IC cifti)
-function updatePanelPreview() {
-  var box = document.getElementById('p-preview-svg');
-  var dim = document.getElementById('p-preview-dim');
-  if (!box || !dim) return;
-
-  var v1 = parseFloat(elBuyuk.value);
-  var v2 = parseFloat(elKucuk.value);
-  var tip = elTip.value;
-  var kalinlik = elKalinlik.value;
-  var cam = elCam ? elCam.value : 'H';
-  var bogazTip = elBogazTip ? elBogazTip.value : 'N';
-  var kod = elKod ? (elKod.value || '') : '';
-
-  // Otomatik buyuk/kucuk ayrim: max -> B, min -> K
-  var Braw = (!isNaN(v1) && !isNaN(v2)) ? Math.max(v1, v2) : (!isNaN(v1) ? v1 : v2);
-  var Kraw = (!isNaN(v1) && !isNaN(v2)) ? Math.min(v1, v2) : (!isNaN(v1) ? v1 : v2);
-
-  // Varsayilan degerler (form bosken)
-  var B = (!isNaN(Braw) && Braw >= 100) ? Braw : 1200;
-  var K = (!isNaN(Kraw) && Kraw >= 1)   ? Kraw : 800;
-
-  var sw = new SvgWriter();
-  try {
-    if (kalinlik === '50') {
-      var Wdis = B + 98;
-      switch (tip) {
-        case 'SABIT': {
-          var pN = drawDisSabit(sw, 0, 0, B, K, kod);
-          drawIcSabit(sw, Wdis + 400, 33.5, B, K, kod, pN);
-          break;
-        }
-        case 'ACILIR':
-          drawDisAcilir(sw, 0, 0, B, K, cam || 'H', kod);
-          drawIcAcilir(sw, Wdis + 400, 34.5, B, K, cam || 'H', kod);
-          break;
-        case 'UST':
-          drawUst(sw, 0, 0, B, K, kod);
-          break;
-        case 'BOGAZ': {
-          var pN = drawBogazDis(sw, 0, 0, B, K, bogazTip || 'N', kod);
-          drawIcSabit(sw, Wdis + 400, 33.5, B, K, kod, pN);
-          break;
-        }
-      }
-    } else {
-      switch (tip) {
-        case 'SABIT':
-          drawDis60(sw, 0, 0, B, K, kod, '0');
-          drawIc60(sw, B + 797, 20.5, B, K, kod, '0');
-          break;
-        case 'ACILIR':
-          var BI = B - 43, KI = K - 43;
-          var oxIc = B + 498.5;
-          var oyIc = (K - KI) / 2;
-          drawDisAcilir60(sw, 0, 0, B, K, kod, '0');
-          drawIcAcilir60(sw, oxIc, oyIc, B, K, kod, '0');
-          if (cam === 'E') {
-            addCam60(sw, B / 2, K / 2, '0');
-            addCam60(sw, oxIc + BI / 2, K / 2, '0');
-          }
-          break;
-        case 'UST':
-          drawUst60(sw, 0, 0, B, K, kod, '0');
-          break;
-        case 'BOGAZ':
-          drawBogazDis60(sw, 0, 0, B, K, (bogazTip || 'N').toUpperCase(), kod, '0');
-          drawIc60(sw, B + 797, 20.5, B, K, kod, '0');
-          break;
-      }
-    }
-  } catch(e) {
-    console.error('Panel preview error:', e);
-  }
-
-  setPreviewSvg('p-preview-svg', sw.toSvg(260, 130));
-  dim.textContent = kalinlik + '\'lik ' + tip + ' | ' + Math.round(B) + ' x ' + Math.round(K) + ' mm';
-}
-
-// Dinleyicileri bagla
-(function setupPreviewListeners(){
-  var pFields = ['kalinlik','tip','buyuk','kucuk','cam','bogazTip'];
-  pFields.forEach(function(id){
-    var el = document.getElementById(id);
-    if (el) {
-      el.addEventListener('input', updatePanelPreview);
-      el.addEventListener('change', updatePanelPreview);
-    }
-  });
-  var bFields = ['b-ybp','b-dbp'];
-  bFields.forEach(function(id){
-    var el = document.getElementById(id);
-    if (el) el.addEventListener('input', updateBogazPreview);
-  });
-  // Zoom/pan handler'lari bagla
-  attachPreviewZoom('p-preview-svg');
-  attachPreviewZoom('b-preview-svg');
-
-  // Ilk render (varsayilan degerlerle)
-  updatePanelPreview();
-  updateBogazPreview();
-
-})();
+// Canli onizleme (setPreviewSvg / attachPreviewZoom / updatePanelPreview /
+// updateBogazPreview / setupPreviewListeners) elle giris formuyla birlikte
+// kaldirildi — tek tuketicileri o formdaki p-preview-svg ve b-preview-svg
+// kutulariydi. SvgWriter DURUYOR: sac nesting onizlemesi (nestSvgPreviewForSheet)
+// onun uzerinden calisiyor.
 
 // =====================================================================
 // KAPAK HESABI AKTARIMI — URL hash veya postMessage (wrapper iframe)
@@ -8539,8 +7944,6 @@ function topluDxfUret() {
       });
     });
     panels.length = 0;
-    panelEditIndex = null;
-    if (elBtnAdd) elBtnAdd.textContent = '+ Listeye Ekle';
     renderTable();
   }
 
@@ -8550,8 +7953,6 @@ function topluDxfUret() {
     if (bRes && bRes.success) {
       exportedNames.push(bRes.filename);
       bogazList.length = 0;
-      bogazEditIndex = null;
-      if (elBBtnAdd) elBBtnAdd.textContent = '+ Listeye Ekle';
       renderBogazTable();
     }
   }
@@ -8801,7 +8202,7 @@ function nestPieces(pieceList, sheetW, sheetH, gap) {
 // Bir yerleşimi (placement: {piece, x, y, w, h, rotated}) sac koordinatlarında GERÇEK panel
 // çizim fonksiyonuna yönlendirir. writer bir DxfWriter (gerçek indirme) VEYA SvgWriter (ekran
 // önizleme) olabilir — bu uygulamadaki her çizim fonksiyonu ikisine karşı da çalışır (bkz.
-// updatePanelPreview'daki mevcut kalıp). 90° döndürme koordinat dönüşümü GEREKTİRMEZ: aynı
+// nestSvgPreviewForSheet'teki mevcut kalıp). 90° döndürme koordinat dönüşümü GEREKTİRMEZ: aynı
 // fonksiyon B/K yer değiştirilmiş çağrılır (her panel 4 köşede simetrik bükümlüdür).
 function drawNestPiece(writer, placement) {
   var p = placement.piece;
@@ -9089,7 +8490,6 @@ function applyKapakData(data) {
     // Panel listesi
     if (imported.length) {
       imported.forEach(function(p) { panels.push(p); });
-      if (elKalinlik) elKalinlik.value = seri;
       if (proje) {
         var el60 = document.getElementById('dosyaAdi60');
         var el50 = document.getElementById('dosyaAdi50');
