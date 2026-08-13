@@ -91,7 +91,9 @@ iframe.active{display:block;}
   *{box-sizing:border-box;}
   ::selection{background:var(--accent-soft);color:var(--text);}
   body{background:var(--bg);color:var(--text);
-    font-family:-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',Arial,sans-serif;
+    /* 'Inter' başta olmalı: BlinkMacSystemFont Windows'ta sistem fontuna çözüldüğü için
+       kendinden sonrakileri hiç sıraya sokmuyordu. fitLabelText'teki stack ile aynı kalmalı. */
+    font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;
     font-size:14px;line-height:1.45;margin:0;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;}
   h1{font-size:19px;font-weight:700;letter-spacing:-.2px;margin:0;color:var(--text);}
   .appdev{color:var(--muted);font-size:10.5px;font-weight:600;letter-spacing:.2px;display:block;margin-top:4px;opacity:.8;}
@@ -456,7 +458,7 @@ const TYPE_COLORS = {
  IZGARA VERİ MODELİ
  face = {
    kapaksiz, orient ('H': bölümler soldan sağa | 'V': bölümler yukarıdan aşağıya),
-   columns: [ { size, panels:[{size,type,colSpan}], innerGaps:[bool], araJoinNext:[bool] } ],
+   columns: [ { size, panels:[{size,type,colSize,colSpan,spanSize}], innerGaps:[bool], araJoinNext:[bool] } ],
    colGaps: [bool],           // bölümler arası ANA takviye (orient H → dikey)
    anaSplitLevels: [[idx,…]], // colGaps ile paralel: bu ANA takviyenin HANGİ seviyelerden
                               // kesildiği (bkz. sharedGapLevels). Boş dizi = boydan boya sürekli.
@@ -466,11 +468,18 @@ const TYPE_COLORS = {
  column.size  = bölümün ana yöndeki ölçüsü (H orient → kapak genişliği w)
  panel.size   = kapağın dik yöndeki ölçüsü  (H orient → kapak yüksekliği h)
                 Bölümde TEK kapak varsa ve size=0 → otomatik tam yükseklik.
+ panel.colSize  = bu kapağın ana yöndeki ölçüsü (girilmemişse column.size kullanılır).
+                  Bölümün genişliği, içindeki kapakların colSize'larının EN BÜYÜĞÜdür —
+                  bir satır komşusundan farklı genişlik taşıyabilsin diye (kademe).
  panel.colSpan  = bu kapağın kaç bölüm kapladığı (varsayılan 1). n>1 ise kapak sağındaki
                   n-1 bölüme taşar; aradaki ANA takviye O BANTTA kalkar ve kapladığı
                   bölümlerdeki hizalı hücreler &quot;covered&quot; olur — geometriye katkı verir
                   ama kapak sayılmaz (kesim listesi/DXF/Excel dışında kalır). Böylece üst
                   satır ile alt satır FARKLI sayıda kapak içerebilir.
+ panel.spanSize = BİRLEŞİK kapağın elle girilmiş ana yön ölçüsü (0/yok = kapladığı bölümlerin
+                  toplamından türetilir). Girilirse o satır komşularından farklı biter;
+                  birleşimden sonraki ANA takviye zorunlu olarak kesilir ki satır kendi
+                  genişliğini taşıyabilsin. colSpan 1'e düşerse syncStructure temizler.
  innerGaps[i]   = bölüm içindeki i. ile i+1. kapak arasında ARA takviye (orient H → yatay)
  araJoinNext[i] = bu bölümün i. seviyesindeki ARA takviye bir SONRAKİ bölümle BİRLEŞİK mi
                   (varsayılan false = bugünkü gibi her bölüm kendi parçası)
@@ -715,6 +724,10 @@ function syncStructure(face){
     col.panels.forEach(p=>{
       const n = Math.round(Number(p.colSpan)||1);
       p.colSpan = Math.max(1, Math.min(n, face.columns.length - ci));
+      // spanSize (elle girilmiş birleşim genişliği) yalnız birleşik kapakta anlamlıdır.
+      // Birleşim çözülür ya da kırpılırsa temizlenir; aksi halde tek kapak, iki bölüm
+      // genişliğinde bir ölçüyle geri dönerdi.
+      if(p.colSpan === 1 && p.spanSize) p.spanSize = 0;
     });
   });
 
@@ -1002,7 +1015,21 @@ function computeFace(fi){
       let w = 0;
       for(let j=ci; j<=last; j++) w += colResults[j].colSize;
       for(let j=ci; j<last; j++) if(face.colGaps[j]) w += V.takviye;
-      p.pColSize = w;
+      // spanSize girilmişse TÜRETİLEN değerin yerine o geçer. Türetilen değer editörde
+      // yer tutucu olarak gösterilip &quot;boş bırakınca geri dönülecek&quot; ölçü olarak saklanır.
+      const spanEntered = Number(face.columns[ci].panels[pi].spanSize)||0;
+      p.spanDerived = w;
+      p.spanEntered = spanEntered > 0;
+      p.pColSize = p.spanEntered ? spanEntered : w;
+      // Elle girilen genişlik türetilenden farklıysa bu satır komşu satırlardan farklı bir
+      // noktada biter. Birleşimden SONRAKİ ana takviye o bandın iki ucundan kesilmezse
+      // satır kendi genişliğini taşıyamaz (resolveColumnLayout segment başına tek X kullanır).
+      // Birleşimin KENDİ junction'larındaki zorunlu kesimle aynı geometrik gerekçe.
+      if(p.spanEntered && Math.abs(spanEntered - w) > 0.51 && last < face.columns.length-1){
+        const lastIdx = covers[covers.length-1].idx;
+        if(lastIdx > 0) spanForcedCuts[last].push(lastIdx-1);
+        if(lastIdx < face.columns[last].panels.length-1) spanForcedCuts[last].push(lastIdx);
+      }
       applyDims(p);   // pColSize değişti → panelW/panelH ve SABİT ölçüler yeniden türetilir
     });
   });
@@ -1265,7 +1292,8 @@ function renderVarsayimlar(){
 let __measureCtx = null;
 function fitLabelText(text, maxWidth, maxSize, minSize, weight){
   if(!__measureCtx) __measureCtx = document.createElement('canvas').getContext('2d');
-  const fam = &quot;-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',Arial,sans-serif&quot;;
+  // body{font-family} ile birebir aynı olmak zorunda — ayrışırsa etiketler taşar veya boşuna kısalır.
+  const fam = &quot;'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif&quot;;
   let size = maxSize;
   __measureCtx.font = `${weight} ${size}px ${fam}`;
   while(size > minSize && __measureCtx.measureText(text).width > maxWidth){
@@ -1714,7 +1742,8 @@ function buildFaceHTML(fi){
           <span><i style=&quot;background:transparent;border-color:#55697c;&quot;></i> Kapalı takviye (tıkla: aç)</span>
           <span><i style=&quot;background:#4fb8a8;border-radius:50%;&quot;></i> Kesim noktası — tıkla: yalnız o seviyeden ayır/birleştir</span>
           <span><b>Ctrl</b> + tıkla: çoklu seçim (aynı türden) → düzenleyicide toplu Ayır / Birleştir / Kaldır</span>
-          <span>Komşu kapakları Ctrl ile seçip <b>Kapakları Birleştir</b> → o satırda tek kapak (bölüm sayısı sınırsız; birleşik kapağı + yanındakini seçerek genişletebilirsiniz)</span>
+          <span>Komşu kapakları Ctrl ile seçip <b>Kapakları Birleştir</b> → o satırda tek kapak. Tek kapak seçiliyken <b>Sağdaki Bölümü Ekle</b> ile de büyütülür (bölüm sayısı sınırsız).</span>
+          <span>Birleşik kapağın genişliği bölüm ölçülerinden türetilir; editörde elle de girilebilir (boş = otomatik) — o satır kendi genişliğini taşır, aradaki ana takviye kademelenir.</span>
           <span>Kesilmiş bir dikey takviye her satırda kendi genişliğine göre kayar (kademeli) — art arda gelen bölümlerde de çalışır</span>
         </div>
       </div>
@@ -1794,11 +1823,45 @@ function canMergeCells(r, face, cells){
   return {ok:true, reason:'', base:sorted[0], span:sorted.length, cells:sorted, owners};
 }
 
+// Bir kapağın (birleşikse kapsamının) SAĞINDAKİ bölümde hizalı hücreyi bulur — yoksa null.
+// &quot;Sağdaki Bölümü Ekle&quot; düğmesinin hedefi budur. Hizalama ölçütü canMergeCells ve
+// sharedGapLevels ile AYNI kümülatif eff uzayı ve aynı 0.51 mm epsilon'u kullanır.
+function nextAlignedCell(r, ci, pi){
+  const p = r.colResults[ci] && r.colResults[ci].panels[pi];
+  if(!p) return null;
+  const nc = ci + Math.max(1, p.spanN||1);
+  if(nc >= r.colResults.length) return null;
+  const boundsOf = cRes=>{ const o=[]; let cum=0; cRes.panels.forEach(q=>{ o.push({top:cum, bot:cum+q.eff}); cum+=q.eff; }); return o; };
+  const me = boundsOf(r.colResults[ci])[pi];
+  const k = boundsOf(r.colResults[nc]).findIndex(b=> Math.abs(b.top-me.top)<=0.51 && Math.abs(b.bot-me.bot)<=0.51);
+  return k < 0 ? null : {col:nc, idx:k};
+}
+
+// canMergeCells kararını modele uygular. Kapsamdaki eski birleşimler çözülür, en soldaki
+// hücre yeni base olur. Kapsam değiştiği için elle girilmiş birleşim genişliği sıfırlanır —
+// eski genişlik yeni kapsamda anlamsızdır (2 bölüm için girilen ölçü 3 bölüme taşınmaz).
+function applyMerge(face, chk){
+  chk.owners.forEach(o=>{ const q = face.columns[o.col].panels[o.idx]; q.colSpan = 1; q.spanSize = 0; });
+  const base = face.columns[chk.base.col].panels[chk.base.idx];
+  base.colSpan = chk.span;
+  base.spanSize = 0;
+  // Kapsanan hücrelerin ölçü/tipini hemen base'e eşitle — bundan sonra tek kapak gibi davransın
+  chk.cells.slice(1).forEach(c=>{
+    Object.assign(face.columns[c.col].panels[c.idx], {size: base.size, type: base.type});
+  });
+  face.selectedCells = [chk.base];
+}
+
 function editorInfo(r, ci, pi, orient){
   const c = r.colResults[ci];
   const p = c.panels[pi];
   let info = '';
-  if(p.spanN>1) info += `${p.spanN} bölüm birleşik — genişlik bölüm ölçülerinden türetilir: ${Math.round(p.pColSize)} mm. `;
+  if(p.spanN>1){
+    info += `${p.spanN} bölüm birleşik — `;
+    info += p.spanEntered
+      ? `genişlik elle girildi: ${Math.round(p.pColSize)} mm (bölüm ölçülerinden türetilen: ${Math.round(p.spanDerived)} mm — alanı boşaltırsanız ona döner). `
+      : `genişlik bölüm ölçülerinden türetilir: ${Math.round(p.pColSize)} mm (elle de girebilirsiniz). `;
+  }
   if(p.sabitW!==null) info += `SABİT w: ${p.sabitW.toFixed(0)} mm. `;
   if(p.sabitH!==null) info += `SABİT h: ${p.sabitH.toFixed(0)} mm. `;
   if(p.eleman) info += `Eleman — 0 tolerans: girilen ölçü kesim/sipariş ölçüsüdür. `;
@@ -1878,16 +1941,26 @@ function renderEditor(fi){
   const single = col.panels.length===1;
   const colInputVal = orient==='H' ? (p.colSize||'') : (col.size||'');
   const colInputPh  = orient==='H' ? (col.size||'') : 'oto';
-  // Birleşik kapağın along ölçüsü kapladığı bölümlerden TÜRETİLİR — elle girilemez
+  // Birleşik kapağın along ölçüsü normalde kapladığı bölümlerden TÜRETİLİR; elle bir ölçü
+  // girilirse o esas alınır (satır kademelenir). Alan boşaltılınca türetilene geri döner —
+  // yer tutucu her zaman türetilen değeri gösterir.
   const colField = spanned
-    ? `<div><label>${colLbl} — birleşik</label><input class=&quot;readonly&quot; type=&quot;text&quot; value=&quot;${Math.round(pRes.pColSize)}&quot; readonly></div>`
+    ? `<div><label>${colLbl} — birleşik</label><input type=&quot;number&quot; id=&quot;f${fi}_ed_spansize&quot; value=&quot;${p.spanSize||''}&quot; placeholder=&quot;${Math.round(pRes.spanDerived||pRes.pColSize)}&quot;></div>`
     : `<div><label>${colLbl}</label><input type=&quot;number&quot; id=&quot;f${fi}_ed_colsize&quot; value=&quot;${colInputVal}&quot; placeholder=&quot;${colInputPh}&quot;></div>`;
+  // Birleşimi bir bölüm sağa büyütme. Ctrl ile çoklu seçim gerektirmediği için ardışık
+  // tıklamalarla 2 → 3 → 4 … bölüm birleştirilebilir.
+  const growTarget = nextAlignedCell(r, ci, pi);
+  const growChk = growTarget ? canMergeCells(r, face, [{col:ci, idx:pi}, growTarget]) : null;
+  const growField = (ci + (pRes.spanN||1) < face.columns.length)
+    ? `<button class=&quot;add-btn2&quot; id=&quot;f${fi}_cell_grow&quot; ${growChk && growChk.ok ? '' : 'disabled'} style=&quot;opacity:${growChk && growChk.ok ? 1 : 0.45}&quot; title=&quot;${growChk ? (growChk.reason || 'Sağdaki bölümü bu kapağa katar') : 'Sağdaki bölümde hizalı kapak yok'}&quot;>Sağdaki Bölümü Ekle</button>`
+    : '';
   const pField = `<div><label>${pLbl}${single?' — boş = otomatik tam':''}</label><input type=&quot;number&quot; id=&quot;f${fi}_ed_psize&quot; value=&quot;${p.size||''}&quot; placeholder=&quot;${single?'oto':''}&quot;></div>`;
   const dimFields = orient==='V' ? pField + colField : colField + pField;
   body.innerHTML = `<div class=&quot;grid&quot;>
     ${dimFields}
     <div><label>Panel Tipi</label><select id=&quot;f${fi}_ed_type&quot;>${typeOptions(p.type)}</select></div>
     <div style=&quot;display:flex;align-items:flex-end;gap:8px;flex-wrap:wrap;&quot;>
+      ${growField}
       ${spanned?`<button class=&quot;add-btn2 ghost&quot; id=&quot;f${fi}_cell_unmerge&quot;>Birleşimi Çöz</button>`:''}
       <button class=&quot;del-btn&quot; id=&quot;f${fi}_ed_del&quot; ${(face.columns.length<=1 && single)?'disabled':''}>Kapağı Sil</button>
     </div>
@@ -3168,18 +3241,24 @@ function attachListeners(){
       const fi = Number(cellMergeM[1]);
       const face = state.faces[fi];
       const chk = canMergeCells(computeFace(fi), face, face.selectedCells);
-      if(chk.ok){
-        // Kapsamdaki eski birleşimler çözülür; en soldaki hücre yeni base olur (birleşim
-        // genişletme: 2'li bir birleşime 3. bölüm eklenebilsin)
-        chk.owners.forEach(o=>{ face.columns[o.col].panels[o.idx].colSpan = 1; });
-        const base = face.columns[chk.base.col].panels[chk.base.idx];
-        base.colSpan = chk.span;
-        // Kapsanan hücrelerin ölçü/tipini hemen base'e eşitle — bundan sonra tek kapak gibi davransın
-        chk.cells.slice(1).forEach(c=>{
-          Object.assign(face.columns[c.col].panels[c.idx], {size: base.size, type: base.type});
-        });
-        face.selectedCells = [chk.base];
-        renderFace(fi);
+      if(chk.ok){ applyMerge(face, chk); renderFace(fi); }
+      return;
+    }
+    // BİRLEŞİMİ SAĞA BÜYÜT — Ctrl'lü çoklu seçim gerektirmeden 2 → 3 → 4 … bölüm.
+    // (Birleştirmeden sonra base zaten seçili kalır; ona Ctrl'süz yeniden tıklamak seçimi
+    // kaldırdığı için çoklu seçim yolu bu senaryoda kullanışsızdı.)
+    let cellGrowM = e.target.id && e.target.id.match(/^f(\d+)_cell_grow$/);
+    if(cellGrowM){
+      const fi = Number(cellGrowM[1]);
+      const face = state.faces[fi];
+      const s = selCell(face);
+      if(s){
+        const r = computeFace(fi);
+        const nxt = nextAlignedCell(r, s.col, s.idx);
+        if(nxt){
+          const chk = canMergeCells(r, face, [s, nxt]);
+          if(chk.ok){ applyMerge(face, chk); renderFace(fi); }
+        }
       }
       return;
     }
@@ -3190,7 +3269,9 @@ function attachListeners(){
       const face = state.faces[fi];
       const s = selCell(face);
       if(s){
-        face.columns[s.col].panels[s.idx].colSpan = 1;
+        const p = face.columns[s.col].panels[s.idx];
+        p.colSpan = 1;
+        p.spanSize = 0;   // birleşim genişliği tek kapağa taşınmaz
         renderFace(fi);
       }
       return;
@@ -3257,6 +3338,20 @@ function attachListeners(){
           col.panels[s.idx].colSize = val;
           col.size = val;
         }
+        partialRender(fi);
+      }
+      return;
+    }
+    // Birleşik kapağın elle girilen genişliği. Boş = türetilene dön. Kapladığı hücrelere
+    // YAZILMAZ (onların kendi bölüm genişlikleri üstteki satırları belirlemeye devam eder);
+    // yalnız birleşik kapağın kendi ölçüsünü ve o satırın kademesini etkiler.
+    m = e.target.id && e.target.id.match(/^f(\d+)_ed_spansize$/);
+    if(m){
+      const fi = Number(m[1]);
+      const face = state.faces[fi];
+      const s = selCell(face);
+      if(s){
+        face.columns[s.col].panels[s.idx].spanSize = Number(e.target.value)||0;
         partialRender(fi);
       }
       return;
@@ -4447,6 +4542,7 @@ boot();
       --border: #2a2d33;
       --accent: #3ecab3;
       --accent2: #5bc9e0;
+      --bad: #ff453a;
       --text: #f2f3f5;
       --text-muted: #95999f;
       --text-placeholder: #4d5159;
@@ -4454,32 +4550,36 @@ boot();
     }
 
     /* ============ TEMALAR ============ */
-    body[data-theme=&quot;celik&quot;] {
+    /* Tema :root'a (html) yazılır, body'ye değil — açılıştaki earlyTheme script'i
+       <head> içinde çalıştığı için body henüz yok. Tek element = tek doğruluk kaynağı;
+       Gece seçeneği data-theme='' bıraktığından ikinci bir elemente yazmak bayat tema
+       bırakırdı. (f0 hâlâ body[data-theme=…] kullanıyor, onun erken script'i yok.) */
+    :root[data-theme=&quot;celik&quot;] {
       --bg-main:#111214;--bg-sidebar:#1a1c1f;--bg-header1:#1a1c1f;--bg-header2:#222528;
       --bg-input:#1c1e21;--bg-table-head:#222528;--bg-statusbar:#1a1c1f;
       --bg-row-even:rgba(34,37,40,.35);--bg-row-hover:#272a2e;--border:#2c2f34;
-      --accent:#5aa9e6;--accent2:#7ec8f0;--text:#eceeef;--text-muted:#98999e;
+      --accent:#5aa9e6;--accent2:#7ec8f0;--bad:#ff453a;--text:#eceeef;--text-muted:#98999e;
       --text-placeholder:#555860;--scrollbar-thumb:#3a3d42;
     }
-    body[data-theme=&quot;aydinlik&quot;] {
+    :root[data-theme=&quot;aydinlik&quot;] {
       --bg-main:#f5f5f7;--bg-sidebar:#ffffff;--bg-header1:#ffffff;--bg-header2:#f7f8fa;
       --bg-input:#ffffff;--bg-table-head:#f7f8fa;--bg-statusbar:#ffffff;
       --bg-row-even:rgba(240,242,245,.6);--bg-row-hover:#eaecef;--border:#d1d5db;
-      --accent:#0071e3;--accent2:#2196f3;--text:#1d1d1f;--text-muted:#6e6e73;
+      --accent:#0071e3;--accent2:#2196f3;--bad:#d70015;--text:#1d1d1f;--text-muted:#6e6e73;
       --text-placeholder:#9a9a9f;--scrollbar-thumb:#c8cacc;
     }
-    body[data-theme=&quot;kehribar&quot;] {
+    :root[data-theme=&quot;kehribar&quot;] {
       --bg-main:#141110;--bg-sidebar:#1c1815;--bg-header1:#1c1815;--bg-header2:#241f1a;
       --bg-input:#1a1613;--bg-table-head:#241f1a;--bg-statusbar:#1c1815;
       --bg-row-even:rgba(36,31,26,.4);--bg-row-hover:#2a2420;--border:#2e2822;
-      --accent:#e5a53c;--accent2:#f0c070;--text:#f2ece3;--text-muted:#a89b89;
+      --accent:#e5a53c;--accent2:#f0c070;--bad:#ff453a;--text:#f2ece3;--text-muted:#a89b89;
       --text-placeholder:#6a5e4e;--scrollbar-thumb:#3e3730;
     }
-    body[data-theme=&quot;nordik&quot;] {
+    :root[data-theme=&quot;nordik&quot;] {
       --bg-main:#0b0f16;--bg-sidebar:#141b25;--bg-header1:#141b25;--bg-header2:#1b2431;
       --bg-input:#111826;--bg-table-head:#1b2431;--bg-statusbar:#141b25;
       --bg-row-even:rgba(27,36,49,.4);--bg-row-hover:#202d3e;--border:#273447;
-      --accent:#5bc9e0;--accent2:#7de0f5;--text:#e8eef7;--text-muted:#8a9bb5;
+      --accent:#5bc9e0;--accent2:#7de0f5;--bad:#ff5e5a;--text:#e8eef7;--text-muted:#8a9bb5;
       --text-placeholder:#4f5f75;--scrollbar-thumb:#2e3e52;
     }
 
@@ -4767,11 +4867,12 @@ boot();
   </style>
   <script>
     // Splash flash'ini onlemek icin temayi body render olmadan once uygula.
-    // (HYT + is_emri + modul_secim ortak key: 'panelOtomatikTheme')
+    // Anahtar 'dxf_theme' — asagidaki tema secici de ayni anahtari yaziyor.
+    // Bos string (Gece) = varsayilan, attribute hic yazilmaz.
     (function earlyTheme(){
       try {
-        var s = localStorage.getItem('panelOtomatikTheme');
-        if (s && s !== 'harrypotter') {
+        var s = localStorage.getItem('dxf_theme');
+        if (s) {
           document.documentElement.setAttribute('data-theme', s);
         }
       } catch(e){}
@@ -7783,14 +7884,16 @@ function setStatus(msg) {
 (function() {
   var sel = document.getElementById(&quot;theme_sel&quot;);
   if(!sel) return;
+  // data-theme :root'ta (html) yasar — bkz. CSS'teki :root[data-theme=…] bloklari
+  // ve <head>'deki earlyTheme script'i.
   sel.addEventListener(&quot;change&quot;, function() {
     var v = sel.value;
-    document.body.setAttribute(&quot;data-theme&quot;, v);
+    document.documentElement.setAttribute(&quot;data-theme&quot;, v);
     try{ localStorage.setItem(&quot;dxf_theme&quot;, v); }catch(e){}
   });
   try{
     var t = localStorage.getItem(&quot;dxf_theme&quot;);
-    if(t !== null){ document.body.setAttribute(&quot;data-theme&quot;, t); sel.value = t; }
+    if(t !== null){ document.documentElement.setAttribute(&quot;data-theme&quot;, t); sel.value = t; }
   }catch(e){}
 })();
 
