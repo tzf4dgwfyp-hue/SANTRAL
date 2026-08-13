@@ -7356,7 +7356,10 @@ function generateAndDownloadDxf(panelList, kalinlik, satirN, gapCol, gapRow, cus
 
   var dosyaAdiEl = base === '60' ? document.getElementById('dosyaAdi60')
                                  : document.getElementById('dosyaAdi50');
-  var dosyaAdi = customDosyaAdi || (dosyaAdiEl && dosyaAdiEl.value.trim()) || (base + 'lik_panel');
+  // Temizlik boğaz dosyasiyla ayni kurala tabi: yalnizca dosya sisteminde yasakli
+  // karakterler ayiklanir. Proje adinda '/' ya da ':' varsa indirme sessizce basarisiz
+  // oluyordu (ör. &quot;AHU 1/2&quot; → tarayici gecerli bir dosya adi uretemez).
+  var dosyaAdi = dosyaAdiTemizle(customDosyaAdi || (dosyaAdiEl && dosyaAdiEl.value.trim()) || (base + 'lik_panel'));
 
   function _dl(dxf, fname) {
     var blob = new Blob([dxf.generate()], { type: 'application/dxf' });
@@ -7791,6 +7794,20 @@ function drawBogazSet(dxf, ox, oy, YBP, DBP) {
   return { w: totalW, h: totalH };
 }
 
+// DXF dosya adi son ekleri — uretilen her dosya &quot;{proje adi} — {son ek}.dxf&quot; olur.
+// Ucu de burada durur ki adlandirma semasi tek yerden gorulsun/degistirilsin.
+var ALTUST_DOSYA_EKI = 'ALT-ÜST';
+var YAN_DOSYA_EKI    = 'YAN PANELLER';
+var BOGAZ_DOSYA_EKI  = 'BOĞAZLAR';
+
+// Dosya adindan YALNIZCA dosya sisteminde yasakli karakterleri ayiklar (\ / : * ? &quot; < > |).
+// Turkce harfler ve bosluklar KORUNUR — panel DXF'leri de ('… DIŞ.dxf', '… İÇ PASLANMAZ.dxf',
+// '… — YAN PANELLER.dxf') bunlari aynen kullaniyor, boğaz dosyasi da onlarla ayni gorunmeli.
+function dosyaAdiTemizle(s) {
+  // Cift tirnak regex icinde \u0022 olarak yazilir: ham hali srcdoc attribute'unu kapatirdi.
+  return String(s).replace(/[\\\/:*?\u0022<>|]/g, '_').replace(/\s+/g, ' ').trim();
+}
+
 function generateAndDownloadBogazDxf(list) {
   var dxf = new DxfWriter();
   var SET_GAP = 500.0; // setler arasi dusey bosluk
@@ -7806,8 +7823,10 @@ function generateAndDownloadBogazDxf(list) {
   var totalCount = 0;
   list.forEach(function(b) { totalCount += b.adet; });
 
-  var rawName = (elBDosyaAdi.value || 'bogaz').trim();
-  var name = (rawName || 'bogaz').replace(/[^a-zA-Z0-9_\-]/g, '_') + '.dxf';
+  // Panellerde oldugu gibi dosya adina icerik son eki yazilir (bkz. topluDxfUret'teki
+  // '— ALT-ÜST' ve '— YAN PANELLER'). Proje adi bos ise yalnizca son ek kullanilir.
+  var rawName = ((elBDosyaAdi && elBDosyaAdi.value) || '').trim();
+  var name = dosyaAdiTemizle(rawName ? rawName + ' — ' + BOGAZ_DOSYA_EKI : BOGAZ_DOSYA_EKI) + '.dxf';
   var blob = new Blob([dxf.generate()], { type: 'application/octet-stream' });
   var url = URL.createObjectURL(blob);
   var a = document.createElement('a');
@@ -7932,12 +7951,12 @@ function topluDxfUret() {
           var base2 = String(kalinlik).replace('P','');
           var el2 = base2 === '60' ? document.getElementById('dosyaAdi60') : document.getElementById('dosyaAdi50');
           var baseAdi = (el2 && el2.value.trim()) || (base2 + 'lik_panel');
-          customAd = baseAdi + ' — ALT-ÜST';
+          customAd = baseAdi + ' — ' + ALTUST_DOSYA_EKI;
         } else if (g === 'ANA') {
           var base3 = String(kalinlik).replace('P','');
           var el3 = base3 === '60' ? document.getElementById('dosyaAdi60') : document.getElementById('dosyaAdi50');
           var baseAdi2 = (el3 && el3.value.trim()) || (base3 + 'lik_panel');
-          customAd = baseAdi2 + ' — YAN PANELLER';
+          customAd = baseAdi2 + ' — ' + YAN_DOSYA_EKI;
         }
         var result = generateAndDownloadDxf(groups[kalinlik], kalinlik, 1, 700, 1000, customAd);
         if (result && result.success) exportedNames.push(result.filename);
