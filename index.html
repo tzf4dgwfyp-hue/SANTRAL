@@ -13,6 +13,30 @@ body{background:#0d1b2a;display:flex;flex-direction:column;height:100vh;font-fam
 #frames{flex:1;position:relative;overflow:hidden;}
 iframe{position:absolute;top:0;left:0;width:100%;height:100%;border:none;display:none;}
 iframe.active{display:block;}
+.road-btn{background:#1a2e42;color:#7aa8c8;border:1px solid #1e3a52;border-radius:5px;padding:4px 12px;font-size:12px;cursor:pointer;margin-left:auto;}
+.road-btn:hover{border-color:#4fb8a8;color:#cfe6f2;}
+.road-btn .road-rakam{color:#4fb8a8;font-weight:700;}
+#road-modal{position:fixed;inset:0;background:rgba(4,10,16,.72);display:none;align-items:center;justify-content:center;z-index:9999;padding:24px;}
+#road-modal.open{display:flex;}
+#road-card{background:#111f2e;border:1px solid #1e3a52;border-radius:10px;max-width:780px;width:100%;max-height:86vh;display:flex;flex-direction:column;box-shadow:0 18px 50px rgba(0,0,0,.5);}
+#road-head{padding:13px 18px;border-bottom:1px solid #1e3a52;display:flex;align-items:center;gap:10px;flex-shrink:0;}
+#road-head h2{color:#cfe6f2;font-size:14.5px;font-weight:700;letter-spacing:.3px;}
+#road-sayac{color:#7aa8c8;font-size:11.5px;}
+#road-kapat{background:none;border:none;color:#7aa8c8;font-size:22px;line-height:1;cursor:pointer;padding:0 2px;margin-left:auto;}
+#road-kapat:hover{color:#4fb8a8;}
+#road-body{padding:10px 10px 14px;overflow:auto;}
+.road-item{display:flex;gap:10px;padding:8px 10px;border-radius:7px;align-items:flex-start;}
+.road-item:hover{background:#16283a;}
+.road-no{color:#5c7f9b;font-size:11px;font-weight:700;min-width:20px;padding-top:3px;text-align:right;}
+.road-ic{flex:1;min-width:0;}
+.road-t{color:#cfe6f2;font-size:13px;font-weight:600;}
+.road-d{color:#7f9db3;font-size:11.5px;margin-top:3px;line-height:1.45;}
+.road-rozet{font-size:9.5px;font-weight:700;padding:2px 8px;border-radius:20px;white-space:nowrap;margin-top:2px;letter-spacing:.3px;}
+.rz-plan{background:#1a2e42;color:#7aa8c8;border:1px solid #24435f;}
+.rz-suruyor{background:#3a2f10;color:#e0a13a;border:1px solid #6a541c;}
+.rz-tamam{background:#12362f;color:#4fb8a8;border:1px solid #1d5b4f;}
+.road-item.tamam .road-t{color:#83a89e;}
+#road-alt{padding:9px 18px;border-top:1px solid #1e3a52;color:#5c7f9b;font-size:11px;flex-shrink:0;}
 </style>
 </head>
 <body>
@@ -20,6 +44,7 @@ iframe.active{display:block;}
   <span>AHU Studio</span>
   <button class="tab-btn active" onclick="show(0)">Kapak Hesabı</button>
   <button class="tab-btn" onclick="show(1)">DXF Üretme</button>
+  <button class="road-btn" onclick="yolHaritasiAc(true)">Yakında Eklenecekler <span class="road-rakam" id="road-btn-sayac"></span></button>
 </div>
 <div id="frames">
   <iframe id="f0" class="active" srcdoc="<!DOCTYPE html>
@@ -621,8 +646,10 @@ Object.defineProperty(state, 'active',  { get(){ return state.ahus[state.activeA
 Object.defineProperty(state, 'varsayimlar', { get(){ return state.ahus[state.activeAhu].varsayimlar; }, set(v){ state.ahus[state.activeAhu].varsayimlar = v; }, enumerable:true });
 // Geriye uyumluluk: mevcut tüm yüz kodu aktif modül üzerinden çalışır
 Object.defineProperty(state, 'faces', { get(){ return state.modules[state.active].faces; } });
-// Ölçü setter'ları: değer değişince o eksende ilerideki TÜM modüller delta kadar kayar —
-// bitişik montaj korunur: boşluk açılmaz, iç içe girme oluşmaz
+// Ölçü setter'ları: değer değişince o eksende İLERİDEKİ ve büyüyen modüle TEMASLA
+// BAĞLI modüller delta kadar kayar — bitişik montaj korunur: boşluk açılmaz, iç içe
+// girme oluşmaz. Temas zinciri şart: yan şeritteki bir kule, yanındaki modül büyüdü
+// diye havalanmamalı (bkz. itilecekModuller).
 ['W','H','L'].forEach(k=>{
   const axis = {L:'x', H:'y', W:'z'}[k];
   Object.defineProperty(state.dims, k, {
@@ -630,15 +657,11 @@ Object.defineProperty(state, 'faces', { get(){ return state.modules[state.active
     set(v){
       const md = state.modules[state.active];
       const oldExt = modExt(md, axis);
+      // Küme ESKİ geometriyle çözülmeli — md büyüdükten sonra komşusuyla temas değil
+      // çakışma görünür. Bu yüzden delta önce hesaplanır, atama en sonda yapılır.
+      const delta = (v>0 ? v : PH3[k]) - oldExt;
+      if(delta !== 0) itilecekModuller(md, axis, oldExt).forEach(B=> B.pos[axis] += delta);
       md[k] = v;
-      const delta = modExt(md, axis) - oldExt;
-      if(delta !== 0){
-        const plane = md.pos[axis] + oldExt;
-        state.modules.forEach(B=>{
-          if(B===md) return;
-          if(B.pos[axis] >= plane - 0.5) B.pos[axis] += delta;
-        });
-      }
     }
   });
 });
@@ -742,6 +765,47 @@ const FACE_ATT = [
 ];
 const EXT_KEY = {x:'L', y:'H', z:'W'};
 function modExt(md, axis){ const v = md[EXT_KEY[axis]]; return v>0 ? v : PH3[EXT_KEY[axis]]; }
+function modExtAll(md){ return {x:modExt(md,'x'), y:modExt(md,'y'), z:modExt(md,'z')}; }
+
+// İki modül gerçek bir YÜZDEN mi temas ediyor? Kural: bir eksende yüzeyler çakışık
+// (temas), diğer İKİ eksende gerçek örtüşme. Kenar/köşe teması (iki eksende birden
+// yüzey çakışması) bağ SAYILMAZ — çapraz komşu birlikte kaymamalı.
+function faceContact(A, aExt, B, bExt){
+  const eps = 0.5;
+  let temas = 0, ortusme = 0;
+  for(const a of ['x','y','z']){
+    const a0 = A.pos[a], a1 = a0 + aExt[a];
+    const b0 = B.pos[a], b1 = b0 + bExt[a];
+    if(a0 < b1-eps && b0 < a1-eps) ortusme++;
+    else if(Math.abs(a1-b0) <= eps || Math.abs(b1-a0) <= eps) temas++;
+    else return false;   // o eksende ayrıklar → temas yok
+  }
+  return ortusme === 2 && temas === 1;
+}
+
+// md, `axis` ekseninde büyüyünce/küçülünce onunla BİRLİKTE kayması gereken modüller.
+// İki şart birden: (1) büyüme düzleminin ötesinde olmak, (2) md'ye yüz temasıyla —
+// gerekirse aracı modüller üzerinden — bağlı olmak. Zincir şart: M2'nin ÜSTÜNDEKİ M3,
+// M1 büyüyüp M2'yi ittiğinde M2 ile birlikte gitmeli, yoksa havada kalır.
+function itilecekModuller(md, axis, oldExt){
+  const eps = 0.5;
+  const mdExt = modExtAll(md); mdExt[axis] = oldExt;   // ESKİ geometri
+  const plane = md.pos[axis] + oldExt;
+  const aday = state.modules.filter(B=> B!==md && B.pos[axis] >= plane - eps);
+  const kume = [], kaynak = [{m:md, ext:mdExt}];
+  let changed = true;
+  while(changed){
+    changed = false;
+    for(let i=aday.length-1; i>=0; i--){
+      const B = aday[i], bExt = modExtAll(B);
+      if(kaynak.some(s=> faceContact(s.m, s.ext, B, bExt))){
+        kume.push(B); kaynak.push({m:B, ext:bExt});
+        aday.splice(i,1); changed = true;
+      }
+    }
+  }
+  return kume;
+}
 
 // Bir yüze tıklanınca o yönde yeni modül: ölçüler komşudan kopyalanır (sonradan düzenlenebilir), konum bitişik
 function addModuleAt(m, fi){
@@ -753,11 +817,16 @@ function addModuleAt(m, fi){
   nm.pos[att.axis] += att.dir>0 ? modExt(nb, att.axis) : -modExt(nm, att.axis);
   nm.attAxis = att.axis; nm.attDir = att.dir;
 
-  // Mevcut modüllerle çakışma varsa o yönde ilerlet (mıknatıs gibi bitişik ekle)
+  // Çakışma çözümü: MEVCUT modüller ASLA kaymaz — uyum sağlayan yeni gelendir.
+  // Yan yüzlerde (x/z) yeni modül tıklanan yüze YAPIŞIK kalır ve önündeki engelin
+  // ÜSTÜNE çıkar: alçak bir komşunun yanına eklerken onun üstüne biner, montajın
+  // dışına fırlamaz. Üst/alt yüze eklerken çözüm ekseni zaten y'dir, kendi yönünde
+  // ilerler (üst üste istiflenir).
   const ax = att.axis;
+  const cozDir = ax === 'y' ? att.dir : 1;   // yan yüzlerde tek çıkış yolu: yukarı
   const eps = 0.5;
-  let changed = true;
-  while(changed){
+  let changed = true, guard = 0;
+  while(changed && guard++ < 200){
     changed = false;
     state.modules.forEach(B=>{
       const bE = {x:modExt(B,'x'), y:modExt(B,'y'), z:modExt(B,'z')};
@@ -765,7 +834,7 @@ function addModuleAt(m, fi){
       const overlaps = ['x','y','z'].every(a=>
         nm.pos[a] < B.pos[a]+bE[a]-eps && B.pos[a] < nm.pos[a]+nE[a]-eps);
       if(overlaps){
-        nm.pos[ax] = att.dir>0 ? B.pos[ax]+bE[ax] : B.pos[ax]-nE[ax];
+        nm.pos.y = cozDir>0 ? B.pos.y+bE.y : B.pos.y-nE.y;
         changed = true;
       }
     });
@@ -2907,6 +2976,112 @@ function render3D(){
 }
 
 // ---------- EXCEL DIŞA AKTARMA ----------
+// ---------- MONTAJ — PATLATILMIŞ ÖN GÖRÜNÜM ----------
+// Sahada birleştirme için: modüller gerçek konumlarına yakın, ama aralarında pay bırakılarak
+// çizilir; her modülün dış ölçüsü okunur. 3B sahneden BAĞIMSIZDIR — yalnız model + SVG
+// kullanır, bu yüzden aktif olmayan AHU'lar için de üretilebilir (3B görselleri yalnız aktif
+// AHU alır). Ara kat ÇİZİLMEZ — kotu modelde tutulmuyor (bkz. CLAUDE.md §4); yalnız not düşülür.
+function drawMontajSVG(){
+  const SVG_W = 1120, SVG_H = 660, PAD = 96;
+  const mods = state.modules;
+  let svg = `<svg xmlns=&quot;http://www.w3.org/2000/svg&quot; width=&quot;${SVG_W}&quot; height=&quot;${SVG_H}&quot; viewBox=&quot;0 0 ${SVG_W} ${SVG_H}&quot; font-family=&quot;Arial, Helvetica, sans-serif&quot;>`;
+  svg += `<rect x=&quot;0&quot; y=&quot;0&quot; width=&quot;${SVG_W}&quot; height=&quot;${SVG_H}&quot; fill=&quot;#ffffff&quot;/>`;
+  if(!mods.length){
+    svg += `<text x=&quot;${SVG_W/2}&quot; y=&quot;${SVG_H/2}&quot; fill=&quot;#3d4d5a&quot; font-size=&quot;16&quot; text-anchor=&quot;middle&quot;>MODÜL YOK</text></svg>`;
+    return svg;
+  }
+  const say = v => Math.round(v);
+  const kk = v => Math.round(v*2)/2;   // aynı düzlemden başlayan modüller TEK anahtar paylaşır
+  const ext = mods.map(md=>modExtAll(md));
+  // Gerçek (bitişik) montaj sınırları — toplam dış ölçü buradan yazılır
+  let gMinX=Infinity,gMaxX=-Infinity,gMinY=Infinity,gMaxY=-Infinity,gMinZ=Infinity,gMaxZ=-Infinity;
+  mods.forEach((md,i)=>{
+    gMinX=Math.min(gMinX,md.pos.x); gMaxX=Math.max(gMaxX,md.pos.x+ext[i].x);
+    gMinY=Math.min(gMinY,md.pos.y); gMaxY=Math.max(gMaxY,md.pos.y+ext[i].y);
+    gMinZ=Math.min(gMinZ,md.pos.z); gMaxZ=Math.max(gMaxZ,md.pos.z+ext[i].z);
+  });
+  const totL=gMaxX-gMinX, totH=gMaxY-gMinY, totW=gMaxZ-gMinZ;
+  // Patlatma payı yalnız GÖRSELDİR. Modülü kendi başlangıç düzlemine göre kaydırdığımız için
+  // aynı x'ten başlayan dikey istif birlikte kayar, sıralama ve komşuluk bozulmaz.
+  const pay = Math.max(150, Math.round(Math.max(totL,totH)*0.06));
+  const xKeys = [...new Set(mods.map(md=>kk(md.pos.x)))].sort((a,b)=>a-b);
+  const yKeys = [...new Set(mods.map(md=>kk(md.pos.y)))].sort((a,b)=>a-b);
+  const box = mods.map((md,i)=>({
+    md, i, w: ext[i].x, h: ext[i].y, d: ext[i].z,
+    x: md.pos.x + pay*xKeys.indexOf(kk(md.pos.x)),
+    y: md.pos.y + pay*yKeys.indexOf(kk(md.pos.y))
+  }));
+  let pMinX=Infinity,pMaxX=-Infinity,pMinY=Infinity,pMaxY=-Infinity;
+  box.forEach(b=>{
+    pMinX=Math.min(pMinX,b.x); pMaxX=Math.max(pMaxX,b.x+b.w);
+    pMinY=Math.min(pMinY,b.y); pMaxY=Math.max(pMaxY,b.y+b.h);
+  });
+  const modelW = Math.max(pMaxX-pMinX, 1), modelH = Math.max(pMaxY-pMinY, 1);
+  const scale = Math.min((SVG_W-2*PAD)/modelW, (SVG_H-2*PAD)/modelH);
+  const ox = (SVG_W - modelW*scale)/2;
+  const oy = (SVG_H - modelH*scale)/2 + 10;
+  const sx = v => ox + (v-pMinX)*scale;
+  const sy = v => oy + (pMaxY-v)*scale;   // model y yukarı bakar, ekranda ters çevrilir
+
+  svg += `<text x=&quot;${SVG_W/2}&quot; y=&quot;26&quot; fill=&quot;#1b2a36&quot; font-size=&quot;15&quot; font-weight=&quot;700&quot; text-anchor=&quot;middle&quot;>MONTAJ — PATLATILMIŞ ÖN GÖRÜNÜM</text>`;
+  svg += `<text x=&quot;${SVG_W/2}&quot; y=&quot;45&quot; fill=&quot;#33424e&quot; font-size=&quot;11.5&quot; text-anchor=&quot;middle&quot;>${mods.length} modül · toplam dış ölçü (bitişik montaj): L ${say(totL)} × H ${say(totH)} × W ${say(totW)} mm</text>`;
+
+  const dimOff = Math.max(10, Math.min(18, pay*scale*0.45));
+  box.forEach(b=>{
+    const rx = sx(b.x), ry = sy(b.y+b.h), rw = b.w*scale, rh = b.h*scale;
+    svg += `<rect x=&quot;${rx.toFixed(1)}&quot; y=&quot;${ry.toFixed(1)}&quot; width=&quot;${rw.toFixed(1)}&quot; height=&quot;${rh.toFixed(1)}&quot; fill=&quot;#eef1f4&quot; stroke=&quot;#3a4d5c&quot; stroke-width=&quot;2&quot;/>`;
+    // Kenar profili bandı — kutunun bir modül çerçevesi olduğu görünsün
+    const band = Math.max(Math.min(rw,rh)*0.055, 2.5);
+    if(rw>band*2.5 && rh>band*2.5){
+      svg += `<rect x=&quot;${(rx+band/2).toFixed(1)}&quot; y=&quot;${(ry+band/2).toFixed(1)}&quot; width=&quot;${(rw-band).toFixed(1)}&quot; height=&quot;${(rh-band).toFixed(1)}&quot; fill=&quot;none&quot; stroke=&quot;#22303d&quot; stroke-width=&quot;${band.toFixed(1)}&quot;/>`;
+    }
+    // Kutu içi bilgi — dar kutuda alttan satır atılır, modül adı her zaman kalır
+    const fs = Math.max(8.5, Math.min(15, Math.min(rw, rh)/7));
+    const satir = [
+      {t:'M'+(b.i+1), s:fs*1.25, w:700, f:'#16232e'},
+      {t:say(b.w)+' × '+say(b.h)+' mm', s:fs, w:600, f:'#33424e'},
+      {t:'Derinlik (W): '+say(b.d)+' mm', s:fs*0.92, w:400, f:'#46596a'}
+    ];
+    if(araKatOf(b.md).aktif) satir.push({t:'ARA KAT VAR — '+say(b.w)+'×'+say(b.d)+' mm', s:fs*0.92, w:600, f:'#a8701f'});
+    // Kutuya sigmayan satir once kuculur, yine sigmiyorsa dusurulur — tasan yazi komsu
+    // modulun uzerine binerdi. Genislik tahmini: Arial ortalama karakter ~0.56 em.
+    // Sinir kutunun IC alanidir — cerceve bandi iki yandan yer kapar; ona tasan yazi koyu
+    // bandin, hatta komsu modulun uzerine binerdi. Olcum yuz cizimindeki etiketlerle ayni
+    // yardimciyla yapilir (fitLabelText). Kisaltilmasi gereken bir OLCU satiri hic yazilmaz:
+    // yarim okunan bir olcu (2400 × 20…) yanlis parca demektir.
+    const yaziGen = Math.max(rw - 2*band - 10, 24);
+    for(let si=satir.length-1; si>=1; si--){
+      const fit = fitLabelText(satir[si].t, yaziGen, satir[si].s, 6.5, satir[si].w);
+      if(fit.text !== satir[si].t) satir.splice(si,1); else satir[si].s = fit.size;
+    }
+    const bas = fitLabelText(satir[0].t, yaziGen, satir[0].s, 6, satir[0].w);
+    satir[0].t = bas.text; satir[0].s = bas.size;
+    const yuk = ss => ss.reduce((a,s)=>a+s.s*1.35, 0);
+    while(satir.length>1 && yuk(satir) > rh-8) satir.pop();
+    let ty = ry + rh/2 - yuk(satir)/2;
+    satir.forEach(s=>{
+      ty += s.s*1.35;
+      svg += `<text x=&quot;${(rx+rw/2).toFixed(1)}&quot; y=&quot;${(ty-s.s*0.35).toFixed(1)}&quot; fill=&quot;${s.f}&quot; font-size=&quot;${s.s.toFixed(1)}&quot; font-weight=&quot;${s.w}&quot; text-anchor=&quot;middle&quot;>${s.t}</text>`;
+    });
+    // Dış ölçü çizgileri: altta uzunluk (L), solda yükseklik (H)
+    const dy = ry+rh+dimOff;
+    svg += `<line x1=&quot;${rx.toFixed(1)}&quot; y1=&quot;${dy.toFixed(1)}&quot; x2=&quot;${(rx+rw).toFixed(1)}&quot; y2=&quot;${dy.toFixed(1)}&quot; stroke=&quot;#5a6f80&quot; stroke-width=&quot;1&quot;/>`;
+    svg += `<line x1=&quot;${rx.toFixed(1)}&quot; y1=&quot;${(dy-4).toFixed(1)}&quot; x2=&quot;${rx.toFixed(1)}&quot; y2=&quot;${(dy+4).toFixed(1)}&quot; stroke=&quot;#5a6f80&quot; stroke-width=&quot;1&quot;/>`;
+    svg += `<line x1=&quot;${(rx+rw).toFixed(1)}&quot; y1=&quot;${(dy-4).toFixed(1)}&quot; x2=&quot;${(rx+rw).toFixed(1)}&quot; y2=&quot;${(dy+4).toFixed(1)}&quot; stroke=&quot;#5a6f80&quot; stroke-width=&quot;1&quot;/>`;
+    svg += `<text x=&quot;${(rx+rw/2).toFixed(1)}&quot; y=&quot;${(dy-5).toFixed(1)}&quot; fill=&quot;#33424e&quot; font-size=&quot;10&quot; text-anchor=&quot;middle&quot;>L ${say(b.w)}</text>`;
+    const dx = rx-dimOff;
+    svg += `<line x1=&quot;${dx.toFixed(1)}&quot; y1=&quot;${ry.toFixed(1)}&quot; x2=&quot;${dx.toFixed(1)}&quot; y2=&quot;${(ry+rh).toFixed(1)}&quot; stroke=&quot;#5a6f80&quot; stroke-width=&quot;1&quot;/>`;
+    svg += `<line x1=&quot;${(dx-4).toFixed(1)}&quot; y1=&quot;${ry.toFixed(1)}&quot; x2=&quot;${(dx+4).toFixed(1)}&quot; y2=&quot;${ry.toFixed(1)}&quot; stroke=&quot;#5a6f80&quot; stroke-width=&quot;1&quot;/>`;
+    svg += `<line x1=&quot;${(dx-4).toFixed(1)}&quot; y1=&quot;${(ry+rh).toFixed(1)}&quot; x2=&quot;${(dx+4).toFixed(1)}&quot; y2=&quot;${(ry+rh).toFixed(1)}&quot; stroke=&quot;#5a6f80&quot; stroke-width=&quot;1&quot;/>`;
+    svg += `<text x=&quot;${(dx-5).toFixed(1)}&quot; y=&quot;${(ry+rh/2).toFixed(1)}&quot; fill=&quot;#33424e&quot; font-size=&quot;10&quot; text-anchor=&quot;middle&quot; transform=&quot;rotate(-90 ${(dx-5).toFixed(1)} ${(ry+rh/2).toFixed(1)})&quot;>H ${say(b.h)}</text>`;
+  });
+
+  svg += `<text x=&quot;16&quot; y=&quot;${SVG_H-14}&quot; fill=&quot;#7a8a96&quot; font-size=&quot;10&quot; font-style=&quot;italic&quot;>Modüller arası boşluk yalnızca okunabilirlik içindir — montajda modüller bitişiktir. Bakış: ÖN (+Z) · yatay: Uzunluk (L) · dikey: Yükseklik (H)</text>`;
+  svg += `<text x=&quot;${SVG_W-16}&quot; y=&quot;${SVG_H-14}&quot; fill=&quot;#9aa8b2&quot; font-size=&quot;9.5&quot; text-anchor=&quot;end&quot; font-style=&quot;italic&quot;>Cenk Altınay</text>`;
+  svg += '</svg>';
+  return svg;
+}
+
 function svgToPng(svgString, w, h){
   return new Promise((resolve, reject)=>{
     // Bağımsız SVG görüntüsü katı XML ister: xmlns zorunlu, HTML entiteleri geçersiz
@@ -2955,6 +3130,44 @@ function combineSideBySide(dataUrlLeft, dataUrlRight){
   });
 }
 
+// Excel'e giren HER görselin sol üst köşesine iş emri no + ünite adı damgalanır — sahada
+// sayfalar birbirine karışmasın. Görseller 2× çözünürlükte üretildiği için yazı boyu
+// görselin kendi piksel genişliğinden türetilir (880/900/450 nominal genişliklerin hepsinde
+// ekranda ~11 px'e denk gelir). Hata hâlinde DAMGASIZ görsel döner: damga uğruna resmin
+// tamamı kaybedilmez.
+function pngKoseDamga(dataUrl, satirlar){
+  const rows = (satirlar||[]).map(s=>String(s||'').trim()).filter(s=>s!=='');
+  if(rows.length===0) return Promise.resolve(dataUrl);
+  return new Promise(resolve=>{
+    const img = new Image();
+    img.onload = ()=>{
+      try{
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width; canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+        const fs = Math.max(11, Math.round(img.width*0.0125));
+        const pad = Math.round(fs*0.6), lh = Math.round(fs*1.35);
+        ctx.font = '700 '+fs+'px Arial, Helvetica, sans-serif';
+        let wMax = 0;
+        rows.forEach(t=>{ const m = ctx.measureText(t); if(m.width>wMax) wMax = m.width; });
+        const bw = wMax + pad*2, bh = lh*rows.length + pad;
+        ctx.fillStyle = 'rgba(255,255,255,0.93)';
+        ctx.fillRect(pad, pad, bw, bh);
+        ctx.strokeStyle = '#33424e';
+        ctx.lineWidth = Math.max(1, fs*0.09);
+        ctx.strokeRect(pad, pad, bw, bh);
+        ctx.fillStyle = '#1b2a36';
+        ctx.textBaseline = 'top';
+        rows.forEach((t,i)=>{ ctx.fillText(t, pad*2, pad*1.4 + i*lh); });
+        resolve(canvas.toDataURL('image/png'));
+      }catch(e){ resolve(dataUrl); }
+    };
+    img.onerror = ()=> resolve(dataUrl);
+    img.src = dataUrl;
+  });
+}
+
 async function exportExcel(){
   const note = document.getElementById('excel_note');
   const issues = collectFaceIssues();
@@ -2982,6 +3195,12 @@ async function exportExcel(){
     note.textContent = (ahuCount > 1 ? '['+(_ai+1)+'/'+ahuCount+'] ' : '') + 'Excel dosyası hazırlanıyor… ' + _ahuLabel;
   try{
     const V = getV();
+    // Excel'e giren her görselin köşesine iş emri no + ünite adı damgalanır — sahada
+    // sayfalar birbirine karışmasın (pngKoseDamga).
+    const damgaSatirlari = [
+      state.proje.isNo ? 'İş Emri: '+state.proje.isNo : '',
+      'Ünite: '+(_ahuLabel||'—')
+    ].filter(Boolean);
     const wb = new ExcelJS.Workbook();
     wb.creator = 'Cenk Altınay';
     wb.lastModifiedBy = 'Cenk Altınay';
@@ -3129,7 +3348,7 @@ async function exportExcel(){
     if(_isActiveAhu){
       wsO.rowBreaks.push({id: rr - 1, max: 16383, man: 1});
       try{
-        const png3 = await window.capture3DView(null, null, 900, 560);
+        const png3 = await pngKoseDamga(await window.capture3DView(null, null, 900, 560), damgaSatirlari);
         const img3 = wb.addImage({base64: png3, extension:'png'});
         const t3 = wsO.getCell(rr,1); t3.value = '3B GÖRÜNÜM (mevcut açı)'; t3.font = titleFont;
         wsO.addImage(img3, {tl:{col:0, row:rr}, ext:{width:900, height:560}});
@@ -3148,7 +3367,7 @@ async function exportExcel(){
         for(const cv of cepheViews){
           wsO.rowBreaks.push({id: rr - 1, max: 16383, man: 1});
           try{
-            const pngC = await window.capture3DView(cv.yaw, cv.pitch, 900, 560);
+            const pngC = await pngKoseDamga(await window.capture3DView(cv.yaw, cv.pitch, 900, 560), damgaSatirlari);
             const imgC = wb.addImage({base64: pngC, extension:'png'});
             const tC = wsO.getCell(rr,1); tC.value = '3B TOPLU MONTAJ — '+cv.label; tC.font = titleFont;
             wsO.addImage(imgC, {tl:{col:0, row:rr}, ext:{width:900, height:560}});
@@ -3163,7 +3382,7 @@ async function exportExcel(){
         try{
           const pngSol = await window.capture3DView(-Math.PI/2, 0, 450, 560);
           const pngSag = await window.capture3DView(Math.PI/2, 0, 450, 560);
-          const pngSS = await combineSideBySide(pngSol, pngSag);
+          const pngSS = await pngKoseDamga(await combineSideBySide(pngSol, pngSag), damgaSatirlari);
           const imgSS = wb.addImage({base64: pngSS, extension:'png'});
           const tSS = wsO.getCell(rr,1); tSS.value = '3B TOPLU MONTAJ — SOL CEPHE / SAĞ CEPHE'; tSS.font = titleFont;
           wsO.addImage(imgSS, {tl:{col:0, row:rr}, ext:{width:900, height:560}});
@@ -3172,6 +3391,33 @@ async function exportExcel(){
           const tSS = wsO.getCell(rr,1); tSS.value = '⚠ SOL/SAĞ CEPHE eklenemedi: '+err.message; tSS.font = FONT;
           rr += 2;
         }
+      }
+    }
+
+    // ---- MONTAJ SAYFASI (patlatılmış ön görünüm) ----
+    // Sahada birleştirme için modül dış ölçüleri + aralarında pay bırakılmış ön görünüm.
+    // 3B sahneden bağımsız olduğu için AKTİF OLMAYAN AHU'larda da üretilir.
+    {
+      const wsM = wb.addWorksheet('MONTAJ');
+      wsM.columns = [{width:14},{width:14},{width:14},{width:14},{width:24},{width:14}];
+      setDevFooter(wsM);
+      wsM.getCell(1,1).value = 'Cenk Altınay';
+      wsM.getCell(1,1).font = devFont;
+      let mrr = addTable(wsM, 2, 'MONTAJ — MODÜL DIŞ ÖLÇÜLERİ',
+        ['Modül','L (mm)','H (mm)','W (mm)','Konum x,y,z (mm)','Ara Kat'],
+        state.modules.map((md,i)=>['M'+(i+1), md.L||'—', md.H||'—', md.W||'—',
+          md.pos.x+', '+md.pos.y+', '+md.pos.z, araKatOf(md).aktif ? 'VAR' : '—']));
+      if(!wsM.rowBreaks) wsM.rowBreaks = [];
+      wsM.rowBreaks.push({id: mrr-1, max:16383, man:1});
+      try{
+        const pngM = await pngKoseDamga(await svgToPng(drawMontajSVG(), 1120, 660), damgaSatirlari);
+        const imgM = wb.addImage({base64: pngM, extension:'png'});
+        const tM = wsM.getCell(mrr,1);
+        tM.value = 'PATLATILMIŞ ÖN GÖRÜNÜM — modüller arası pay yalnızca görseldir';
+        tM.font = titleFont;
+        wsM.addImage(imgM, {tl:{col:0, row:mrr}, ext:{width:1120, height:660}});
+      }catch(err){
+        const tM = wsM.getCell(mrr,1); tM.value = '⚠ Montaj görseli eklenemedi: '+err.message; tM.font = FONT;
       }
     }
 
@@ -3234,7 +3480,7 @@ async function exportExcel(){
         ws.rowBreaks.push({id: row - 1, max: 16383, man: 1});
 
         try{
-          const png = await svgToPng(withModule(m, ()=>drawFaceSVG(fi)), 880, 480);
+          const png = await pngKoseDamga(await svgToPng(withModule(m, ()=>drawFaceSVG(fi)), 880, 480), damgaSatirlari);
           const imgId = wb.addImage({base64: png, extension:'png'});
           const t = ws.getCell(row,1); t.value = 'GÖRSEL YERLEŞİM'; t.font = titleFont;
           ws.addImage(imgId, {tl:{col:0, row:row}, ext:{width:880, height:480}});
@@ -3269,7 +3515,7 @@ async function exportExcel(){
   if(totalExported > 0){
     note.textContent = ahuCount > 1
       ? '✓ '+ahuCount+' AHU için Excel dosyaları indirildi.'
-      : '✓ Excel dosyası indirildi: 1 özet + '
+      : '✓ Excel dosyası indirildi: 1 özet + 1 montaj + '
         +(state.modules.length*6 + state.modules.filter(md=>araKatOf(md).aktif).length)
         +' modül-yüz sayfası.';
   }
@@ -3913,9 +4159,16 @@ function exportToDxf() {
   var proje = (state.proje.isNo || '').trim();
   var origActiveAhu = state.activeAhu;
   var totalFound = 0;
+  // Bu dışa aktarım turunun İLK mesajı mı? Yalnız o mesaj f1'deki listeleri sıfırlar;
+  // aynı turdaki sonraki AHU'lar üstüne EKLER (çok AHU'lu projede tek liste oluşur).
+  var ilkAktarim = true;
 
-  function openDxfTab(panels, bogazList, projeLabel, seri, tavaList, damperList, arakatList){
+  function openDxfTab(panels, bogazList, projeLabel, seri, tavaList, damperList, arakatList, reset){
     var obj = { seri: seri, proje: projeLabel, panels: panels };
+    // Bayrak olmadan 'DXF Üret'e ikinci kez basmak f1'deki listeleri ÇİFTLİYORDU:
+    // eski (bayat ölçülü) kayıtlar duruyor, yenileri üstüne ekleniyor ve durum çubuğu
+    // yalnız yeni gelenleri sayıyordu — DXF'e iki kat parça giriyordu.
+    if(reset) obj.reset = true;
     if(bogazList && bogazList.length > 0) obj.bogazList = bogazList;
     if(tavaList && tavaList.length > 0) obj.tavaList = tavaList;
     if(damperList && damperList.length > 0) obj.damperList = damperList;
@@ -4066,7 +4319,8 @@ function exportToDxf() {
     var allPanels = mainPanels.concat(altUstPanels);
     if(allPanels.length > 0 || importedBogaz.length > 0 || importedTava.length > 0
        || importedDamper.length > 0 || importedArakat.length > 0){
-      openDxfTab(allPanels, importedBogaz, projeLabel, seri, importedTava, importedDamper, importedArakat);
+      openDxfTab(allPanels, importedBogaz, projeLabel, seri, importedTava, importedDamper, importedArakat, ilkAktarim);
+      ilkAktarim = false;
       totalFound++;
     }
   });
@@ -4382,6 +4636,7 @@ function boot(){
           .addScaledVector(new THREE.Vector3(n[0],n[1],n[2]), 14);
         const label = makeLabel([{text:`M${m+1}`, cls:'modname'}], 'modname');
         label.position.copy(wp);
+        label.userData.mi = m;
         label.visible = false;
         grp.add(label);
         modNameCandidates.push({obj:label, normal:new THREE.Vector3(n[0],n[1],n[2])});
@@ -4474,7 +4729,19 @@ function boot(){
         const lines = [{text:txt, cls:'l1'+boscls}];
         if(lb.type) lines.push({text: lb.type.length>12 ? lb.type.slice(0,11)+'…' : lb.type, cls:'l3'+boscls});
         if(lb.size) lines.push({text:lb.size, cls:'l2'+boscls});
-        addLabel(grp, lines, wp, n);
+        const lblObj = addLabel(grp, lines, wp, n);
+        lblObj.userData.mi = m;
+        // Panelin dört köşesi (dünya) — Excel'e yakalarken etiketin YÖNÜ ve BOYU bu kutuya
+        // göre seçilir. lb.size zaten '{Δu}×{Δv}' mm'dir; faceLayoutRects'in sözleşmesini
+        // büyütmemek için oradan okunur (o çıktının bayt bayt sabitliği testlerle korunuyor).
+        const olcuMM = /^(\d+)×(\d+)$/.exec(lb.size||'');
+        if(olcuMM){
+          const du = +olcuMM[1]/2, dv = +olcuMM[2]/2;
+          lblObj.userData.kose = [[-du,-dv],[du,-dv],[-du,dv],[du,dv]].map(uv=>{
+            const q = faceUVtoXYZ(fi, lb.u+uv[0], lb.v+uv[1], L,H,W);
+            return new THREE.Vector3(q[0]+pos.x, q[1]+pos.y, q[2]+pos.z);
+          });
+        }
       });
 
       // Tıkla-modül-ekle: görünmez vuruş düzlemi — bu yüzün KENDİ tüm katmanlarının (arka plan,
@@ -4509,6 +4776,12 @@ function boot(){
     const isDamper = rc.elType==='Damper';
     const isTava = rc.elType==='Tava';
     const nrm = new THREE.Vector3(n[0],n[1],n[2]);
+    // Elemanın dört köşesi (dünya) — etiketin yönü/boyu bu kutuya göre seçilir. Etiket
+    // yüzeyden `disari` kadar dışarıda durduğu için köşeler de aynı düzleme taşınır.
+    const elKose = (disari)=> [[rc.u0,rc.v0],[rc.u1,rc.v0],[rc.u0,rc.v1],[rc.u1,rc.v1]].map(uv=>{
+      const q = faceUVtoXYZ(fi, uv[0], uv[1], L,H,W);
+      return new THREE.Vector3(q[0]+pos.x, q[1]+pos.y, q[2]+pos.z).addScaledVector(nrm, disari);
+    });
 
     if(isTava){
       const {geo:quadGeo, pts:quadPts} = facePlaneQuad(fi, rc.u0, rc.v0, rc.u1, rc.v1, L,H,W, pos, 9);
@@ -4532,7 +4805,7 @@ function boot(){
       const centerTava = faceUVtoXYZ(fi, (rc.u0+rc.u1)/2, (rc.v0+rc.v1)/2, L,H,W);
       const labelPos = new THREE.Vector3(centerTava[0]+pos.x, centerTava[1]+pos.y, centerTava[2]+pos.z)
         .addScaledVector(nrm, 12);
-      addElemanLabel(grp, rc, m, labelPos, n);
+      addElemanLabel(grp, rc, m, labelPos, n, elKose(12));
       return;
     }
 
@@ -4592,15 +4865,17 @@ function boot(){
     const centerP = faceUVtoXYZ(fi, (rc.u0+rc.u1)/2, (rc.v0+rc.v1)/2, L,H,W);
     const labelPos = new THREE.Vector3(centerP[0]+pos.x, centerP[1]+pos.y, centerP[2]+pos.z)
       .addScaledVector(nrm, EL3_DEPTH*0.95);
-    addElemanLabel(grp, rc, m, labelPos, n);
+    addElemanLabel(grp, rc, m, labelPos, n, elKose(EL3_DEPTH*0.95));
   }
 
-  function addElemanLabel(grp, rc, m, worldPos, n){
+  function addElemanLabel(grp, rc, m, worldPos, n, koseler){
     const lines = [
       {text:`M${m+1}·${rc.lbl} — ${rc.elType}`, cls:'l1'},
       {text:`${Math.round(rc.u1-rc.u0)}×${Math.round(rc.v1-rc.v0)}`, cls:'l2'}
     ];
-    addLabel(grp, lines, worldPos, n);
+    const lbl = addLabel(grp, lines, worldPos, n);
+    lbl.userData.mi = m;
+    if(koseler) lbl.userData.kose = koseler;
   }
 
   // ---------- Sahneyi tamamen yeniden kur ----------
@@ -4848,6 +5123,49 @@ function boot(){
         // BİR modülün izdüşüm kutusuyla çakışıyorsa (basit &quot;bitişik mi&quot; testi değil, gerçek
         // çakışma testi — çapraz/kademeli modül dizilimlerinde de doğru çalışır) metin karşı
         // tarafa kaydırılır; her iki taraf da doluysa o ölçü hiç yazılmaz.
+        // ---- ARKADA KALAN MODÜLÜN ETİKETİ ÇİZİLMEZ ----
+        // Sabit cephe görünümünde izdüşüm eksene dik olduğu için bir modülün ekran kutusu
+        // SİLUETİNE eşittir; önünde başka modül duran etiketi bu yüzden güvenle eleyebiliriz.
+        // Serbest açıda kutu silueti aşar (köşeden bakışta AABB gerçek gölgeden büyüktür),
+        // eleme yanlış olurdu — orada eski davranış sürer.
+        // Kusur buydu: SOL cepheden M1'in ARKASINDAKİ M3 görünmüyor ama etiketleri aynı ekran
+        // noktasına basılıyor, iki panel yazısı üst üste binip okunmaz hâle geliyordu.
+        const sabitCephe = (yaw!==null && pitch!==null);
+        const gorusZ = p => p.clone().applyMatrix4(camera.matrixWorldInverse).z;  // büyük z = kameraya YAKIN
+        const ekranXY = p => { const q = p.clone().project(camera); return [(q.x*0.5+0.5)*w*2, (-q.y*0.5+0.5)*h*2]; };
+        const modKutu = [];
+        if(sabitCephe){
+          state.modules.forEach((md, mi)=>{
+            const ex = modExt(md,'x'), ey = modExt(md,'y'), ez = modExt(md,'z');
+            let mnX=Infinity, mxX=-Infinity, mnY=Infinity, mxY=-Infinity, yakin=-Infinity;
+            [0,ex].forEach(dx=>[0,ey].forEach(dy=>[0,ez].forEach(dz=>{
+              const p = new THREE.Vector3(md.pos.x+dx, md.pos.y+dy, md.pos.z+dz);
+              const xy = ekranXY(p);
+              if(xy[0]<mnX)mnX=xy[0]; if(xy[0]>mxX)mxX=xy[0];
+              if(xy[1]<mnY)mnY=xy[1]; if(xy[1]>mxY)mxY=xy[1];
+              const z = gorusZ(p); if(z>yakin) yakin=z;
+            })));
+            modKutu.push({mi, mnX, mxX, mnY, mxY, yakin});
+          });
+        }
+        // Etiket NOKTASI önde duran bir modülün kutusuna düşüyorsa çizilmez.
+        const onuKapali = (obj, sx, sy)=>{
+          if(!sabitCephe || obj.userData.mi===undefined) return false;
+          const z = gorusZ(obj.position);
+          return modKutu.some(k=> k.mi!==obj.userData.mi
+            && sx>k.mnX+2 && sx<k.mxX-2 && sy>k.mnY+2 && sy<k.mxY-2 && k.yakin > z+1);
+        };
+        // Modül ölçü etiketi kutunun DIŞINA yazıldığı için nokta testi işe yaramaz: modül
+        // ancak başka bir modül onu TAMAMEN örtüyorsa elenir (kısmen görünen ölçülenmeye
+        // devam eder). M1 ile M3 aynı ekran kutusuna düştüğünde iki 'Yükseklik' yazısının
+        // üst üste binmesinin sebebi buydu.
+        const tamGizli = (mi)=>{
+          if(!sabitCephe) return false;
+          const me = modKutu.find(k=>k.mi===mi);
+          if(!me) return false;
+          return modKutu.some(k=> k.mi!==mi && k.yakin > me.yakin+1
+            && k.mnX <= me.mnX+2 && k.mxX >= me.mxX-2 && k.mnY <= me.mnY+2 && k.mxY >= me.mxY-2);
+        };
         if(yaw!==null && pitch!==null && state.modules.length){
           const isTopBottom = Math.abs(Math.abs(pitch) - Math.PI/2) < 0.01;
           const isSide = Math.abs(pitch) < 0.01 && Math.abs(Math.abs(yaw) - Math.PI/2) < 0.01;
@@ -4880,29 +5198,54 @@ function boot(){
           // yatay (genişlik) metni geniş/alçak, dikey (yükseklik) tarafı dar/uzun kabul edilir.
           const rectsOverlap = (a,b)=> a.minX<b.maxX && a.maxX>b.minX && a.minY<b.maxY && a.maxY>b.minY;
           const H_LBL_H = 22, V_LBL_W = 22, V_LBL_H = 90, GAP = 8;
-          const sideFree = (me, dir)=>{
+          const olcuMetni = (me, yatayMi)=> yatayMi
+            ? (wEtiket+' '+Math.round(me.wVal)+' mm')
+            : (hEtiket+' '+Math.round(me.hVal)+' mm');
+          // Modül kutularıyla çakışma testi için KABA alan (eski davranış, dokunulmadı)
+          const kabaKutu = (me, dir)=>{
+            const midY=(me.sMinY+me.sMaxY)/2;
+            if(dir==='below') return { minX: me.sMinX, maxX: me.sMaxX, minY: me.sMaxY+GAP, maxY: me.sMaxY+GAP+H_LBL_H };
+            if(dir==='above') return { minX: me.sMinX, maxX: me.sMaxX, minY: me.sMinY-GAP-H_LBL_H, maxY: me.sMinY-GAP };
+            if(dir==='left') return { minX: me.sMinX-GAP-V_LBL_W, maxX: me.sMinX-GAP, minY: midY-V_LBL_H/2, maxY: midY+V_LBL_H/2 };
+            return { minX: me.sMaxX+GAP, maxX: me.sMaxX+GAP+V_LBL_W, minY: midY-V_LBL_H/2, maxY: midY+V_LBL_H/2 };
+          };
+          // Yazı-yazı çakışması için GERÇEK (ölçülmüş) alan: V_LBL_H tahmini uzun metinlerin
+            // yarısı kadar; 'Yükseklik 1600 mm' döndürülünce ~190 px yer kaplıyor. Kusur buydu —
+          // aynı kenara yazılan iki modül ölçüsü üst üste biniyordu.
+          const yaziKutusu = (me, dir)=>{
             const midX=(me.sMinX+me.sMaxX)/2, midY=(me.sMinY+me.sMaxY)/2;
-            let test;
-            if(dir==='below') test = { minX: me.sMinX, maxX: me.sMaxX, minY: me.sMaxY+GAP, maxY: me.sMaxY+GAP+H_LBL_H };
-            else if(dir==='above') test = { minX: me.sMinX, maxX: me.sMaxX, minY: me.sMinY-GAP-H_LBL_H, maxY: me.sMinY-GAP };
-            else if(dir==='left') test = { minX: me.sMinX-GAP-V_LBL_W, maxX: me.sMinX-GAP, minY: midY-V_LBL_H/2, maxY: midY+V_LBL_H/2 };
-            else test = { minX: me.sMaxX+GAP, maxX: me.sMaxX+GAP+V_LBL_W, minY: midY-V_LBL_H/2, maxY: midY+V_LBL_H/2 };
-            return !modBoxes.some(n=> n!==me && rectsOverlap(test, {minX:n.sMinX,maxX:n.sMaxX,minY:n.sMinY,maxY:n.sMaxY}));
+            if(dir==='below'||dir==='above'){
+              const tw = ctx.measureText(olcuMetni(me,true)).width;
+              const k = kabaKutu(me, dir);
+              return { minX: midX-tw/2, maxX: midX+tw/2, minY: k.minY, maxY: k.maxY };
+            }
+            const th = ctx.measureText(olcuMetni(me,false)).width;   // döndürülmüş → DİKEY uzunluk
+            const k = kabaKutu(me, dir);
+            return { minX: k.minX, maxX: k.maxX, minY: midY-th/2, maxY: midY+th/2 };
+          };
+          const yaziAlanlari = [];
+          const sideFree = (me, dir)=>{
+            const test = kabaKutu(me, dir);
+            if(modBoxes.some(n=> n!==me && rectsOverlap(test, {minX:n.sMinX,maxX:n.sMaxX,minY:n.sMinY,maxY:n.sMaxY}))) return false;
+            return !yaziAlanlari.some(a=> rectsOverlap(yaziKutusu(me, dir), a));
           };
           ctx.font = '600 20px Inter, Arial, sans-serif';
           ctx.shadowColor = 'rgba(255,255,255,0.85)';
           ctx.shadowBlur = 3;
           ctx.fillStyle = '#000000';
           modBoxes.forEach(me=>{
+            if(tamGizli(me.mi)) return;   // arkada tamamen kalan modül ölçülenmez
             const midX=(me.sMinX+me.sMaxX)/2, midY=(me.sMinY+me.sMaxY)/2;
             const belowFree = sideFree(me,'below'), aboveFree = sideFree(me,'above');
             if(belowFree || aboveFree){
               ctx.textAlign = 'center';
               if(belowFree){ ctx.textBaseline = 'top'; ctx.fillText(wEtiket+' '+Math.round(me.wVal)+' mm', midX, me.sMaxY+8); }
               else { ctx.textBaseline = 'bottom'; ctx.fillText(wEtiket+' '+Math.round(me.wVal)+' mm', midX, me.sMinY-8); }
+              yaziAlanlari.push(yaziKutusu(me, belowFree?'below':'above'));
             }
             const leftFree = sideFree(me,'left'), rightFree = sideFree(me,'right');
             if(leftFree || rightFree){
+              yaziAlanlari.push(yaziKutusu(me, leftFree?'left':'right'));
               // Sol/sağa yazılan yükseklik etiketi de panel etiketleri gibi 90° döndürülür —
               // ortalanmış (center/middle) çapa, sideFree'nin V_LBL_W/H tahminiyle tutarlıdır.
               const hTxt = hEtiket+' '+Math.round(me.hVal)+' mm';
@@ -4921,6 +5264,59 @@ function boot(){
           ...labelEntries.map(e=>e.obj),
           ...modNameGroups.flatMap(g=>g.map(e=>e.obj))
         ];
+        // Satır stilleri — canlı DOM'daki `.label3d .l1/.l2/.l3` ile ELLE senkron tutulur
+        // (CSS font-size'ın 2 katı; bu canvas 2× pikselde yakalanıyor).
+        const satirStili = cls=>{
+          const parts = (cls||'').split(' ');
+          const base = parts[0], bos = parts.indexOf('bos')>=0;
+          if(base==='modname') return {fs:26, ag:'700', renk:'#4fb8a8', golge:'rgba(0,0,0,0.5)'};
+          const renk = bos ? '#ffffff' : '#000000';
+          const golge = bos ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.85)';
+          if(base==='l3') return {fs:22, ag:'600', renk, golge};
+          if(base==='l2') return {fs:24, ag:'700', renk, golge};
+          return {fs:26, ag:'700', renk, golge};
+        };
+        const blokOlc = (satirlar, sc)=>{
+          let genis = 0;
+          satirlar.forEach(l=>{
+            const s = satirStili(l.cls);
+            ctx.font = s.ag+' '+(s.fs*sc)+'px Inter, Arial, sans-serif';
+            genis = Math.max(genis, ctx.measureText(l.text).width);
+          });
+          return {genis, boy: satirlar.length*24*sc};
+        };
+        const kutuOf = kose=>{
+          let a=Infinity, b=-Infinity, c2=Infinity, d=-Infinity;
+          kose.forEach(p=>{ const xy = ekranXY(p);
+            if(xy[0]<a)a=xy[0]; if(xy[0]>b)b=xy[0]; if(xy[1]<c2)c2=xy[1]; if(xy[1]>d)d=xy[1]; });
+          return {x0:a, x1:b, y0:c2, y1:d, kirpildi:false};
+        };
+        // Panelin GÖRÜNEN parçası: önde duran modüllerin kapattığı kısım kutudan çıkarılır,
+        // kalan en büyük şerit alınır. Hiç yer kalmazsa etiket çizilmez; kısmen kalıyorsa
+        // etiket o şeridin ortasına kayar ve boyunu ona göre alır. Kutu kırpılmadıysa
+        // (panel tümüyle görünüyorsa) hiçbir şey değişmez — çıktı eskisiyle birebir aynı.
+        const gorunenKutu = (obj, kutu)=>{
+          if(!sabitCephe || obj.userData.mi===undefined) return kutu;
+          const z = gorusZ(obj.position);
+          let k = kutu;
+          modKutu.forEach(o=>{
+            if(o.mi===obj.userData.mi || !(o.yakin > z+1)) return;
+            if(o.mxX<=k.x0 || o.mnX>=k.x1 || o.mxY<=k.y0 || o.mnY>=k.y1) return;   // çakışma yok
+            const serit = [
+              {x0:k.x0, x1:Math.min(k.x1,o.mnX), y0:k.y0, y1:k.y1},
+              {x0:Math.max(k.x0,o.mxX), x1:k.x1, y0:k.y0, y1:k.y1},
+              {x0:k.x0, x1:k.x1, y0:k.y0, y1:Math.min(k.y1,o.mnY)},
+              {x0:k.x0, x1:k.x1, y0:Math.max(k.y0,o.mxY), y1:k.y1}
+            ];
+            let enIyi = serit[0], enIyiAlan = -1;
+            serit.forEach(s=>{
+              const alan = Math.max(s.x1-s.x0,0)*Math.max(s.y1-s.y0,0);
+              if(alan>enIyiAlan){ enIyiAlan = alan; enIyi = s; }
+            });
+            k = {x0:enIyi.x0, x1:enIyi.x1, y0:enIyi.y0, y1:enIyi.y1, kirpildi:true};
+          });
+          return k;
+        };
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         allLabelObjs.forEach(obj=>{
@@ -4928,39 +5324,62 @@ function boot(){
           const ndc = obj.position.clone().project(camera);
           if(ndc.z<-1 || ndc.z>1) return;
           const sx = (ndc.x*0.5+0.5)*w*2, sy = (-ndc.y*0.5+0.5)*h*2;
-          const lines = obj.userData.lines || [];
-          const lineH = 24;
-          // modname (M1/M2) yatay kalır ve dikeyde y ile alt alta dizilir (tek satır olduğu
-          // için pratikte etkisiz); panel etiketleri (kod/tip/ölçü) 90° döndürülüp x boyunca
-          // yan yana &quot;şeritler&quot; halinde dizilir — aksi halde döndürülmüş satırlar birbirinin
-          // üzerine gelirdi (dikeydeki 24px aralık, döndürülmüş metnin uzunluğuna yetmez).
-          let y = sy - (lines.length-1)*lineH/2;
-          let x = sx - (lines.length-1)*lineH/2;
-          lines.forEach(line=>{
-            // Yüz Düzenleme/Excel etiketleriyle aynı renk-boyut kuralı — burada CSS'e
-            // (.label3d .l1/.l3/.l2) sahip değiliz, canlı DOM stiliyle elle senkron tutulur:
-            // CSS font-size'ın 2 katı (bu canvas 2x pikselde yakalanıyor).
-            const clsParts = (line.cls||'').split(' ');
-            const base = clsParts[0], isBos = clsParts.indexOf('bos')>=0;
-            let fontSpec, color, shadowColor;
-            if(base==='modname'){ fontSpec = '700 26px'; color = '#4fb8a8'; shadowColor = 'rgba(0,0,0,0.5)'; }
-            else if(base==='l3'){ fontSpec = '600 22px'; color = isBos?'#ffffff':'#000000'; shadowColor = isBos?'rgba(0,0,0,0.6)':'rgba(255,255,255,0.85)'; }
-            else if(base==='l2'){ fontSpec = '700 24px'; color = isBos?'#ffffff':'#000000'; shadowColor = isBos?'rgba(0,0,0,0.6)':'rgba(255,255,255,0.85)'; }
-            else { fontSpec = '700 26px'; color = isBos?'#ffffff':'#000000'; shadowColor = isBos?'rgba(0,0,0,0.6)':'rgba(255,255,255,0.85)'; }
-            ctx.font = fontSpec+' Inter, Arial, sans-serif';
-            ctx.fillStyle = color;
-            ctx.shadowColor = shadowColor;
+          let satirlar = (obj.userData.lines||[]).slice();
+          if(!satirlar.length) return;
+          const modAdi = (satirlar[0].cls||'').split(' ')[0]==='modname';
+          // Panelin ekran kutusu (dört köşesi buildModule'de dünya koordinatı olarak saklandı)
+          const kose = obj.userData.kose;
+          let cx = sx, cy = sy, pw = 0, ph = 0;
+          if(kose && kose.length===4){
+            const g = gorunenKutu(obj, kutuOf(kose));
+            pw = g.x1-g.x0; ph = g.y1-g.y0;
+            if(pw < 14 || ph < 14) return;         // arkada kaldı — hiç yazma
+            if(g.kirpildi){ cx = (g.x0+g.x1)/2; cy = (g.y0+g.y1)/2; }
+          } else if(onuKapali(obj, sx, sy)) return;   // kutusuz etiket (modül adı, KAPAKSIZ)
+          // YÖN VE BOY. Önce MEVCUT davranış denenir (90° döndürülmüş, tam boy): sığıyorsa
+          // etiket eskisiyle BİREBİR aynı çizilir — sığan yüzler (ÖN/ARKA/ÜST/ALT) değişmez.
+          // Sığmıyorsa yatay denenir; o da sığmazsa küçültülür; hâlâ sığmıyorsa alttan satır
+          // atılır. Öncelik 2B yüz çizimindekiyle aynı: kod > tip > ölçü.
+          // Kusur buydu: geniş-alçak kapakta (damper 1250×450, boğaz 1250×230) döndürülmüş
+          // yazı panelin dışına taşıp komşu kapağın etiketine biniyordu.
+          let yatay = false, sc = 1;
+          if(!modAdi && pw>2 && ph>2){
+            for(;;){
+              const m = blokOlc(satirlar, 1);
+              const dikS = Math.min(1, (ph*0.94)/Math.max(m.genis,1), (pw*0.94)/Math.max(m.boy,1));
+              const yatS = Math.min(1, (pw*0.94)/Math.max(m.genis,1), (ph*0.94)/Math.max(m.boy,1));
+              const enIyi = Math.max(dikS, yatS);
+              if(enIyi >= 0.55 || satirlar.length===1){
+                yatay = yatS > dikS;
+                sc = Math.max(enIyi, 0.42);
+                break;
+              }
+              satirlar = satirlar.slice(0, -1);
+            }
+          }
+          if(modAdi) yatay = true;
+          const satirH = 24*sc;
+          // modname yatay kalır ve dikeyde y ile alt alta dizilir; döndürülmüş panel etiketleri
+          // x boyunca yan yana &quot;şeritler&quot; hâlinde dizilir — aksi halde döndürülmüş satırlar
+          // birbirinin üzerine gelirdi (dikeydeki aralık, döndürülmüş metnin boyuna yetmez).
+          let y = cy - (satirlar.length-1)*satirH/2;
+          let x = cx - (satirlar.length-1)*satirH/2;
+          satirlar.forEach(l=>{
+            const s = satirStili(l.cls);
+            ctx.font = s.ag+' '+(s.fs*sc)+'px Inter, Arial, sans-serif';
+            ctx.fillStyle = s.renk;
+            ctx.shadowColor = s.golge;
             ctx.shadowBlur = 3;
-            if(base==='modname'){
-              ctx.fillText(line.text, sx, y);
-              y += lineH;
+            if(yatay){
+              ctx.fillText(l.text, cx, y);
+              y += satirH;
             } else {
               ctx.save();
-              ctx.translate(x, sy);
+              ctx.translate(x, cy);
               ctx.rotate(-Math.PI/2);
-              ctx.fillText(line.text, 0, 0);
+              ctx.fillText(l.text, 0, 0);
               ctx.restore();
-              x += lineH;
+              x += satirH;
             }
           });
         });
@@ -9690,6 +10109,18 @@ function applyKapakData(data) {
     if (!imported.length && !importedBogaz.length && !importedTava.length
         && !importedDamper.length && !importedArakat.length) return;
 
+    // Yeni bir aktarim turunun ILK mesaji (data.reset): Kapak Hesabi'ndan gelen BES liste
+    // sifirlanir. Esanjor listesi elle girilir, ona DOKUNULMAZ. Bayrak yoksa davranis
+    // eskisi gibi 'ekle' kalir — ayni turdaki 2. ve sonraki AHU mesajlari ile hash/
+    // postMessage ile disaridan gelen cagrilar boylece birikmeye devam eder.
+    var temizlenen = 0;
+    if (data.reset) {
+      temizlenen = panels.length + bogazList.length + tavaList.length
+                 + damperList.length + arakatList.length;
+      panels.length = 0; bogazList.length = 0; tavaList.length = 0;
+      damperList.length = 0; arakatList.length = 0;
+    }
+
     // Panel listesi
     if (imported.length) {
       imported.forEach(function(p) { panels.push(p); });
@@ -9743,6 +10174,16 @@ function applyKapakData(data) {
       renderArakatTable();
     }
 
+    // Sifirlanan ama bu turda kaydi GELMEYEN listenin tablosu da tazelenmeli;
+    // yukaridaki bloklarin her biri yalnizca kayit gelen listeyi render ediyor.
+    if (data.reset) {
+      if (!imported.length)       renderTable();
+      if (!importedBogaz.length)  renderBogazTable();
+      if (!importedTava.length)   renderTavaTable();
+      if (!importedDamper.length) renderDamperTable();
+      if (!importedArakat.length) renderArakatTable();
+    }
+
     // Durum mesajı
     var parts = [];
     if (imported.length)       parts.push(imported.length + ' panel');
@@ -9751,12 +10192,13 @@ function applyKapakData(data) {
     if (importedDamper.length) parts.push(importedDamper.length + ' damper');
     if (importedArakat.length) parts.push(importedArakat.length + ' ara kat');
 
+    var onceki = temizlenen ? ' (önceki ' + temizlenen + ' kayıt değiştirildi)' : '';
     if (data.autoGenerate) {
-      setStatus('✓ ' + parts.join(' + ') + ' aktarıldı' + (proje ? ' — ' + proje : '') + '. Otomatik DXF üretiliyor…');
+      setStatus('✓ ' + parts.join(' + ') + ' aktarıldı' + (proje ? ' — ' + proje : '') + onceki + '. Otomatik DXF üretiliyor…');
       topluDxfUret();
     } else {
       setStatus('✓ ' + parts.join(' + ') + ' kapak hesabından aktarıldı'
-        + (proje ? ' — ' + proje : '')
+        + (proje ? ' — ' + proje : '') + onceki
         + '. Kontrol edip &quot;Toplu DXF Üret&quot; butonuna basın.');
     }
 
@@ -10899,6 +11341,17 @@ setTimeout(function() {
 </html>
 "></iframe>
 </div>
+<div id="road-modal" onclick="if(event.target===this)yolHaritasiAc(false)">
+  <div id="road-card">
+    <div id="road-head">
+      <h2>Yol Haritası — Yakında Eklenecekler</h2>
+      <span id="road-sayac"></span>
+      <button id="road-kapat" onclick="yolHaritasiAc(false)" title="Kapat">&times;</button>
+    </div>
+    <div id="road-body"></div>
+    <div id="road-alt">Sıra bağlayıcı değildir; bir madde bitince listede işaretlenir.</div>
+  </div>
+</div>
 <script>
 const frames=document.querySelectorAll('iframe');
 const btns=document.querySelectorAll('.tab-btn');
@@ -10906,6 +11359,55 @@ function show(i){
   frames.forEach((f,j)=>{f.classList.toggle('active',i===j);});
   btns.forEach((b,j)=>{b.classList.toggle('active',i===j);});
 }
+
+// ---------- YOL HARİTASI ----------
+// Cenk'in 25.08.2026'da verdiği plan. TEK KAYNAK burasıdır: bir madde bitince yalnız
+// `durum` alanı değişir ('plan' | 'suruyor' | 'tamam') ve biten maddeye `tarih` yazılır.
+// Liste kabuk sayfada durur; iki sekmeden de aynı düğmeyle açılır.
+const YOL_HARITASI = [
+  {n:1,  t:'Ara kat — profilsiz seçenek', durum:'plan',
+   d:'Profilsiz ara katın çizimi profilliden farklı; ayrı çizim yolu eklenecek.'},
+  {n:2,  t:'Eşanjör modülü AHU Studio\'ya taşınacak', durum:'plan',
+   d:'Ölçüler Kapak Hesabı\'ndan gelecek; f1\'de elle giriş formu kalan tek modül eşanjördü.'},
+  {n:3,  t:'Eşanjör önüne filtre ve damper', durum:'plan',
+   d:'Eşanjörün önüne filtre ve damper eklenebilir hâle gelecek.'},
+  {n:4,  t:'Baza çizimi', durum:'plan', d:''},
+  {n:5,  t:'Motor ayakları kütüphanesi', durum:'plan',
+   d:'Motor/fan seçilince ayak çizimi otomatik DXF olarak çıkacak — yalnız DXF, hesaba girmez.'},
+  {n:6,  t:'Fan önü bağlantı sacı', durum:'plan', d:''},
+  {n:7,  t:'Batarya kızakları', durum:'plan', d:''},
+  {n:8,  t:'Susturucu çizimi', durum:'plan', d:''},
+  {n:9,  t:'Filtre kasetleri', durum:'plan', d:''},
+  {n:10, t:'Pano sacı', durum:'plan', d:''},
+  {n:11, t:'Motor hava akımı körleme sacı', durum:'plan', d:''},
+  {n:12, t:'DXF\'ten modülleri otomatik çizme', durum:'plan',
+   d:'Modüller DXF\'ten otomatik kurulacak; yüzlerdeki kapakları düzenlemek kullanıcıya kalacak.'}
+];
+const ROZET = {plan:['rz-plan','PLANLANDI'], suruyor:['rz-suruyor','SÜRÜYOR'], tamam:['rz-tamam','TAMAM']};
+function yolKacar(){
+  const tamam = YOL_HARITASI.filter(x=>x.durum==='tamam').length;
+  return {tamam, toplam: YOL_HARITASI.length};
+}
+function yolHaritasiCiz(){
+  const s = yolKacar();
+  document.getElementById('road-sayac').textContent = s.toplam+' maddenin '+s.tamam+'’i tamam';
+  document.getElementById('road-btn-sayac').textContent = s.tamam+'/'+s.toplam;
+  document.getElementById('road-body').innerHTML = YOL_HARITASI.map(x=>{
+    const rz = ROZET[x.durum] || ROZET.plan;
+    const alt = [x.d || '', x.tarih ? ('Bitti: '+x.tarih) : ''].filter(Boolean).join(' · ');
+    return '<div class="road-item '+(x.durum==='tamam'?'tamam':'')+'">'
+      + '<div class="road-no">'+x.n+'</div>'
+      + '<div class="road-ic"><div class="road-t">'+x.t+'</div>'
+      + (alt ? '<div class="road-d">'+alt+'</div>' : '')+'</div>'
+      + '<span class="road-rozet '+rz[0]+'">'+rz[1]+'</span></div>';
+  }).join('');
+}
+function yolHaritasiAc(ac){
+  document.getElementById('road-modal').classList.toggle('open', !!ac);
+}
+document.addEventListener('keydown', e=>{ if(e.key==='Escape') yolHaritasiAc(false); });
+yolHaritasiCiz();
+
 window.addEventListener('message',e=>{
   if(e.data&&e.data.type==='dxfExport'){
     show(1);
