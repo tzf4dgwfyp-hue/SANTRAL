@@ -516,9 +516,17 @@ const ARAKAT_DEF  = {name:'ARA KAT', wKey:'L', hKey:'W'};
 const ARAKAT_CODE = 'AK';           // canlı kod öneki (AK-B1K2) ve export sayacı (…-AK1)
 
 // Ara kat profilleri — 'etki' = iç ölçüyü etkileyen kenar (p)
+// `etki` = profilin iç ölçüyü daralttığı pay (p). `tip` = f1'in ARA KAT çizim tipi:
+// parça aynı ailedendir, tip yalnız BÜKÜM ölçüsünü seçer (4.5X3 → dış 45, 5X3 → dış 50).
+//
+// PROFİLSİZ (2026-08-25, yol haritası #1): ara katın kendi çerçevesi ve bölme profili
+// YOKTUR. p=0 olduğu için panel, modülün iç açıklığının tamamını kaplar
+// (açıklık = iç ölçü = L−düşüm × W−düşüm) ve kendi bükümüyle oturur — bu yüzden dış
+// büküm 45 değil 50 mm, yani çizim tipi 5X3. Sipariş listesine profil parçası girmez.
 const ARAKAT_PROFILLER = {
-  '30x30': { ad:'30×30', etki:30 },
-  '30x60': { ad:'30×60', etki:60 }
+  '30x30':     { ad:'30×30',     etki:30, tip:'4.5X3' },
+  '30x60':     { ad:'30×60',     etki:60, tip:'4.5X3' },
+  'profilsiz': { ad:'Profilsiz', etki:0,  tip:'5X3'   }
 };
 // Modülün dış ölçüsünden iç ölçüye geçerken düşülen toplam pay — AHU profil serisinden.
 // Tanınmayan/özel seri 60'lık davranışına düşer (TAVA_ALT varsayılanının aynısı).
@@ -629,7 +637,7 @@ function araKatOf(m){
   });
   return ak;
 }
-function newModule(){ return { L:0, H:0, W:0, pos:{x:0,y:0,z:0}, faces: newFaceSet(), araKat: newAraKat() }; }
+function newModule(){ return { L:0, H:0, W:0, pos:{x:0,y:0,z:0}, faces: newFaceSet(), araKat: newAraKat(), esanjor: newEsanjor() }; }
 function newAhu(n){ return { ad:'AHU-'+(n||1), malzeme:'', active:0, modules:[newModule()], varsayimlar:{seri:'', tolW:3, tolH:3} }; }
 
 const GLASS_R_MM = 75; // gözetleme camı: sabit Ø150 mm (katalog değeri)
@@ -677,6 +685,55 @@ function withModule(m, fn){
 // yerlere girer (3B, panel export ve Excel yüz döngüleri onu kendiliğinden atlar).
 function isAraKat(fi){ return fi === ARAKAT_FI; }
 function activeAraKat(){ return araKatOf(state.modules[state.active]); }
+
+/*
+ EŞANJÖR — 8. sekme (2026-08-25, yol haritası #2)
+
+ Eşanjör KAREdir ve modülün içine 45° döndürülmüş (baklava) oturur. Kullanıcı üç şey girer:
+ kenar ölçüsü, üst kat ölçüsü ve sağa olan uzaklık; f1'in eşanjör çiziminin istediği beş
+ değer (CI + O1..O4) bunlardan TÜRETİLİR. Zincir (Cenk, 25.08.2026):
+
+   x  = kenar × √2 / 2              (karenin köşegeninin yarısı)
+   CI = modül iç genişliği          (W − düşüm)
+   O1 = üst kat ölçüsü     − x      ← 'üst kat' baklavanın MERKEZİNE olan mesafedir
+   O2 = sağa olan uzaklık  − x      ← 'sağa uzaklık' da merkeze olan mesafedir
+   O3 = iç yükseklik − O1 − 2x      (2x = köşegenin tamamı)
+   O4 = iç uzunluk   − 2x − O2
+
+ ARA KAT'tan farklı olarak eşanjörün ızgarası yoktur — göz/bölüm/takviye kavramı burada
+ yok. Bu yüzden computeFace ailesine HİÇ bağlanmaz (faceOf/vOf/faceDefOf çözücüleri
+ büyütülmedi); kendi paneli, kendi hesabı ve kendi dışa aktarım adımı vardır.
+*/
+const ESANJOR_FI  = 7;
+const ESANJOR_DEF = { name:'EŞANJÖR' };
+// Modül iç ölçüsü = dış − 2 × kenar profili (Cenk, 25.08.2026). ARAKAT_DUS ile AYNI DEĞİL:
+// ara katta seri 60 → 130, burada 120. İkisini tek tabloya bağlamayın.
+const ESANJOR_DUS = { '50':100, '60':120 };
+const ESANJOR_DUS_VARSAYILAN = 120;
+const ESANJOR_MIN_O  = 5;    // f1 eşanjör çiziminin çizebildiği en küçük düz parça
+const ESANJOR_MIN_CI = 50;
+// 1.5 mm sacdan çıkan tek parça 3. ölçüdür (alt) — Cenk, 25.08.2026. İşaretli ölçüler
+// f1'de ayrı bir '… (1.5 MM).dxf' dosyasına gider.
+const ESANJOR_15MM = { o1:false, o2:false, o3:true, o4:false };
+
+function newEsanjor(){
+  return { aktif:false, kenar:0, ustKat:0, saga:0, kod:'' };
+}
+// araKatOf ile aynı desen: alanı olmayan eski modülde tembel kurar ve değerleri doğrular.
+function esanjorOf(m){
+  if(!m) return null;
+  if(!m.esanjor || typeof m.esanjor !== 'object') m.esanjor = newEsanjor();
+  const e = m.esanjor;
+  ['kenar','ustKat','saga'].forEach(k=>{
+    const v = Number(e[k]);
+    e[k] = (isFinite(v) && v>0) ? v : 0;
+  });
+  if(typeof e.kod !== 'string') e.kod = '';
+  e.aktif = !!e.aktif;
+  return e;
+}
+function activeEsanjor(){ return esanjorOf(state.modules[state.active]); }
+
 function faceDefOf(fi){ return isAraKat(fi) ? ARAKAT_DEF : FACE_DEFS[fi]; }
 function faceOf(fi){ return isAraKat(fi) ? activeAraKat().grid : state.faces[fi]; }
 function vOf(fi){ return isAraKat(fi) ? getVAraKat() : getV(); }
@@ -721,8 +778,9 @@ function araKatOlculeri(){
   const icW = W>0 ? W - V.dus : 0;
   const surekliYon = ak.surekliYon || (L >= W ? 'L' : 'W');
   // Sürekli yöndeki 2 profil boydan boya; diğer yöndeki 2 profil aradan girip 2p kısalır.
+  // Profilsizde çerçeve YOKTUR (V.p===0) — 4 parça hiç üretilmez.
   const cerceve = [];
-  if(icL>0 && icW>0){
+  if(V.p>0 && icL>0 && icW>0){
     if(surekliYon==='L'){
       cerceve.push({yon:'L', adet:2, boy:icL}, {yon:'W', adet:2, boy:icW - 2*V.p});
     } else {
@@ -735,6 +793,54 @@ function araKatOlculeri(){
     acikW: icW>0 ? icW - 2*V.p : 0,
     cerceve
   };
+}
+
+// Aktif modülün eşanjör ölçü zinciri + doğrulaması. Arayüzdeki okuma, durum satırı,
+// collectFaceIssues ve dışa aktarım aynı bu fonksiyondan beslenir (tek kaynak).
+// Zincirin anlatımı için yukarıdaki EŞANJÖR blok yorumuna bakın.
+function esanjorOlculeri(){
+  const es   = activeEsanjor();
+  const seri = String(state.varsayimlar.seri);
+  const dus  = ESANJOR_DUS[seri] != null ? ESANJOR_DUS[seri] : ESANJOR_DUS_VARSAYILAN;
+  const L = Number(state.dims.L)||0, H = Number(state.dims.H)||0, W = Number(state.dims.W)||0;
+  const icL = L>0 ? L-dus : 0, icH = H>0 ? H-dus : 0, icW = W>0 ? W-dus : 0;
+  const kenar   = es.kenar;
+  const kosegen = kenar>0 ? kenar*Math.SQRT2 : 0;
+  const x       = kosegen/2;
+
+  const eksik = [];
+  if(!(L>0 && H>0 && W>0)) eksik.push('Modül ölçüleri (L / H / W) girilmedi');
+  if(!seri)                eksik.push('Profil serisi seçilmedi');
+  if(!(kenar>0))           eksik.push('Eşanjör kenar ölçüsü girilmedi');
+  if(!(es.ustKat>0))       eksik.push('Üst kat ölçüsü girilmedi');
+  if(!(es.saga>0))         eksik.push('Sağa olan uzaklık girilmedi');
+
+  const tam = eksik.length===0;
+  // Ölçüler tam sayıya ve HEP AŞAĞI yuvarlanır (Cenk, 25.08.2026): küçük kalan parça
+  // yerine oturur, büyük kalan oturmaz — yuvarlamanın güvenli tarafı budur. Kalan
+  // kesir (toplamda <2 mm) boşluğa gider; x yuvarlanmaz, o bir kesim ölçüsü değil.
+  // 1e-6 payı yalnız kayan nokta gürültüsü içindir (99.9999999 → 100, 99 değil).
+  const asagi = v => Math.floor(v + 1e-6);
+  const CI = tam ? asagi(icW) : icW;
+  const O1 = tam ? asagi(es.ustKat - x)      : 0;
+  const O2 = tam ? asagi(es.saga   - x)      : 0;
+  const O3 = tam ? asagi(icH - (es.ustKat - x) - 2*x) : 0;
+  const O4 = tam ? asagi(icL - 2*x - (es.saga - x))   : 0;
+
+  // f1'in çizimi bu sınırların altında anlamsız parça üretir — burada durdurulur ki
+  // bozuk ölçü DXF'e hiç gitmesin (dışa aktarım kapısı collectFaceIssues'tan geçer).
+  const hatalar = [];
+  if(tam){
+    if(CI < ESANJOR_MIN_CI) hatalar.push('Cihaz iç ölçüsü (CI) '+CI.toFixed(0)+' mm — en az '+ESANJOR_MIN_CI+' mm olmalı');
+    [['1. ölçü',O1,'üst kat ölçüsünü büyütün'], ['2. ölçü',O2,'sağa olan uzaklığı büyütün'],
+     ['3. ölçü',O3,'üst kat ölçüsünü küçültün'], ['4. ölçü',O4,'sağa olan uzaklığı küçültün']
+    ].forEach(r=>{
+      if(!(r[1] >= ESANJOR_MIN_O)) hatalar.push(r[0]+' '+r[1]+' mm — en az '+ESANJOR_MIN_O+' mm olmalı ('+r[2]+')');
+    });
+  }
+  return { es, seri, dus, L, H, W, icL, icH, icW, kenar, kosegen, x,
+           CI, O1, O2, O3, O4, eksik, hatalar,
+           gecerli: tam && hatalar.length===0 };
 }
 function addAhu(){
   const n = state.ahus.length + 1;
@@ -1491,7 +1597,17 @@ function computeFace(fi){
   // sipariş listesinde karışmasın diye kayıtlar etiketlenir, üstüne çerçevenin 4 parçası
   // eklenir. Köşe birleşimi gönye değil: sürekli yön boydan boya, diğer yön 2p kısalır.
   if(isAraKat(fi)){
-    const profilAd = (ARAKAT_PROFILLER[activeAraKat().profil] || ARAKAT_PROFILLER['30x30']).ad;
+    const profilTanim = ARAKAT_PROFILLER[activeAraKat().profil] || ARAKAT_PROFILLER['30x30'];
+    const profilAd = profilTanim.ad;
+    // PROFİLSİZ: ne çerçeve ne bölme profili var — takviye kaydı da olmaz. (Bölme yine
+    // eklenebilir; payı 0 mm olduğu için yalnız paneli ikiye ayırır, profil doğurmaz.)
+    if(profilTanim.etki === 0){
+      takviyeRecords.length = 0;
+      return {def, faceW, faceH, orient, V, kapaksiz:false,
+        colResults, anaTakAdedi, araTakToplam,
+        icKullAlong, kalanAlong, toplamKapak, status,
+        takviyeRecords, bars, barWarnings};
+    }
     takviyeRecords.forEach(t=>{ t.tip = 'Ara Kat ' + t.tip; t.arakat = true; t.profil = profilAd; });
     const olc = araKatOlculeri();
     olc.cerceve.forEach(c=>{
@@ -1968,9 +2084,10 @@ function buildFaceHTML(fi){
           <select id=&quot;f${fi}_profil&quot;>
             <option value=&quot;30x30&quot;>30×30</option>
             <option value=&quot;30x60&quot;>30×60</option>
+            <option value=&quot;profilsiz&quot;>Profilsiz</option>
           </select>
         </div>
-        <div class=&quot;orient-select&quot;>
+        <div class=&quot;orient-select&quot; id=&quot;f${fi}_surekli_row&quot;>
           <label>Boydan Boya Giden Yön</label>
           <select id=&quot;f${fi}_surekli&quot;>
             <option value=&quot;&quot;>Otomatik (uzun kenar)</option>
@@ -1986,7 +2103,7 @@ function buildFaceHTML(fi){
     <div class=&quot;dim-readout&quot; id=&quot;f${fi}_zincir&quot;>
       <div><div class=&quot;lbl&quot;>Modül Dış (L × W)</div><div class=&quot;val&quot; id=&quot;f${fi}_z_dis&quot;>—</div></div>
       <div><div class=&quot;lbl&quot;>İç Ölçü (− düşüm)</div><div class=&quot;val&quot; id=&quot;f${fi}_z_ic&quot;>—</div></div>
-      <div><div class=&quot;lbl&quot;>Panel Açıklığı (− 2p)</div><div class=&quot;val&quot; id=&quot;f${fi}_z_acik&quot;>—</div></div>
+      <div><div class=&quot;lbl&quot; id=&quot;f${fi}_z_acik_lbl&quot;>Panel Açıklığı (− 2p)</div><div class=&quot;val&quot; id=&quot;f${fi}_z_acik&quot;>—</div></div>
       <div><div class=&quot;lbl&quot;>Düşüm / Profil</div><div class=&quot;val&quot; id=&quot;f${fi}_z_pay&quot;>—</div></div>
     </div>` : '';
   const legend = ak ? `
@@ -1994,8 +2111,9 @@ function buildFaceHTML(fi){
           <span><i style=&quot;background:#b7bcc2;&quot;></i> Damper (0 tolerans)</span>
           <span><i style=&quot;background:#7499be;&quot;></i> Boş Alan</span>
           <span>Ölçüler modülden türetilir — burada ölçü girilmez, <b>modülün L / W</b> ölçüsünü değiştirin.</span>
-          <span>Çerçeve ve bölmeler <b>aynı kare profildir</b>; takviye/köşe plastiği yoktur, parçalar kaynatılır.</span>
-          <span>Köşe birleşimi gönye değil: sürekli yön boydan boya gider, diğer yön <b>2p</b> kadar kısalır.</span>` : `
+          <span id=&quot;f${fi}_lgn_p1&quot;>Çerçeve ve bölmeler <b>aynı kare profildir</b>; takviye/köşe plastiği yoktur, parçalar kaynatılır.</span>
+          <span id=&quot;f${fi}_lgn_p2&quot;>Köşe birleşimi gönye değil: sürekli yön boydan boya gider, diğer yön <b>2p</b> kadar kısalır.</span>
+          <span id=&quot;f${fi}_lgn_p0&quot;><b>Profilsiz:</b> çerçeve ve bölme profili yoktur — panel iç açıklığın tamamını kaplar, çizimde <b>5X3</b> (50 mm dış büküm) kullanılır.</span>` : `
           <span><i style=&quot;background:#afc2d4;&quot;></i> Sabit panel</span>
           <span><i style=&quot;background:#e2cea2;&quot;></i> Boğaz panel</span>
           <span><i style=&quot;background:#99cde0;&quot;></i> Açılır panel</span>
@@ -2424,7 +2542,17 @@ function renderAraKatChrome(){
   set(`f${fi}_z_dis`,  olc.L>0 && olc.W>0 ? `${Math.round(olc.L)} × ${Math.round(olc.W)}` : '—');
   set(`f${fi}_z_ic`,   olc.icL>0 && olc.icW>0 ? `${mm(olc.icL)} × ${mm(olc.icW)}` : '—');
   set(`f${fi}_z_acik`, olc.acikL>0 && olc.acikW>0 ? `${mm(olc.acikL)} × ${mm(olc.acikW)}` : '—');
-  set(`f${fi}_z_pay`,  `${olc.dus} / ${(ARAKAT_PROFILLER[ak.profil]||ARAKAT_PROFILLER['30x30']).ad} (p=${olc.p})`);
+  const profilTanim = ARAKAT_PROFILLER[ak.profil] || ARAKAT_PROFILLER['30x30'];
+  const profilsiz = profilTanim.etki === 0;
+  set(`f${fi}_z_pay`, profilsiz ? `${olc.dus} / Profilsiz` : `${olc.dus} / ${profilTanim.ad} (p=${olc.p})`);
+  // Profilsizde çerçeve yok: açıklık iç ölçüye eşittir, boydan boya giden yön sorusu da
+  // anlamsızdır — o soru çerçevenin köşe birleşimini seçiyordu.
+  set(`f${fi}_z_acik_lbl`, profilsiz ? 'Panel Açıklığı' : 'Panel Açıklığı (− 2p)');
+  const gz = (id, goster)=>{ const el = document.getElementById(id); if(el) el.style.display = goster ? '' : 'none'; };
+  gz(`f${fi}_surekli_row`, !profilsiz);
+  gz(`f${fi}_lgn_p1`, !profilsiz);
+  gz(`f${fi}_lgn_p2`, !profilsiz);
+  gz(`f${fi}_lgn_p0`, profilsiz);
 
   // Kapalıyken yalnızca kontrol satırı görünür kalsın
   panel.querySelectorAll('.section').forEach((sec, i)=>{
@@ -2584,6 +2712,12 @@ function collectFaceIssues(){
         if(araKatOf(md).aktif){
           const ra = computeFace(ARAKAT_FI);
           if(ra.status.cls !== 'good') issues.push({ahu:ahuLabel, mod:'M'+(m+1), face:ARAKAT_DEF.name, text:ra.status.text});
+        }
+        // Eşanjör de aynı kapıdan geçer: eksik/geçersiz ölçü DXF ve Excel'i kilitler.
+        if(esanjorOf(md).aktif){
+          const eo = esanjorOlculeri();
+          if(!eo.gecerli) issues.push({ahu:ahuLabel, mod:'M'+(m+1), face:ESANJOR_DEF.name,
+            text: (eo.eksik.length ? eo.eksik : eo.hatalar).join('  |  ')});
         }
       });
     });
@@ -2774,6 +2908,7 @@ function renderAll(){
   renderModTabs();
   FACE_DEFS.forEach((_,i)=>renderFace(i));
   renderFace(ARAKAT_FI);
+  renderEsanjorPanel();
   renderGlobalSummary();
 }
 
@@ -3463,9 +3598,11 @@ async function exportExcel(){
             ['Panel açıklığı (−2p)', (o.acikL>0?Math.round(o.acikL):'—')+' × '+(o.acikW>0?Math.round(o.acikW):'—')],
             ['Boydan boya giden yön', (o.surekliYon==='L' ? 'Uzunluk (L)' : 'Genişlik (W)')
               + (o.ak.surekliYon ? '' : ' — otomatik (uzun kenar)')],
-            ['Çerçeve kesim', o.cerceve.length
-              ? o.cerceve.map(c=>c.adet+' × '+Math.round(c.boy)).join('  +  ')
-              : 'ÖLÇÜ EKSİK']
+            ['Çerçeve kesim', o.p===0
+              ? '— (profilsiz: çerçeve yok)'
+              : (o.cerceve.length
+                  ? o.cerceve.map(c=>c.adet+' × '+Math.round(c.boy)).join('  +  ')
+                  : 'ÖLÇÜ EKSİK')]
           ];
         }) : []));
 
@@ -3931,6 +4068,18 @@ function attachListeners(){
   });
 
   document.body.addEventListener('input', e=>{
+    // ---- EŞANJÖR alanları (8. sekme) ----
+    if(e.target.id === 'es_kenar' || e.target.id === 'es_ustkat' || e.target.id === 'es_saga'){
+      const es = activeEsanjor();
+      const v = Number(e.target.value)||0;
+      if(e.target.id === 'es_kenar') es.kenar = v;
+      else if(e.target.id === 'es_ustkat') es.ustKat = v;
+      else es.saga = v;
+      renderEsanjorPanel();
+      renderGlobalSummary();
+      return;
+    }
+    if(e.target.id === 'es_kod'){ activeEsanjor().kod = e.target.value; return; }
     let m = e.target.id && e.target.id.match(/^f(\d+)_ed_colsize$/);
     if(m){
       const fi = Number(m[1]);
@@ -3981,6 +4130,13 @@ function attachListeners(){
   });
 
   document.body.addEventListener('change', e=>{
+    // ---- EŞANJÖR (8. sekme) ----
+    if(e.target.id === 'es_aktif'){
+      activeEsanjor().aktif = e.target.checked;
+      renderEsanjorPanel();
+      renderGlobalSummary();
+      return;
+    }
     // ---- ARA KAT kontrolleri (7. sekme) ----
     if(e.target.id === `f${ARAKAT_FI}_aktif`){
       activeAraKat().aktif = e.target.checked;
@@ -4039,12 +4195,154 @@ function attachListeners(){
   });
 }
 
+// EŞANJÖR sekmesinin iskeleti. Yüz panellerinden farklıdır: ızgara, göz düzenleyici ve
+// kesim tablosu yoktur — üç giriş, türetilen beş ölçü ve bir yerleşim çizimi vardır.
+// Kimlikler `es_*` önekiyle; yüzlerin `f{fi}_*` deseninden ayrı tutulur ki delege
+// handler'ların regex'lerine (örn. /^f(\d+)_ed_del$/) hiç takılmasın.
+function buildEsanjorHTML(){
+  return `
+  <div class=&quot;section&quot;>
+    <div class=&quot;flex-between&quot; style=&quot;margin-bottom:10px;&quot;>
+      <span class=&quot;badge&quot;>EŞANJÖR — 45° yerleşim (baklava)</span>
+      <div class=&quot;checkbox-row&quot;>
+        <input type=&quot;checkbox&quot; id=&quot;es_aktif&quot;>
+        <label for=&quot;es_aktif&quot;>Bu modülde eşanjör var</label>
+      </div>
+    </div>
+    <div id=&quot;es_govde&quot;>
+      <div style=&quot;display:flex;gap:14px;flex-wrap:wrap;margin-bottom:12px;&quot;>
+        <div class=&quot;orient-select&quot;><label>Eşanjör Kenarı (mm)</label>
+          <input type=&quot;number&quot; id=&quot;es_kenar&quot; min=&quot;1&quot; step=&quot;1&quot; placeholder=&quot;kare kenarı&quot;></div>
+        <div class=&quot;orient-select&quot;><label>Üst Kat Ölçüsü (mm)</label>
+          <input type=&quot;number&quot; id=&quot;es_ustkat&quot; min=&quot;1&quot; step=&quot;1&quot; placeholder=&quot;üstten merkeze&quot;></div>
+        <div class=&quot;orient-select&quot;><label>Sağa Olan Uzaklık (mm)</label>
+          <input type=&quot;number&quot; id=&quot;es_saga&quot; min=&quot;1&quot; step=&quot;1&quot; placeholder=&quot;sağdan merkeze&quot;></div>
+        <div class=&quot;orient-select&quot;><label>Kodlama (boş = yok)</label>
+          <input type=&quot;text&quot; id=&quot;es_kod&quot; maxlength=&quot;20&quot; placeholder=&quot;opsiyonel&quot;></div>
+      </div>
+      <div class=&quot;dim-readout&quot;>
+        <div><div class=&quot;lbl&quot;>Modül İç (L × H × W)</div><div class=&quot;val&quot; id=&quot;es_z_ic&quot;>—</div></div>
+        <div><div class=&quot;lbl&quot;>Köşegen → yarısı (x)</div><div class=&quot;val&quot; id=&quot;es_z_x&quot;>—</div></div>
+        <div><div class=&quot;lbl&quot;>Cihaz İç Ölçüsü (CI)</div><div class=&quot;val&quot; id=&quot;es_z_ci&quot;>—</div></div>
+      </div>
+      <div class=&quot;dim-readout&quot;>
+        <div><div class=&quot;lbl&quot;>1. Ölçü — üst</div><div class=&quot;val&quot; id=&quot;es_z_o1&quot;>—</div></div>
+        <div><div class=&quot;lbl&quot;>2. Ölçü — sağ</div><div class=&quot;val&quot; id=&quot;es_z_o2&quot;>—</div></div>
+        <div><div class=&quot;lbl&quot;>3. Ölçü — alt · 1.5 mm</div><div class=&quot;val&quot; id=&quot;es_z_o3&quot;>—</div></div>
+        <div><div class=&quot;lbl&quot;>4. Ölçü — sol</div><div class=&quot;val&quot; id=&quot;es_z_o4&quot;>—</div></div>
+      </div>
+      <div class=&quot;status info&quot; id=&quot;es_status&quot;>Ölçüler girilmedi</div>
+      <div class=&quot;canvas-wrap&quot; id=&quot;es_canvas&quot;></div>
+      <div class=&quot;legend&quot;>
+        <span>Eşanjör <b>karedir</b> ve modülün içine <b>45°</b> döndürülmüş oturur; çizimdeki baklava onun izdüşümüdür.</span>
+        <span><b>Üst kat ölçüsü</b> ve <b>sağa olan uzaklık</b> baklavanın <b>merkezine</b> kadar ölçülür — köşesine değil.</span>
+        <span>x = kenar × √2 ⁄ 2 (köşegenin yarısı) · 1. ölçü = üst kat − x · 2. ölçü = sağa uzaklık − x</span>
+        <span>3. ölçü = iç yükseklik − 1. ölçü − 2x · 4. ölçü = iç uzunluk − 2x − 2. ölçü</span>
+        <span>Cihaz iç ölçüsü (CI) modülün <b>iç genişliğinden</b> gelir; iç ölçü = dış − 2 × kenar profili (seri 50 → 100, seri 60 → 120).</span>
+        <span><b>3. ölçü (alt) 1.5 mm</b> sacdan çıkar — DXF üretiminde ayrı bir <b>… (1.5 MM).dxf</b> dosyasına gider.</span>
+      </div>
+    </div>
+  </div>`;
+}
+
+// Yerleşim çizimi: modülün iç açıklığı (uzunluk × yükseklik) + 45° eşanjör + dört ölçü.
+// Yüz çizimleriyle aynı gerekçeyle tema-bağımsız sabit renkler kullanır (Excel'e beyaz
+// zeminde gömülebilsin diye).
+function drawEsanjorSVG(){
+  const SVG_W = 880, SVG_H = 480, PAD = 54;
+  const o = esanjorOlculeri();
+  let svg = `<svg xmlns=&quot;http://www.w3.org/2000/svg&quot; width=&quot;${SVG_W}&quot; height=&quot;${SVG_H}&quot; viewBox=&quot;0 0 ${SVG_W} ${SVG_H}&quot; font-family=&quot;Arial, Helvetica, sans-serif&quot;>`;
+  svg += `<rect x=&quot;0&quot; y=&quot;0&quot; width=&quot;${SVG_W}&quot; height=&quot;${SVG_H}&quot; fill=&quot;#ffffff&quot;/>`;
+  if(!(o.icL>0 && o.icH>0)){
+    svg += `<text x=&quot;${SVG_W/2}&quot; y=&quot;${SVG_H/2}&quot; fill=&quot;#3d4d5a&quot; font-size=&quot;15&quot; text-anchor=&quot;middle&quot;>Modül ölçüleri girilmedi</text></svg>`;
+    return svg;
+  }
+  const scale = Math.min((SVG_W-2*PAD)/o.icL, (SVG_H-2*PAD)/o.icH);
+  const fw = o.icL*scale, fh = o.icH*scale;
+  const ox = (SVG_W-fw)/2, oy = (SVG_H-fh)/2;
+  // Modülün iç açıklığı
+  svg += `<rect x=&quot;${ox}&quot; y=&quot;${oy}&quot; width=&quot;${fw}&quot; height=&quot;${fh}&quot; fill=&quot;#eef1f4&quot; stroke=&quot;#3a4d5c&quot; stroke-width=&quot;2&quot;/>`;
+  svg += `<text x=&quot;${ox+fw/2}&quot; y=&quot;${oy-16}&quot; fill=&quot;#33424e&quot; font-size=&quot;12&quot; text-anchor=&quot;middle&quot;>İç uzunluk = ${Math.round(o.icL)} mm</text>`;
+  svg += `<text x=&quot;${ox-16}&quot; y=&quot;${oy+fh/2}&quot; fill=&quot;#33424e&quot; font-size=&quot;12&quot; text-anchor=&quot;middle&quot; transform=&quot;rotate(-90 ${ox-16} ${oy+fh/2})&quot;>İç yükseklik = ${Math.round(o.icH)} mm</text>`;
+  if(o.x>0 && o.es.ustKat>0 && o.es.saga>0){
+    const cx = ox + (o.icL - o.es.saga)*scale;
+    const cy = oy + o.es.ustKat*scale;
+    const r  = o.x*scale;
+    const kotu = !o.gecerli;
+    const dolgu = kotu ? 'rgba(224,90,90,0.20)' : 'rgba(79,184,168,0.20)';
+    const cizgi = kotu ? '#c0392b' : '#2f8f80';
+    svg += `<polygon points=&quot;${cx},${cy-r} ${cx+r},${cy} ${cx},${cy+r} ${cx-r},${cy}&quot; fill=&quot;${dolgu}&quot; stroke=&quot;${cizgi}&quot; stroke-width=&quot;2&quot;/>`;
+    svg += `<line x1=&quot;${cx-r}&quot; y1=&quot;${cy}&quot; x2=&quot;${cx+r}&quot; y2=&quot;${cy}&quot; stroke=&quot;${cizgi}&quot; stroke-width=&quot;0.8&quot; stroke-dasharray=&quot;4,3&quot;/>`;
+    svg += `<line x1=&quot;${cx}&quot; y1=&quot;${cy-r}&quot; x2=&quot;${cx}&quot; y2=&quot;${cy+r}&quot; stroke=&quot;${cizgi}&quot; stroke-width=&quot;0.8&quot; stroke-dasharray=&quot;4,3&quot;/>`;
+    svg += `<text x=&quot;${cx}&quot; y=&quot;${cy-4}&quot; fill=&quot;#1b2a36&quot; font-size=&quot;12&quot; font-weight=&quot;700&quot; text-anchor=&quot;middle&quot;>EŞANJÖR ${Math.round(o.kenar)}×${Math.round(o.kenar)}</text>`;
+    svg += `<text x=&quot;${cx}&quot; y=&quot;${cy+12}&quot; fill=&quot;#46596a&quot; font-size=&quot;11&quot; text-anchor=&quot;middle&quot;>köşegen ${Math.round(o.kosegen)} · x ${o.x.toFixed(1)}</text>`;
+    // Dört ölçü — baklavanın köşesinden iç açıklığın kenarına
+    const olcuCiz = (x1,y1,x2,y2,tx,ty,metin,deger,yatayMi)=>{
+      const kirmizi = !(deger >= ESANJOR_MIN_O);
+      const renk = kirmizi ? '#c0392b' : '#5a6f80';
+      svg += `<line x1=&quot;${x1}&quot; y1=&quot;${y1}&quot; x2=&quot;${x2}&quot; y2=&quot;${y2}&quot; stroke=&quot;${renk}&quot; stroke-width=&quot;1&quot;/>`;
+      const rot = yatayMi ? '' : ` transform=&quot;rotate(-90 ${tx} ${ty})&quot;`;
+      svg += `<text x=&quot;${tx}&quot; y=&quot;${ty}&quot; fill=&quot;${renk}&quot; font-size=&quot;11&quot; font-weight=&quot;600&quot; text-anchor=&quot;middle&quot;${rot}>${metin} ${deger}</text>`;
+    };
+    olcuCiz(cx, oy, cx, cy-r, cx+22, (oy+cy-r)/2, '1.', o.O1, false);
+    olcuCiz(cx+r, cy, ox+fw, cy, (cx+r+ox+fw)/2, cy-6, '2.', o.O2, true);
+    olcuCiz(cx, cy+r, cx, oy+fh, cx+22, (cy+r+oy+fh)/2, '3.', o.O3, false);
+    olcuCiz(ox, cy, cx-r, cy, (ox+cx-r)/2, cy-6, '4.', o.O4, true);
+  }
+  svg += `<text x=&quot;${SVG_W-PAD}&quot; y=&quot;${SVG_H-12}&quot; fill=&quot;#9aa8b2&quot; font-size=&quot;9.5&quot; text-anchor=&quot;end&quot; font-style=&quot;italic&quot;>Cenk Altınay</text>`;
+  svg += '</svg>';
+  return svg;
+}
+
+// Eşanjör sekmesini modelden tazeler. renderAll'dan ve giriş handler'larından çağrılır.
+function renderEsanjorPanel(){
+  const panel = document.getElementById('face-'+ESANJOR_FI);
+  if(!panel) return;
+  const es = activeEsanjor();
+  const o  = esanjorOlculeri();
+  const set = (id, txt)=>{ const el = document.getElementById(id); if(el) el.textContent = txt; };
+  const val = (id, v)=>{ const el = document.getElementById(id); if(el && el !== document.activeElement) el.value = v; };
+
+  const cb = document.getElementById('es_aktif');
+  if(cb) cb.checked = !!es.aktif;
+  val('es_kenar',  es.kenar>0  ? es.kenar  : '');
+  val('es_ustkat', es.ustKat>0 ? es.ustKat : '');
+  val('es_saga',   es.saga>0   ? es.saga   : '');
+  val('es_kod',    es.kod || '');
+
+  const mm = v => v>0 ? Math.round(v)+'' : '—';
+  set('es_z_ic', (o.icL>0 && o.icH>0 && o.icW>0) ? `${mm(o.icL)} × ${mm(o.icH)} × ${mm(o.icW)}` : '—');
+  set('es_z_x',  o.x>0 ? `${Math.round(o.kosegen)} → ${o.x.toFixed(1)}` : '—');
+  set('es_z_ci', o.CI>0 ? mm(o.CI) : '—');
+  const say = v => o.gecerli || o.hatalar.length ? String(v) : '—';
+  set('es_z_o1', o.eksik.length ? '—' : say(o.O1));
+  set('es_z_o2', o.eksik.length ? '—' : say(o.O2));
+  set('es_z_o3', o.eksik.length ? '—' : say(o.O3));
+  set('es_z_o4', o.eksik.length ? '—' : say(o.O4));
+
+  const st = document.getElementById('es_status');
+  if(st){
+    let cls = 'info', txt = o.eksik.join('  |  ');
+    if(o.eksik.length===0 && o.hatalar.length>0){ cls = 'bad'; txt = '⚠ ' + o.hatalar.join('  |  '); }
+    else if(o.gecerli){ cls = 'good'; txt = `✓ CI ${o.CI} · 1. ${o.O1} · 2. ${o.O2} · 3. ${o.O3} (1.5 mm) · 4. ${o.O4}`; }
+    st.className = 'status ' + cls;
+    st.textContent = txt;
+  }
+  const cv = document.getElementById('es_canvas');
+  if(cv) cv.innerHTML = drawEsanjorSVG();
+
+  const govde = document.getElementById('es_govde');
+  if(govde) govde.style.display = es.aktif ? '' : 'none';
+  const tab = document.getElementById('tab-'+ESANJOR_FI);
+  if(tab) tab.style.opacity = es.aktif ? '' : '0.55';
+}
+
 function buildTabs(){
   const tabsEl = document.getElementById('tabs');
   const container = document.getElementById('faces-container');
   // 6 yüz + ARA KAT (7., sanal yüz). FACE_DEFS büyütülmez — sekme listesi burada
   // elle uzatılır ki ara kat yalnızca istediğimiz yerlere girsin.
-  const tabDefs = FACE_DEFS.concat([ARAKAT_DEF]);
+  const tabDefs = FACE_DEFS.concat([ARAKAT_DEF, ESANJOR_DEF]);
   tabDefs.forEach((def, idx)=>{
     const tab = document.createElement('div');
     tab.className = 'tab'+(idx===0?' active':'');
@@ -4062,7 +4360,7 @@ function buildTabs(){
     panel.id = 'face-'+idx;
     panel.className = 'face-panel';
     panel.style.display = idx===0?'block':'none';
-    panel.innerHTML = buildFaceHTML(idx);
+    panel.innerHTML = (idx === ESANJOR_FI) ? buildEsanjorHTML() : buildFaceHTML(idx);
     container.appendChild(panel);
   });
 }
@@ -4163,7 +4461,7 @@ function exportToDxf() {
   // aynı turdaki sonraki AHU'lar üstüne EKLER (çok AHU'lu projede tek liste oluşur).
   var ilkAktarim = true;
 
-  function openDxfTab(panels, bogazList, projeLabel, seri, tavaList, damperList, arakatList, reset){
+  function openDxfTab(panels, bogazList, projeLabel, seri, tavaList, damperList, arakatList, esanjorList, reset){
     var obj = { seri: seri, proje: projeLabel, panels: panels };
     // Bayrak olmadan 'DXF Üret'e ikinci kez basmak f1'deki listeleri ÇİFTLİYORDU:
     // eski (bayat ölçülü) kayıtlar duruyor, yenileri üstüne ekleniyor ve durum çubuğu
@@ -4173,6 +4471,7 @@ function exportToDxf() {
     if(tavaList && tavaList.length > 0) obj.tavaList = tavaList;
     if(damperList && damperList.length > 0) obj.damperList = damperList;
     if(arakatList && arakatList.length > 0) obj.arakatList = arakatList;
+    if(esanjorList && esanjorList.length > 0) obj.esanjorList = esanjorList;
     if(window.parent !== window){
       window.parent.postMessage({ type: 'dxfExport', payload: obj }, '*');
     }
@@ -4243,6 +4542,7 @@ function exportToDxf() {
     // ta kendisidir; çizim programlarına olduğu gibi gider.
     var elemanDimMap = { 'Boğaz': {}, 'Tava': {}, 'Damper': {} };
     var arakatDimMap = {};   // ara kat panelleri — ölçüye göre tekilleştirilir
+    var importedEsanjor = [];   // eşanjör setleri — modül başına en fazla bir tane
     state.modules.forEach(function(mod, mi) {
       withModule(mi, function() {
         FACE_DEFS.forEach(function(faceDef, fi) {
@@ -4263,6 +4563,21 @@ function exportToDxf() {
         // ARA KAT — yüz döngüsünün DIŞINDA, ayrı adım. Gözlerdeki damperler mevcut damper
         // listesine KATILIR (aynı ölçüdekiler tek satırda toplanır); ara kat panelleri
         // kendi haritasına gider.
+        // EŞANJÖR — ara kat gibi yüz döngüsünün DIŞINDA, ayrı adım. Ölçüler modülden
+        // türer (esanjorOlculeri); f1'in beklediği kayıt şekli burada kurulur.
+        // Geçersiz eşanjör buraya hiç gelmez: collectFaceIssues dışa aktarımı kilitler.
+        if (esanjorOf(mod).aktif) {
+          var eo = esanjorOlculeri();
+          if (eo.gecerli) {
+            importedEsanjor.push({
+              kalinlik: seriBase, CI: eo.CI,
+              O1: eo.O1, O2: eo.O2, O3: eo.O3, O4: eo.O4,
+              o1_15: ESANJOR_15MM.o1, o2_15: ESANJOR_15MM.o2,
+              o3_15: ESANJOR_15MM.o3, o4_15: ESANJOR_15MM.o4,
+              kod: eo.es.kod || ''
+            });
+          }
+        }
         if (araKatOf(mod).aktif) {
           var ra = computeFace(ARAKAT_FI);
           (ra.colResults || []).forEach(function(col) {
@@ -4270,8 +4585,14 @@ function exportToDxf() {
               if (p.bos || p.covered) return;
               var sw = p.sabitW, sh = p.sabitH;
               if (!sw || !sh || sw <= 0 || sh <= 0) return;
+              // Anahtar ÇİZİM TİPİNİ de taşır: aynı ölçüdeki profilli (4.5X3) ve profilsiz
+              // (5X3) panel farklı parçadır, tek satırda toplanamaz.
+              var akTip = (ARAKAT_PROFILLER[araKatOf(mod).profil] || ARAKAT_PROFILLER['30x30']).tip;
               var key = Math.round(sw) + '|' + Math.round(sh);
-              if (p.type === 'Ara Kat Paneli') arakatDimMap[key] = (arakatDimMap[key] || 0) + 1;
+              if (p.type === 'Ara Kat Paneli') {
+                var akKey = akTip + '|' + key;
+                arakatDimMap[akKey] = (arakatDimMap[akKey] || 0) + 1;
+              }
               else if (p.type === 'Damper') elemanDimMap['Damper'][key] = (elemanDimMap['Damper'][key] || 0) + 1;
             });
           });
@@ -4312,14 +4633,14 @@ function exportToDxf() {
     // edilir çünkü ara kat parçası bu eksende simetriktir (kaldırılan elle giriş de öyle yapıyordu).
     var importedArakat = Object.keys(arakatDimMap).map(function(k) {
       var pts = k.split('|');
-      var w = parseInt(pts[0]), h = parseInt(pts[1]);
-      return { tip: '4.5X3', B: Math.max(w, h), K: Math.min(w, h), adet: arakatDimMap[k] };
+      var w = parseInt(pts[1]), h = parseInt(pts[2]);
+      return { tip: pts[0], B: Math.max(w, h), K: Math.min(w, h), adet: arakatDimMap[k] };
     });
 
     var allPanels = mainPanels.concat(altUstPanels);
     if(allPanels.length > 0 || importedBogaz.length > 0 || importedTava.length > 0
-       || importedDamper.length > 0 || importedArakat.length > 0){
-      openDxfTab(allPanels, importedBogaz, projeLabel, seri, importedTava, importedDamper, importedArakat, ilkAktarim);
+       || importedDamper.length > 0 || importedArakat.length > 0 || importedEsanjor.length > 0){
+      openDxfTab(allPanels, importedBogaz, projeLabel, seri, importedTava, importedDamper, importedArakat, importedEsanjor, ilkAktarim);
       ilkAktarim = false;
       totalFound++;
     }
@@ -4338,7 +4659,7 @@ document.getElementById('btn_dxf').addEventListener('click', exportToDxf);
 // v4: panel.colSpan + face.anaSplitLevels (eski dosyaların alan göçü syncStructure'da yapılır)
 // v5: module.araKat (ara kat — 7. sanal yüz). Eski v4/v3/v2 dosyalar açılmaya devam eder,
 //     ara katsız modül olarak gelirler (araKatNormalize kurar).
-const PROJECT_VERSION = 5;
+const PROJECT_VERSION = 6;
 
 // Yüklenen her modülde araKat alanını kurar. Tembel kurulum (araKatOf) tek başına yeterli
 // olurdu ama o zaman projectData() → JSON → applyProjectData() → projectData() gidiş-dönüşü
@@ -4346,6 +4667,14 @@ const PROJECT_VERSION = 5;
 function araKatNormalize(){
   state.ahus.forEach(function(ahu){
     (ahu.modules||[]).forEach(function(md){ araKatOf(md); });
+  });
+}
+// Aynı gerekçe: tembel kurulum tek başına yeterli olurdu ama o zaman
+// projectData() → JSON → applyProjectData() → projectData() SABİT NOKTA olmazdı
+// (alan ilk çıktıda yok, render sırasında oluşup ikincisinde çıkardı).
+function esanjorNormalize(){
+  state.ahus.forEach(function(ahu){
+    (ahu.modules||[]).forEach(function(md){ esanjorOf(md); });
   });
 }
 
@@ -4381,6 +4710,7 @@ function applyProjectData(data){
   }
   if(data.proje) state.proje = data.proje;
   araKatNormalize();   // v4 ve öncesi: ara katsız modül olarak kurulur
+  esanjorNormalize();  // v5 ve öncesi: eşanjörsüz modül olarak kurulur
   return true;
 }
 
@@ -5723,14 +6053,6 @@ boot();
     }
     .cm-btn-inline:disabled { opacity: .4; cursor: not-allowed; }
 
-    .cm-clickable { cursor: pointer; }
-    tr.cm-editing td { background: color-mix(in srgb, var(--accent) 20%, transparent) !important; }
-    .cm-edit {
-      background: none; border: 1px solid var(--border); color: var(--text-muted);
-      padding: 4px 10px; border-radius: 4px; cursor: pointer;
-      font-size: 11px; font-weight: 600; margin-right: 4px;
-    }
-    .cm-edit:hover { color: var(--accent); border-color: var(--accent); }
 
   </style>
   <script>
@@ -6004,70 +6326,19 @@ boot();
     </div><!-- end mod-arakat -->
 
     <!-- ===== EŞANJÖR MODU ===== -->
-    <div id=&quot;mod-esanjor&quot; class=&quot;cm-wrap&quot; style=&quot;display:none&quot;>
+    <!-- Elle giris YOK (25.08.2026): liste yalnizca Kapak Hesabi'ndaki EŞANJÖR
+         sekmesinden gelir (applyKapakData). CI ve O1..O4 orada modul olcusunden
+         turetilir; burada yalnizca gorulur, silinir ve DXF'e verilir. -->
+    <div id=&quot;mod-esanjor&quot; style=&quot;display:none&quot;>
 
-      <div class=&quot;cm-side&quot; id=&quot;cm-side-esanjor&quot;>
-        <div class=&quot;cm-group&quot;>
-          <label>Kalınlık</label>
-          <select id=&quot;e-kalinlik&quot;>
-            <option value=&quot;50&quot;>50'LİK</option>
-            <option value=&quot;60&quot;>60'LIK</option>
-          </select>
-        </div>
-
-        <div class=&quot;cm-group&quot;>
-          <label>Cihaz İç Ölçüsü (CI) mm</label>
-          <input type=&quot;number&quot; id=&quot;e-ci&quot; placeholder=&quot;1245&quot; min=&quot;50&quot; step=&quot;1&quot;>
-        </div>
-
-        <div class=&quot;cm-row&quot;>
-          <div class=&quot;cm-group&quot;>
-            <label>1. Ölçü (O1) mm</label>
-            <input type=&quot;number&quot; id=&quot;e-o1&quot; placeholder=&quot;66&quot; min=&quot;5&quot; step=&quot;1&quot;>
-            <label class=&quot;cm-check&quot;><input type=&quot;checkbox&quot; id=&quot;e-o1-15&quot;> 1.5 mm</label>
-          </div>
-          <div class=&quot;cm-group&quot;>
-            <label>2. Ölçü (O2) mm</label>
-            <input type=&quot;number&quot; id=&quot;e-o2&quot; placeholder=&quot;66&quot; min=&quot;5&quot; step=&quot;1&quot;>
-            <label class=&quot;cm-check&quot;><input type=&quot;checkbox&quot; id=&quot;e-o2-15&quot;> 1.5 mm</label>
-          </div>
-        </div>
-
-        <div class=&quot;cm-row&quot;>
-          <div class=&quot;cm-group&quot;>
-            <label>3. Ölçü (O3) mm</label>
-            <input type=&quot;number&quot; id=&quot;e-o3&quot; placeholder=&quot;66&quot; min=&quot;5&quot; step=&quot;1&quot;>
-            <label class=&quot;cm-check&quot;><input type=&quot;checkbox&quot; id=&quot;e-o3-15&quot;> 1.5 mm</label>
-          </div>
-          <div class=&quot;cm-group&quot;>
-            <label>4. Ölçü (O4) mm</label>
-            <input type=&quot;number&quot; id=&quot;e-o4&quot; placeholder=&quot;66&quot; min=&quot;5&quot; step=&quot;1&quot;>
-            <label class=&quot;cm-check&quot;><input type=&quot;checkbox&quot; id=&quot;e-o4-15&quot;> 1.5 mm</label>
-          </div>
-        </div>
-
-        <div class=&quot;cm-group&quot;>
-          <label>Kodlama (boş = yok)</label>
-          <input type=&quot;text&quot; id=&quot;e-kod&quot; placeholder=&quot;ABC-123&quot; maxlength=&quot;20&quot;>
-        </div>
-
-        <button class=&quot;cm-btn&quot; id=&quot;e-btn-add&quot;>+ Listeye Ekle</button>
-
-        <div class=&quot;cm-section&quot;>
-          <h3>DXF Dosya Adı</h3>
-          <div class=&quot;cm-group&quot; style=&quot;margin-bottom:0&quot;>
-            <input type=&quot;text&quot; id=&quot;e-dosyaAdi&quot; placeholder=&quot;boş = proje adı — EŞANJÖR&quot; value=&quot;&quot; style=&quot;font-size:13px&quot;>
-          </div>
-        </div>
-
-        <button class=&quot;cm-btn cm-btn-export&quot; id=&quot;e-btn-export&quot; disabled>DXF'e AKTAR</button>
-      </div>
+      <input type=&quot;hidden&quot; id=&quot;e-dosyaAdi&quot; value=&quot;&quot;>
 
       <div class=&quot;content&quot;>
         <div class=&quot;table-header&quot;>
           <h2>Eşanjör Set Listesi</h2>
-          <div>
+          <div style=&quot;display:flex;align-items:center;gap:10px;&quot;>
             <span class=&quot;panel-count&quot; id=&quot;e-count&quot;>0 set</span>
+            <button class=&quot;cm-btn-inline&quot; id=&quot;e-btn-export&quot; disabled>⬇ Eşanjör DXF Üret</button>
           </div>
         </div>
 
@@ -9259,7 +9530,8 @@ function topluDxfUret() {
   var hasTava = tavaList.length > 0;
   var hasDamper = damperList.length > 0;
   var hasArakat = arakatList.length > 0;
-  if (!hasPanel && !hasBogaz && !hasTava && !hasDamper && !hasArakat) {
+  var hasEsanjor = esanjorList.length > 0;
+  if (!hasPanel && !hasBogaz && !hasTava && !hasDamper && !hasArakat && !hasEsanjor) {
     setStatus('Üretilecek kayıt yok — önce Kapak Hesabı sekmesinden aktarın.');
     return;
   }
@@ -9333,6 +9605,12 @@ function topluDxfUret() {
   if (hasArakat) {
     var aRes = generateAndDownloadArakatDxf(arakatList);
     if (aRes && aRes.success) { exportedNames.push(aRes.filename); arakatList.length = 0; renderArakatTable(); }
+  }
+  // Esanjor TEK cagride IKI dosya uretebilir (isaretli olculer ayri 1.5 MM dosyasina
+  // gider); filename alani ana dosyayi tasir, ikincisi de ayni cagride iner.
+  if (hasEsanjor) {
+    var eRes = generateAndDownloadEsanjorDxf(esanjorList);
+    if (eRes && eRes.success) { exportedNames.push(eRes.filename); esanjorList.length = 0; renderEsanjorTable(); }
   }
 
   } catch (err) {
@@ -10103,22 +10381,24 @@ function applyKapakData(data) {
     var importedTava = data.tavaList || [];       // Kapak Hesabi'ndaki 'Tava' elemanlari
     var importedDamper = data.damperList || [];   // Kapak Hesabi'ndaki 'Damper' elemanlari
     var importedArakat = data.arakatList || [];   // Kapak Hesabi'ndaki ARA KAT gozleri
+    var importedEsanjor = data.esanjorList || []; // Kapak Hesabi'ndaki ESANJOR sekmesi
     var seri = data.seri || '60';
     var proje = data.proje || '';
 
     if (!imported.length && !importedBogaz.length && !importedTava.length
-        && !importedDamper.length && !importedArakat.length) return;
+        && !importedDamper.length && !importedArakat.length && !importedEsanjor.length) return;
 
-    // Yeni bir aktarim turunun ILK mesaji (data.reset): Kapak Hesabi'ndan gelen BES liste
-    // sifirlanir. Esanjor listesi elle girilir, ona DOKUNULMAZ. Bayrak yoksa davranis
-    // eskisi gibi 'ekle' kalir — ayni turdaki 2. ve sonraki AHU mesajlari ile hash/
-    // postMessage ile disaridan gelen cagrilar boylece birikmeye devam eder.
+    // Yeni bir aktarim turunun ILK mesaji (data.reset): Kapak Hesabi'ndan gelen ALTI liste
+    // sifirlanir. 25.08.2026'ya kadar esanjor listesi ELLE giriliyordu ve dokunulmuyordu;
+    // artik o da AHU Studio'nun ESANJOR sekmesinden geliyor, yani ayni kurala tabi.
+    // Bayrak yoksa davranis eskisi gibi 'ekle' kalir — ayni turdaki 2. ve sonraki AHU
+    // mesajlari ile hash/postMessage ile disaridan gelen cagrilar boylece birikir.
     var temizlenen = 0;
     if (data.reset) {
       temizlenen = panels.length + bogazList.length + tavaList.length
-                 + damperList.length + arakatList.length;
+                 + damperList.length + arakatList.length + esanjorList.length;
       panels.length = 0; bogazList.length = 0; tavaList.length = 0;
-      damperList.length = 0; arakatList.length = 0;
+      damperList.length = 0; arakatList.length = 0; esanjorList.length = 0;
     }
 
     // Panel listesi
@@ -10174,6 +10454,14 @@ function applyKapakData(data) {
       renderArakatTable();
     }
 
+    // Esanjor setleri (25.08.2026): CI ve O1..O4 Kapak Hesabi'nda modul olcusunden
+    // turetilir; buraya hazir gelir. 1.5 mm isareti yalnizca O3'tedir.
+    if (importedEsanjor.length) {
+      importedEsanjor.forEach(function(e) { esanjorList.push(e); });
+      if (elEDosyaAdi && proje) elEDosyaAdi.value = proje + ' — ' + ESANJOR_DOSYA_EKI;
+      renderEsanjorTable();
+    }
+
     // Sifirlanan ama bu turda kaydi GELMEYEN listenin tablosu da tazelenmeli;
     // yukaridaki bloklarin her biri yalnizca kayit gelen listeyi render ediyor.
     if (data.reset) {
@@ -10182,6 +10470,7 @@ function applyKapakData(data) {
       if (!importedTava.length)   renderTavaTable();
       if (!importedDamper.length) renderDamperTable();
       if (!importedArakat.length) renderArakatTable();
+      if (!importedEsanjor.length) renderEsanjorTable();
     }
 
     // Durum mesajı
@@ -10191,6 +10480,7 @@ function applyKapakData(data) {
     if (importedTava.length)   parts.push(importedTava.length + ' tava');
     if (importedDamper.length) parts.push(importedDamper.length + ' damper');
     if (importedArakat.length) parts.push(importedArakat.length + ' ara kat');
+    if (importedEsanjor.length) parts.push(importedEsanjor.length + ' eşanjör seti');
 
     var onceki = temizlenen ? ' (önceki ' + temizlenen + ' kayıt değiştirildi)' : '';
     if (data.autoGenerate) {
@@ -10890,115 +11180,14 @@ renderArakatTable();
 // adlari f1 CSS'ine uyarlandi (cm-clickable / cm-editing / cm-edit / btn-del).
 
 var esanjorList = [];
-var elEKalinlik = document.getElementById('e-kalinlik');
-var elECi       = document.getElementById('e-ci');
-var elEO1       = document.getElementById('e-o1');
-var elEO2       = document.getElementById('e-o2');
-var elEO3       = document.getElementById('e-o3');
-var elEO4       = document.getElementById('e-o4');
-var elEO1_15    = document.getElementById('e-o1-15');
-var elEO2_15    = document.getElementById('e-o2-15');
-var elEO3_15    = document.getElementById('e-o3-15');
-var elEO4_15    = document.getElementById('e-o4-15');
-var elEKod      = document.getElementById('e-kod');
-var elEBtnAdd   = document.getElementById('e-btn-add');
 var elEBtnExp   = document.getElementById('e-btn-export');
 var elETable    = document.getElementById('e-table');
 var elEEmpty    = document.getElementById('e-empty');
 var elECount    = document.getElementById('e-count');
-var elEDosyaAdi = document.getElementById('e-dosyaAdi');
-
-var esanjorEditIndex = null;
-
-function addEsanjor() {
-  var kalinlik = elEKalinlik.value;
-  var CI = parseFloat(elECi.value);
-  var O1 = parseFloat(elEO1.value);
-  var O2 = parseFloat(elEO2.value);
-  var O3 = parseFloat(elEO3.value);
-  var O4 = parseFloat(elEO4.value);
-
-  if (!CI || CI < 50) {
-    setStatus('Hata: Cihaz iç ölçüsü (CI) en az 50 mm olmalı!');
-    elECi.focus();
-    return;
-  }
-  var olcus = [O1, O2, O3, O4];
-  var names = ['1. ölçü (O1)', '2. ölçü (O2)', '3. ölçü (O3)', '4. ölçü (O4)'];
-  var focusEls = [elEO1, elEO2, elEO3, elEO4];
-  for (var k = 0; k < 4; k++) {
-    if (!olcus[k] || olcus[k] < 5) {
-      setStatus('Hata: ' + names[k] + ' en az 5 mm olmalı!');
-      focusEls[k].focus();
-      return;
-    }
-  }
-
-  var kod = (elEKod && elEKod.value || '').trim();
-  var entry = {
-    kalinlik: kalinlik, CI: CI,
-    O1: O1, O2: O2, O3: O3, O4: O4,
-    o1_15: !!(elEO1_15 && elEO1_15.checked),
-    o2_15: !!(elEO2_15 && elEO2_15.checked),
-    o3_15: !!(elEO3_15 && elEO3_15.checked),
-    o4_15: !!(elEO4_15 && elEO4_15.checked),
-    kod: kod
-  };
-  if (esanjorEditIndex !== null) {
-    esanjorList[esanjorEditIndex] = entry;
-    setStatus('Set güncellendi: ' + kalinlik + &quot;'lik CI=&quot; + CI);
-    esanjorEditIndex = null;
-    elEBtnAdd.textContent = '+ Listeye Ekle';
-  } else {
-    esanjorList.push(entry);
-    setStatus('Set eklendi: ' + kalinlik + &quot;'lik CI=&quot; + CI +
-              ' (O=' + O1 + '/' + O2 + '/' + O3 + '/' + O4 + ')' +
-              (kod ? ' [' + kod + ']' : ''));
-  }
-  renderEsanjorTable();
-
-  elECi.value = '';
-  elEO1.value = '';
-  elEO2.value = '';
-  elEO3.value = '';
-  elEO4.value = '';
-  if (elEO1_15) elEO1_15.checked = false;
-  if (elEO2_15) elEO2_15.checked = false;
-  if (elEO3_15) elEO3_15.checked = false;
-  if (elEO4_15) elEO4_15.checked = false;
-  if (elEKod) elEKod.value = '';
-  elECi.focus();
-}
-
-function editEsanjor(index) {
-  var e = esanjorList[index];
-  if (!e) return;
-  esanjorEditIndex = index;
-  elEKalinlik.value = e.kalinlik;
-  elECi.value = e.CI;
-  elEO1.value = e.O1;
-  elEO2.value = e.O2;
-  elEO3.value = e.O3;
-  elEO4.value = e.O4;
-  if (elEO1_15) elEO1_15.checked = !!e.o1_15;
-  if (elEO2_15) elEO2_15.checked = !!e.o2_15;
-  if (elEO3_15) elEO3_15.checked = !!e.o3_15;
-  if (elEO4_15) elEO4_15.checked = !!e.o4_15;
-  if (elEKod) elEKod.value = e.kod || '';
-  elEBtnAdd.textContent = '✓ Güncelle';
-  renderEsanjorTable();
-  elECi.focus();
-  setStatus('Düzenleme modu: #' + (index + 1));
-}
+var elEDosyaAdi = document.getElementById('e-dosyaAdi');   // gizli: dosya adi tasiyicisi
 
 function removeEsanjor(index) {
   esanjorList.splice(index, 1);
-  if (esanjorEditIndex === index) {
-    esanjorEditIndex = null;
-    elEBtnAdd.textContent = '+ Listeye Ekle';
-  } else if (esanjorEditIndex !== null && index < esanjorEditIndex) {
-    esanjorEditIndex--;
-  }
   renderEsanjorTable();
   setStatus('Set silindi.');
 }
@@ -11036,8 +11225,7 @@ function renderEsanjorTable() {
 
   esanjorList.forEach(function(e, i) {
     var tr = document.createElement('tr');
-    tr.className = 'cm-clickable' + (esanjorEditIndex === i ? ' cm-editing' : '');
-    tr.title = 'Çift tıkla: düzenle';
+
     tr.innerHTML =
       '<td>' + (i + 1) + '</td>' +
       '<td>' + e.kalinlik + &quot;'LIK</td>&quot; +
@@ -11048,21 +11236,13 @@ function renderEsanjorTable() {
       '<td>' + e.O4 + (e.o4_15 ? ' <span class=&quot;esanjor-15-badge&quot;>1.5</span>' : '') + '</td>' +
       '<td>' + (e.kod ? esanjorEscapeHtml(e.kod) : '<span style=&quot;color:#8899aa&quot;>—</span>') + '</td>' +
       '<td class=&quot;td-actions&quot;>' +
-        '<button class=&quot;cm-edit e-btn-edit&quot; data-idx=&quot;' + i + '&quot; title=&quot;Düzenle&quot;>&#9998;</button>' +
         '<button class=&quot;btn-del e-btn-del&quot; data-idx=&quot;' + i + '&quot; title=&quot;Sil&quot;>Sil</button>' +
       '</td>';
-    tr.addEventListener('dblclick', function(){ editEsanjor(i); });
     elETable.appendChild(tr);
   });
   var totalParca = esanjorList.length * 8; // her set 4 esanjor + 4 duz = 8 parca
   elECount.textContent = esanjorList.length + ' set / ' + totalParca + ' parça';
 
-  document.querySelectorAll('.e-btn-edit').forEach(function(btn) {
-    btn.addEventListener('click', function(ev) {
-      ev.stopPropagation();
-      editEsanjor(parseInt(btn.dataset.idx));
-    });
-  });
   document.querySelectorAll('.e-btn-del').forEach(function(btn) {
     btn.addEventListener('click', function(ev) {
       ev.stopPropagation();
@@ -11070,14 +11250,6 @@ function renderEsanjorTable() {
     });
   });
 }
-
-if (elEBtnAdd) elEBtnAdd.addEventListener('click', addEsanjor);
-
-document.querySelectorAll('#cm-side-esanjor input, #cm-side-esanjor select').forEach(function(el) {
-  el.addEventListener('keydown', function(ev) {
-    if (ev.key === 'Enter') addEsanjor();
-  });
-});
 
 if (elEBtnExp) {
   elEBtnExp.addEventListener('click', function() {
@@ -11088,8 +11260,6 @@ if (elEBtnExp) {
       var result = generateAndDownloadEsanjorDxf(esanjorList);
       if (result && result.success) {
         esanjorList.length = 0;
-        esanjorEditIndex = null;
-        if (elEBtnAdd) elEBtnAdd.textContent = '+ Listeye Ekle';
         renderEsanjorTable();
         setStatus('DXF aktarıldı (' + result.filename + '). Liste sıfırlandı.');
       } else {
@@ -11365,10 +11535,10 @@ function show(i){
 // `durum` alanı değişir ('plan' | 'suruyor' | 'tamam') ve biten maddeye `tarih` yazılır.
 // Liste kabuk sayfada durur; iki sekmeden de aynı düğmeyle açılır.
 const YOL_HARITASI = [
-  {n:1,  t:'Ara kat — profilsiz seçenek', durum:'plan',
-   d:'Profilsiz ara katın çizimi profilliden farklı; ayrı çizim yolu eklenecek.'},
-  {n:2,  t:'Eşanjör modülü AHU Studio\'ya taşınacak', durum:'plan',
-   d:'Ölçüler Kapak Hesabı\'ndan gelecek; f1\'de elle giriş formu kalan tek modül eşanjördü.'},
+  {n:1,  t:'Ara kat — profilsiz seçenek', durum:'tamam', tarih:'25.08.2026',
+   d:'Profil yok: panel iç açıklığın tamamını kaplar (p=0), çerçeve/bölme profili üretilmez, çizim tipi 5X3.'},
+  {n:2,  t:'Eşanjör modülü AHU Studio\'ya taşınacak', durum:'tamam', tarih:'25.08.2026',
+   d:'8. sekme: kenar + üst kat + sağa uzaklık girilir, CI ve 1..4. ölçü modül ölçüsünden türer. f1\'deki elle giriş formu kaldırıldı.'},
   {n:3,  t:'Eşanjör önüne filtre ve damper', durum:'plan',
    d:'Eşanjörün önüne filtre ve damper eklenebilir hâle gelecek.'},
   {n:4,  t:'Baza çizimi', durum:'plan', d:''},
