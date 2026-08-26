@@ -487,6 +487,24 @@ const isAcilir = t => ACILIR_TYPES.includes(t);
 const isEleman = t => ELEMAN_TYPES.includes(t);
 const isBos = t => BOS_TYPES.includes(t);
 
+// ÇİZİM YÖNÜ olan elemanlar. Damper ve boğazda girilen genişlik/yükseklik, çizimde hangi
+// ÇERÇEVE PARÇASININ hangi ölçüyü takip edeceğini belirler (damperde yatay parça genişliği,
+// dikey parça yüksekliği sürer). Bu eşleme artık sabit değil, göz bazında seçilir —
+// panel.yon: '' (yatay, varsayılan) | 'dikey'.
+// Tava bilerek DIŞARIDA: gövde boyu ekseni fiziksel olarak asimetriktir (üst büküm payı
+// 52.5, alt payı 60'lıkta 77.5 / 50'likte 62.5), ölçü takas etmek başka bir tava çizer.
+const ELEMAN_YONLU = ['Damper', 'Boğaz'];
+const isYonlu = t => ELEMAN_YONLU.includes(t);
+const isDikeyEleman = p => isYonlu(p.type) && p.yon === 'dikey';
+// Yönlü elemanın ÇİZİME giden ölçüsü — takas formülünün TEK kopyası, kopyalamayın.
+// 'dikey' seçilirse girilen genişlik dikey parçaya, yükseklik yatay parçaya gider; bölme
+// eşiği (damper 1800 / boğaz 1950) de takas SONRASI yatay ölçüye bakar, çünkü bölünme
+// yatay parçanın imal edilebilir uzunluğundan doğar. Takas YALNIZ çizime gider: yüzdeki
+// yerleşim, tolerans ve kesim ölçüsü değişmez.
+function elemanCizimOlcusu(p){
+  return isDikeyEleman(p) ? {w: p.sabitH, h: p.sabitW} : {w: p.sabitW, h: p.sabitH};
+}
+
 const TYPE_COLORS = {
   &quot;Üst Panel&quot;:&quot;#a8bdd1&quot;, &quot;Normal Panel&quot;:&quot;#afc2d4&quot;,
   &quot;Boğaz Uzun&quot;:&quot;#e2cea2&quot;, &quot;Boğaz 2 Uzun&quot;:&quot;#e5c4a9&quot;,
@@ -1058,6 +1076,10 @@ function syncStructure(face){
       // Birleşim çözülür ya da kırpılırsa temizlenir; aksi halde tek kapak, iki bölüm
       // genişliğinde bir ölçüyle geri dönerdi.
       if(p.colSpan === 1 && p.spanSize) p.spanSize = 0;
+      // Çizim yönü yalnız yönlü elemanda (Damper/Boğaz) ve yalnız 'dikey' değeriyle
+      // anlamlıdır — başka her durumda alan tamamen DÜŞER. Böylece yatay (varsayılan)
+      // projelerin JSON'u eskisiyle bayt bayt aynı kalır ve gidiş-dönüş sabit nokta olur.
+      if(p.yon !== undefined && !(isYonlu(p.type) && p.yon === 'dikey')) delete p.yon;
     });
   });
 
@@ -1272,6 +1294,7 @@ function computeFace(fi){
       const acilir = isAcilir(p.type);
 
       const out = {entered, auto, eff, pColSize, type:p.type, acilir, eleman, bos,
+                   yon: (isYonlu(p.type) && p.yon === 'dikey') ? 'dikey' : '',
                    spanN, covered:false, spanCovers:null, spanOwner:null, spanLast:false, colAuto:false};
       applyDims(out);
       return out;
@@ -1807,17 +1830,27 @@ function drawFaceSVG(fi){
       if(p.acilir) svg += `<circle cx=&quot;${px+7}&quot; cy=&quot;${py+ph*0.3}&quot; r=&quot;2.5&quot; fill=&quot;#4fb8a8&quot;/><circle cx=&quot;${px+7}&quot; cy=&quot;${py+ph*0.7}&quot; r=&quot;2.5&quot; fill=&quot;#4fb8a8&quot;/><rect x=&quot;${(px+pw-15).toFixed(1)}&quot; y=&quot;${(py+ph/2-11).toFixed(1)}&quot; width=&quot;7&quot; height=&quot;22&quot; rx=&quot;3&quot; fill=&quot;#14212b&quot; stroke=&quot;#4fb8a8&quot; stroke-width=&quot;1.5&quot;/>`;
       if(p.eleman){
         if(p.type==='Damper'){
-          // Jaluzi kanatlı damper (frontal) — metal kanat gövdesi + kırmızı conta şeridi, referans görsele göre
+          // Jaluzi kanatlı damper (frontal) — metal kanat gövdesi + kırmızı conta şeridi.
+          // KANATLAR ÇİZİM YÖNÜNÜ İZLER: yatayda yatay şeritler, 'dikey' seçilince 90°
+          // dönüp dikey şeritler olur. Göz ölçüsü takas edilmediği için (yerleşim aynı
+          // kalır) yönü ekranda belli eden tek şey bu görünüm ve tipin yanındaki ↕.
           svg += `<rect x=&quot;${px+3}&quot; y=&quot;${py+3}&quot; width=&quot;${pw-6}&quot; height=&quot;${ph-6}&quot; fill=&quot;none&quot; stroke=&quot;#9199a0&quot; stroke-width=&quot;1.4&quot;/>`;
-          const nSlat = Math.max(3, Math.min(7, Math.floor(ph/24)));
-          const bInX = px+5, bInW = pw-10;
-          const bandH = (ph-8)/nSlat;
+          const dik = p.yon==='dikey';
+          const dizBoy = dik ? pw : ph;          // kanatların DİZİLDİĞİ eksen
+          const kanatBas = dik ? py+5 : px+5;    // kanadın diğer eksende başlangıcı
+          const kanatBoy = dik ? ph-10 : pw-10;  // ve o eksendeki boyu
+          const nSlat = Math.max(3, Math.min(7, Math.floor(dizBoy/24)));
+          const bandH = (dizBoy-8)/nSlat;
           for(let li=0; li<nSlat; li++){
-            const by = py+4 + bandH*li;
+            const bo = (dik ? px : py) + 4 + bandH*li;
             const bh = Math.max(bandH-3, 4);
-            svg += `<rect x=&quot;${bInX}&quot; y=&quot;${by.toFixed(1)}&quot; width=&quot;${bInW}&quot; height=&quot;${bh.toFixed(1)}&quot; fill=&quot;#aeb4ba&quot; stroke=&quot;#6b7178&quot; stroke-width=&quot;0.6&quot;/>`;
             const sealH = Math.max(bh*0.22, 2);
-            svg += `<rect x=&quot;${bInX}&quot; y=&quot;${(by+bh-sealH).toFixed(1)}&quot; width=&quot;${bInW}&quot; height=&quot;${sealH.toFixed(1)}&quot; fill=&quot;#c1272d&quot;/>`;
+            // Conta, yatayda kanadın ALTINDA; 90° dönünce SAĞINDA kalır.
+            svg += dik
+              ? `<rect x=&quot;${bo.toFixed(1)}&quot; y=&quot;${kanatBas}&quot; width=&quot;${bh.toFixed(1)}&quot; height=&quot;${kanatBoy}&quot; fill=&quot;#aeb4ba&quot; stroke=&quot;#6b7178&quot; stroke-width=&quot;0.6&quot;/>`
+                + `<rect x=&quot;${(bo+bh-sealH).toFixed(1)}&quot; y=&quot;${kanatBas}&quot; width=&quot;${sealH.toFixed(1)}&quot; height=&quot;${kanatBoy}&quot; fill=&quot;#c1272d&quot;/>`
+              : `<rect x=&quot;${kanatBas}&quot; y=&quot;${bo.toFixed(1)}&quot; width=&quot;${kanatBoy}&quot; height=&quot;${bh.toFixed(1)}&quot; fill=&quot;#aeb4ba&quot; stroke=&quot;#6b7178&quot; stroke-width=&quot;0.6&quot;/>`
+                + `<rect x=&quot;${kanatBas}&quot; y=&quot;${(bo+bh-sealH).toFixed(1)}&quot; width=&quot;${kanatBoy}&quot; height=&quot;${sealH.toFixed(1)}&quot; fill=&quot;#c1272d&quot;/>`;
           }
         } else if(p.type==='Tava'){
           // Tava (frontal) — düz panel görünümü, sadece küçük bir tahliye deliği
@@ -1850,7 +1883,10 @@ function drawFaceSVG(fi){
       if(lineCount>0){
         const rows = [fitLabelText(kodTxt, padW, 13, 8, 700)];
         rows[0].weight = 700;
-        if(lineCount>=2){ const t=fitLabelText(p.type, padW, 11, 8, 400); t.weight=400; rows.push(t); }
+        // Çizim yönü dikey olan eleman tipin yanında ↕ ile işaretlenir — göz ölçüleri
+        // yüzün kendi ekseninde kaldığı için işaret olmasa yerleşimden anlaşılmazdı.
+        const tipTxt = p.type + (p.yon==='dikey' ? ' ↕' : '');
+        if(lineCount>=2){ const t=fitLabelText(tipTxt, padW, 11, 8, 400); t.weight=400; rows.push(t); }
         if(lineCount>=3){ const t=fitLabelText(sizeTxt, padW, 12, 8, 700); t.weight=700; rows.push(t); }
         const lineGap = rows.length===3 ? 16 : rows.length===2 ? 13 : 0;
         const totalH = (rows.length-1)*lineGap;
@@ -2278,6 +2314,12 @@ function editorInfo(r, ci, pi, orient){
   if(p.sabitW!==null) info += `SABİT w: ${p.sabitW.toFixed(0)} mm. `;
   if(p.sabitH!==null) info += `SABİT h: ${p.sabitH.toFixed(0)} mm. `;
   if(p.eleman) info += `Eleman — 0 tolerans: girilen ölçü kesim/sipariş ölçüsüdür. `;
+  if(isYonlu(p.type)){
+    const c = elemanCizimOlcusu(p);
+    if(c.w!==null && c.h!==null) info += p.yon==='dikey'
+      ? `Çizim yönü DİKEY — ölçüler takas edilir: çizime yatay parça ${Math.round(c.w)} mm, dikey parça ${Math.round(c.h)} mm olarak gider. `
+      : `Çizim yönü yatay — çizime yatay parça ${Math.round(c.w)} mm, dikey parça ${Math.round(c.h)} mm olarak gider. `;
+  }
   if(p.bos) info += `Boş Alan — kesim listesine girmez; son hücrede ölçüsüz bırakılırsa kalan alanı otomatik doldurur. `;
   const acrossLbl = orient==='V' ? 'Genişlik' : 'Yükseklik';
   const alongLbl  = orient==='V' ? 'Yükseklik' : 'Genişlik';
@@ -2369,9 +2411,19 @@ function renderEditor(fi){
     : '';
   const pField = `<div><label>${pLbl}${single?' — boş = otomatik tam':''}</label><input type=&quot;number&quot; id=&quot;f${fi}_ed_psize&quot; value=&quot;${p.size||''}&quot; placeholder=&quot;${single?'oto':''}&quot;></div>`;
   const dimFields = orient==='V' ? pField + colField : colField + pField;
+  // Yönlü elemanda (Damper/Boğaz) çizim yönü seçilir: girilen ölçülerin çerçeve
+  // parçalarına eşlenmesi takas edilebilir. Yüzdeki yerleşim ve kesim ölçüsü değişmez.
+  const dikeyMi = isDikeyEleman(p);
+  const yonField = isYonlu(p.type)
+    ? `<div><label>Çizim Yönü</label><select id=&quot;f${fi}_ed_yon&quot;>`
+      + `<option value=&quot;&quot;${dikeyMi?'':' selected'}>Yatay (varsayılan)</option>`
+      + `<option value=&quot;dikey&quot;${dikeyMi?' selected':''}>Dikey (ölçüler takas)</option>`
+      + `</select></div>`
+    : '';
   body.innerHTML = `<div class=&quot;grid&quot;>
     ${dimFields}
     <div><label>Panel Tipi</label><select id=&quot;f${fi}_ed_type&quot;>${typeOptions(p.type, fi)}</select></div>
+    ${yonField}
     <div style=&quot;display:flex;align-items:flex-end;gap:8px;flex-wrap:wrap;&quot;>
       ${growField}
       ${spanned?`<button class=&quot;add-btn2 ghost&quot; id=&quot;f${fi}_cell_unmerge&quot;>Birleşimi Çöz</button>`:''}
@@ -2487,7 +2539,9 @@ function getSabitRows(r){
       if(p.bos || p.covered) return; // Boş Alan ve birleşik kapağın kapladığı hücre kesim listesine girmez
       const g = p.sabitW!==null ? Math.round(p.sabitW) : 'ÖLÇÜ EKSİK';
       const y = p.sabitH!==null ? Math.round(p.sabitH) : 'ÖLÇÜ EKSİK';
-      out.push([fc+'-B'+(ci+1)+'K'+(pi+1), p.type, g, y]);
+      // Çizim yönü dikeyse tipin yanına yazılır — ölçü sütunları yüzün kendi ekseninde
+      // kalır (fiziksel açıklık), takas yalnız çizime gider. Yatayda satır değişmez.
+      out.push([fc+'-B'+(ci+1)+'K'+(pi+1), p.type + (p.yon==='dikey' ? ' (dikey)' : ''), g, y]);
     });
   });
   return out;
@@ -2994,6 +3048,9 @@ function faceLayoutRects(fi){
         : {u0:pc, v0:alongMm, u1:pc+pm, v1:alongMm+pColMm};
       rc.fill = TYPE_COLORS[p.type]||'#34495e';
       if(p.eleman){ rc.eleman = true; rc.elType = p.type; rc.lbl = FACE_CODE[fi]+'-B'+(ci+1)+'K'+(pi+1); }
+      // Çizim yönü 3B'de damper kanatlarını döndürür. `bos`/`acilir` gibi YALNIZ dolu
+      // olduğunda eklenir — yatay (varsayılan) yüzlerde bu çıktı bayt bayt eskisi gibi kalsın.
+      if(p.yon==='dikey') rc.yon = 'dikey';
       if(p.bos) rc.bos = true;
       if(p.acilir) rc.acilir = true;
       // Birleştirilmiş kapağın kapladığı hücre 3B'de de üretilmez (2B aynası ile aynı kural) —
@@ -4162,7 +4219,21 @@ function attachListeners(){
       if(s){
         // Birleşik kapakta tip de kapladığı hücrelere yazılır (tek kapak, tek tip)
         syncSpannedCell(fi, s.col, s.idx, {type: e.target.value});
-        syncStructure(face); // boğaz seçilirse bitişik ana takviyeler kalkar
+        syncStructure(face); // boğaz seçilirse bitişik ana takviyeler kalkar; ölü 'yon' düşer
+        renderFace(fi);
+      }
+      return;
+    }
+    // Yönlü elemanın (Damper/Boğaz) çizim yönü. Birleşik kapakta kapladığı hücrelere de
+    // yazılır — tek kapak, tek yön. syncStructure geçersiz değeri zaten düşürür.
+    m = e.target.id && e.target.id.match(/^f(\d+)_ed_yon$/);
+    if(m){
+      const fi = Number(m[1]);
+      const face = faceOf(fi);
+      const s = selCell(face);
+      if(s){
+        syncSpannedCell(fi, s.col, s.idx, {yon: e.target.value === 'dikey' ? 'dikey' : ''});
+        syncStructure(face);
         renderFace(fi);
       }
       return;
@@ -4553,7 +4624,12 @@ function exportToDxf() {
               if (!p.eleman) return;
               var harita = elemanDimMap[p.type];
               if (!harita) return;
-              var sw = p.sabitW, sh = p.sabitH;
+              // Yönlü elemanda (Damper/Boğaz) ölçüler çizim eşlemesine göre takas edilir.
+              // Anahtar takas SONRASI ölçüdür: aynı parçaları veren yatay 1250×450 ile
+              // dikey 450×1250 tek satırda toplanır, bölme eşiği de doğru ölçüye bakar.
+              // Yönsüz elemanda (Tava) fonksiyon ölçüyü olduğu gibi döndürür.
+              var co = elemanCizimOlcusu(p);
+              var sw = co.w, sh = co.h;
               if (!sw || !sh || sw <= 0 || sh <= 0) return;
               var key = Math.round(sw) + '|' + Math.round(sh);
               harita[key] = (harita[key] || 0) + 1;
@@ -4583,7 +4659,10 @@ function exportToDxf() {
           (ra.colResults || []).forEach(function(col) {
             (col.panels || []).forEach(function(p) {
               if (p.bos || p.covered) return;
-              var sw = p.sabitW, sh = p.sabitH;
+              // Ara kat gözündeki damper de yönlüdür; ara kat PANELİ yönsüz olduğu için
+              // fonksiyon onun ölçüsünü olduğu gibi döndürür (akKey değişmez).
+              var co = elemanCizimOlcusu(p);
+              var sw = co.w, sh = co.h;
               if (!sw || !sh || sw <= 0 || sh <= 0) return;
               // Anahtar ÇİZİM TİPİNİ de taşır: aynı ölçüdeki profilli (4.5X3) ve profilsiz
               // (5X3) panel farklı parçadır, tek satırda toplanamaz.
@@ -4659,7 +4738,7 @@ document.getElementById('btn_dxf').addEventListener('click', exportToDxf);
 // v4: panel.colSpan + face.anaSplitLevels (eski dosyaların alan göçü syncStructure'da yapılır)
 // v5: module.araKat (ara kat — 7. sanal yüz). Eski v4/v3/v2 dosyalar açılmaya devam eder,
 //     ara katsız modül olarak gelirler (araKatNormalize kurar).
-const PROJECT_VERSION = 6;
+const PROJECT_VERSION = 7;   // v7 = yönlü elemanın çizim yönü (panel.yon)
 
 // Yüklenen her modülde araKat alanını kurar. Tembel kurulum (araKatOf) tek başına yeterli
 // olurdu ama o zaman projectData() → JSON → applyProjectData() → projectData() gidiş-dönüşü
@@ -5162,20 +5241,28 @@ function boot(){
     });
 
     if(isDamper){
-      // Kanatlar: çerçeve açıklığı içinde v ekseni boyunca dizilmiş yatay bloklar + her
-      // kanadın dış (kameraya en yakın) kenarında ince kırmızı conta şeridi — referans görsele göre.
-      const nSlat = Math.max(3, Math.min(7, Math.round((vMid1-vMid0)/140)));
+      // Kanatlar: çerçeve açıklığı içinde dizilmiş bloklar + her kanadın dış (kameraya en
+      // yakın) kenarında ince kırmızı conta şeridi — referans görsele göre.
+      // ÇİZİM YÖNÜNÜ İZLER (2B yüz çiziminin aynası): yatayda v ekseni boyunca dizilir
+      // (yatay kanatlar), 'dikey' seçilince u ekseni boyunca dizilir — yani 90° döner.
+      const dik = rc.yon==='dikey';
+      const d0 = dik ? uMid0 : vMid0, d1 = dik ? uMid1 : vMid1;   // kanatların dizildiği eksen
+      const nSlat = Math.max(3, Math.min(7, Math.round((d1-d0)/140)));
+      // Kanadın diğer eksendeki (boyunca uzandığı) aralığı — dizilim ekseninin tersi
+      const kutu = (b0, b1, derinlik) => dik
+        ? facePlaneBox(fi, b0, vMid0, b1, vMid1, L,H,W, pos, derinlik, 'outward')
+        : facePlaneBox(fi, uMid0, b0, uMid1, b1, L,H,W, pos, derinlik, 'outward');
       for(let i=0;i<nSlat;i++){
         const t0 = i/nSlat, t1 = (i+0.86)/nSlat; // aralarda küçük boşluk
-        const bv0 = vMid0 + (vMid1-vMid0)*t0, bv1 = vMid0 + (vMid1-vMid0)*t1;
-        const bladeBox = facePlaneBox(fi, uMid0, bv0, uMid1, bv1, L,H,W, pos, EL3_DEPTH*0.86, 'outward');
+        const b0 = d0 + (d1-d0)*t0, b1 = d0 + (d1-d0)*t1;
+        const bladeBox = kutu(b0, b1, EL3_DEPTH*0.86);
         const blade = new THREE.Mesh(new THREE.BoxGeometry(bladeBox.size.x, bladeBox.size.y, bladeBox.size.z),
           new THREE.MeshBasicMaterial({color:0xaeb4ba}));
         blade.position.copy(bladeBox.center);
         grp.add(blade);
         solidMeshes.push(blade);
 
-        const sealBox = facePlaneBox(fi, uMid0, bv0+(bv1-bv0)*0.78, uMid1, bv1, L,H,W, pos, EL3_DEPTH*0.88, 'outward');
+        const sealBox = kutu(b0+(b1-b0)*0.78, b1, EL3_DEPTH*0.88);
         const seal = new THREE.Mesh(new THREE.BoxGeometry(sealBox.size.x, sealBox.size.y, sealBox.size.z),
           new THREE.MeshBasicMaterial({color:0xc1272d}));
         seal.position.copy(sealBox.center);
