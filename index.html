@@ -269,6 +269,48 @@ iframe.active{display:block;}
 
   /* ---------- ERİŞİLEBİLİRLİK ---------- */
   button:focus-visible, .tab:focus-visible, .vbtn:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:999px;}
+  /* ---------- DXF'TEN AKTARIM MODALI ---------- */
+  #dxa_modal{position:fixed;inset:0;z-index:900;display:none;align-items:center;justify-content:center;padding:22px;}
+  #dxa_modal.open{display:flex;}
+  #dxa_backdrop{position:absolute;inset:0;background:rgba(0,0,0,.62);}
+  .dxa-panel{position:relative;background:var(--panel);border:1px solid var(--border);border-radius:var(--r-m);
+    box-shadow:var(--shadow-pop);color:var(--text);width:min(96vw,1060px);max-height:92vh;
+    display:flex;flex-direction:column;overflow:hidden;}
+  .dxa-head{padding:12px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;flex-shrink:0;}
+  .dxa-head h2{margin:0;font-size:15px;font-weight:700;letter-spacing:.2px;}
+  .dxa-nav{margin-left:auto;display:flex;align-items:center;gap:6px;color:var(--muted);font-size:12.5px;}
+  .dxa-nav button{background:var(--panel2);color:var(--text);border:1px solid var(--border);
+    border-radius:var(--r-s);padding:2px 10px;font:inherit;font-size:14px;cursor:pointer;line-height:1.5;}
+  .dxa-nav button:disabled{opacity:.35;cursor:default;}
+  #dxa_kapat{background:none;border:none;color:var(--muted);font-size:22px;padding:0 2px;}
+  #dxa_kapat:hover{color:var(--accent);}
+  #dxa_serit{display:flex;flex-wrap:wrap;gap:6px;padding:9px 18px;border-bottom:1px solid var(--border);flex-shrink:0;}
+  .dxa-cip{background:var(--panel2);border:1px solid var(--border);border-radius:999px;padding:3px 11px;
+    font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;user-select:none;}
+  .dxa-cip.sec{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-ring);}
+  .dxa-cip.pas{opacity:.45;}
+  .dxa-nokta{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+  #dxa_body{padding:14px 18px 18px;overflow:auto;flex:1;}
+  .dxa-kunye{display:grid;grid-template-columns:repeat(auto-fit,minmax(185px,1fr));gap:9px 18px;}
+  .dxa-kunye>div{font-size:11.5px;color:var(--muted);line-height:1.35;}
+  .dxa-kunye b{display:block;color:var(--text);font-size:13.5px;font-weight:600;}
+  .dxa-kunye b.bos{color:var(--warn);}
+  .dxa-secenek{display:flex;flex-wrap:wrap;gap:18px;align-items:center;margin:13px 0 4px;}
+  .dxa-secenek label{display:inline-flex;align-items:center;gap:7px;font-size:13px;cursor:pointer;margin:0;font-weight:600;}
+  .dxa-secenek input{width:auto;margin:0;}
+  #dxa_body h3{font-size:11.5px;margin:15px 0 5px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;}
+  #dxa_body table{width:100%;border-collapse:collapse;font-size:12.5px;}
+  #dxa_body th,#dxa_body td{border:1px solid var(--border);padding:4px 9px;text-align:left;}
+  #dxa_body th{background:var(--panel2);font-weight:600;font-size:11.5px;}
+  #dxa_body td.n{text-align:right;font-variant-numeric:tabular-nums;}
+  #dxa_body tr.k-alt td:first-child{box-shadow:inset 3px 0 0 var(--accent);}
+  #dxa_body tr.k-ust td:first-child{box-shadow:inset 3px 0 0 var(--warn);}
+  #dxa_body tr.k-tam td:first-child{box-shadow:inset 3px 0 0 var(--bad);}
+  #dxa_body ul.dxa-liste{margin:7px 0 0;padding-left:18px;font-size:12px;font-weight:400;line-height:1.6;}
+  .dxa-sema{border:1px solid var(--border);border-radius:var(--r-s);background:var(--panel2);
+    padding:8px;margin-top:6px;overflow:auto;}
+  .dxa-alt{padding:11px 18px;border-top:1px solid var(--border);display:flex;gap:12px;align-items:center;flex-shrink:0;}
+  .dxa-alt .dxa-not{font-size:11.5px;color:var(--muted);flex:1;line-height:1.45;}
   @media (prefers-reduced-motion: reduce){
     *{transition:none!important;animation:none!important;}
   }
@@ -296,6 +338,10 @@ iframe.active{display:block;}
     <label class=&quot;add-btn2&quot; style=&quot;background:linear-gradient(135deg,#3a5a3a,#4a7a4a);color:#fff;cursor:pointer;margin:0;&quot; title=&quot;Kaydedilmiş .ahu.json dosyasını yükle&quot;>
       📂 Proje Aç
       <input type=&quot;file&quot; id=&quot;btn_load_proj&quot; accept=&quot;.json&quot; style=&quot;display:none;&quot;>
+    </label>
+    <label class=&quot;add-btn2 ghost&quot; id=&quot;dxa_dugme&quot; style=&quot;cursor:pointer;margin:0;&quot; title=&quot;P-KS teknik resim DXF'inden modülleri kur&quot;>
+      📐 DXF'ten Aktar
+      <input type=&quot;file&quot; id=&quot;dxa_input&quot; accept=&quot;.dxf&quot; multiple style=&quot;display:none;&quot;>
     </label>
     <button class=&quot;add-btn2&quot; id=&quot;btn_excel&quot;>⬇ Excel Çıktısı</button>
     <button class=&quot;add-btn2&quot; id=&quot;btn_dxf&quot; style=&quot;background:linear-gradient(135deg,#1a9e6a,#27c47e);color:#fff;&quot;>⬇ DXF Üret</button>
@@ -467,6 +513,27 @@ iframe.active{display:block;}
 
 <footer class=&quot;app-footer&quot;>Cenk Altınay</footer>
 
+<div id=&quot;dxa_modal&quot;>
+  <div id=&quot;dxa_backdrop&quot;></div>
+  <div class=&quot;dxa-panel&quot;>
+    <div class=&quot;dxa-head&quot;>
+      <h2>📐 DXF'ten Modül Aktarımı</h2>
+      <div class=&quot;dxa-nav&quot;>
+        <span id=&quot;dxa_sayac&quot;></span>
+        <button id=&quot;dxa_onceki&quot; title=&quot;Önceki dosya&quot;>‹</button>
+        <button id=&quot;dxa_sonraki&quot; title=&quot;Sonraki dosya&quot;>›</button>
+        <button id=&quot;dxa_kapat&quot; title=&quot;Kapat&quot;>×</button>
+      </div>
+    </div>
+    <div id=&quot;dxa_serit&quot;></div>
+    <div id=&quot;dxa_body&quot;></div>
+    <div class=&quot;dxa-alt&quot;>
+      <div class=&quot;dxa-not&quot;>Her dosya yeni bir AHU olur; mevcut proje korunur. Proje adı ve iş numarası DXF'ten alınmaz.</div>
+      <button class=&quot;add-btn2 ghost&quot; id=&quot;dxa_iptal&quot;>İptal</button>
+      <button class=&quot;add-btn2&quot; id=&quot;dxa_aktar&quot;>Aktar</button>
+    </div>
+  </div>
+</div>
 <script src=&quot;https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js&quot;></script>
 <script>
 const FACE_DEFS = [
@@ -3230,7 +3297,7 @@ function drawMontajSVG(){
     // Kutu içi bilgi — dar kutuda alttan satır atılır, modül adı her zaman kalır
     const fs = Math.max(8.5, Math.min(15, Math.min(rw, rh)/7));
     const satir = [
-      {t:'M'+(b.i+1), s:fs*1.25, w:700, f:'#16232e'},
+      {t:'M'+(b.i+1)+(b.md.ad ? ' — '+b.md.ad : ''), s:fs*1.25, w:700, f:'#16232e'},
       {t:say(b.w)+' × '+say(b.h)+' mm', s:fs, w:600, f:'#33424e'},
       {t:'Derinlik (W): '+say(b.d)+' mm', s:fs*0.92, w:400, f:'#46596a'}
     ];
@@ -3597,7 +3664,7 @@ async function exportExcel(){
       wsM.getCell(1,1).font = devFont;
       let mrr = addTable(wsM, 2, 'MONTAJ — MODÜL DIŞ ÖLÇÜLERİ',
         ['Modül','L (mm)','H (mm)','W (mm)','Konum x,y,z (mm)','Ara Kat'],
-        state.modules.map((md,i)=>['M'+(i+1), md.L||'—', md.H||'—', md.W||'—',
+        state.modules.map((md,i)=>['M'+(i+1)+(md.ad ? ' — '+md.ad : ''), md.L||'—', md.H||'—', md.W||'—',
           md.pos.x+', '+md.pos.y+', '+md.pos.z, araKatOf(md).aktif ? 'VAR' : '—']));
       if(!wsM.rowBreaks) wsM.rowBreaks = [];
       wsM.rowBreaks.push({id: mrr-1, max:16383, man:1});
@@ -3729,6 +3796,29 @@ function attachListeners(){
     if(panel) panel.style.display = 'none';
   });
   document.getElementById('btn_save_proj').addEventListener('click', saveProject);
+  document.getElementById('dxa_input').addEventListener('change', e=>{
+    dxaDosyalariOku(e.target.files);
+    e.target.value = '';               // ayni dosya ikinci kez secilebilsin
+  });
+  document.getElementById('dxa_kapat').addEventListener('click', dxaModalKapat);
+  document.getElementById('dxa_iptal').addEventListener('click', dxaModalKapat);
+  document.getElementById('dxa_backdrop').addEventListener('click', dxaModalKapat);
+  document.getElementById('dxa_onceki').addEventListener('click', ()=>dxaGit(-1));
+  document.getElementById('dxa_sonraki').addEventListener('click', ()=>dxaGit(1));
+  document.getElementById('dxa_aktar').addEventListener('click', dxaAktar);
+  document.getElementById('dxa_serit').addEventListener('click', e=>{
+    const cip = e.target.closest('[data-dxacip]');
+    if(cip){ dxaIdx = Number(cip.dataset.dxacip); dxaCiz(); }
+  });
+  document.getElementById('dxa_body').addEventListener('change', e=>{
+    const p = dxaPlanlar[dxaIdx];
+    if(!p) return;
+    if(e.target.id === 'dxa_ayna'){ p.ayna = e.target.checked; p.aynaOto = false; dxaCiz(); }
+    if(e.target.id === 'dxa_sec'){ p.sec = e.target.checked; dxaCiz(); }
+  });
+  document.addEventListener('keydown', e=>{
+    if(e.key === 'Escape' && document.getElementById('dxa_modal').classList.contains('open')) dxaModalKapat();
+  });
   document.getElementById('btn_load_proj').addEventListener('change', e=>{
     loadProject(e.target.files[0]);
     e.target.value = '';
@@ -4450,6 +4540,1045 @@ var KAPAK_TO_HYT = {
   &quot;Boğaz&quot;:         { tip: &quot;BOGAZ&quot;,  cam: &quot;H&quot;, bogazTip: &quot;N&quot;  }
 };
 
+// ---------- DXF OKUMA CEKIRDEGI (DXFCEK) ----------
+// P-KS teknik resim DXF'inden hucre/modul olculerini cikarir. Kaynak: proje kokundeki
+// &quot;DXF Hucre Olcu Cikarici&quot; programinin cekirdegi; malzeme listesi ve yuzey alani
+// bolumleri alinmadi. Disariya TEK isim sizar (DXFCEK) — icindeki yardimci adlar
+// (mode, geo, dims...) f0'da zaten kullaniliyor, IIFE onlari kapatir.
+var DXFCEK = (function () {
+'use strict';
+
+function fixTR(s) {
+  if (!s) return s;
+  return s.replace(/\\U\+([0-9A-Fa-f]{4})/g, function (m, h) { return String.fromCharCode(parseInt(h, 16)); });
+}
+
+function parseDxf(text) {
+  const lines = text.split(/\r\n|\n|\r/);
+  const pairs = [];
+  for (let i = 0; i + 1 < lines.length; i += 2) {
+    const code = parseInt(lines[i].trim(), 10);
+    if (Number.isNaN(code)) continue;
+    pairs.push([code, lines[i + 1]]);
+  }
+  let section = null, curType = null, cur = null;
+  const texts = [], dims = [], geo = [], rlines = [], rpolys = [];
+  function flush() {
+    if (!cur) { curType = null; return; }
+    if (cur.sec === 'ENTITIES') {
+      if (curType === 'TEXT' || curType === 'MTEXT') {
+        texts.push({ str: fixTR((cur.str || '').trim()), x: cur.x, y: cur.y, h: cur.h || 6 });
+      } else if (curType === 'DIMENSION') dims.push(cur);
+      else if (curType === 'LINE') {
+        if (cur.x1 != null && cur.x2 != null) {
+          geo.push({ xlo: Math.min(cur.x1, cur.x2), xhi: Math.max(cur.x1, cur.x2),
+                     ylo: Math.min(cur.y1, cur.y2), yhi: Math.max(cur.y1, cur.y2) });
+          rlines.push([cur.x1, cur.y1, cur.x2, cur.y2]);
+        }
+      } else if (curType === 'LWPOLYLINE' && cur.pts.length) {
+        const xs = cur.pts.map(p => p[0]), ys = cur.pts.map(p => p[1]);
+        geo.push({ xlo: Math.min.apply(null, xs), xhi: Math.max.apply(null, xs),
+                   ylo: Math.min.apply(null, ys), yhi: Math.max.apply(null, ys) });
+        rpolys.push({ pts: cur.pts, closed: cur.closed });
+      }
+    }
+    cur = null; curType = null;
+  }
+  for (let i = 0; i < pairs.length; i++) {
+    const c = pairs[i][0], v = pairs[i][1];
+    if (c === 0 && v === 'SECTION') { flush(); section = pairs[i + 1] && pairs[i + 1][0] === 2 ? pairs[i + 1][1] : null; continue; }
+    if (c === 0 && v === 'ENDSEC') { flush(); section = null; continue; }
+    if (section !== 'ENTITIES') continue;
+    if (c === 0) {
+      flush();
+      if (v === 'TEXT' || v === 'MTEXT' || v === 'DIMENSION' || v === 'LINE' || v === 'LWPOLYLINE') {
+        curType = v; cur = { sec: section, pts: [] };
+      }
+      continue;
+    }
+    if (!cur) continue;
+    if (curType === 'LINE') {
+      if (c === 10) cur.x1 = +v; else if (c === 20) cur.y1 = +v;
+      else if (c === 11) cur.x2 = +v; else if (c === 21) cur.y2 = +v;
+    } else if (curType === 'LWPOLYLINE') {
+      if (c === 10) cur.pts.push([+v, 0]);
+      else if (c === 20 && cur.pts.length) cur.pts[cur.pts.length - 1][1] = +v;
+      else if (c === 70) cur.closed = (+v & 1) === 1;
+    } else if (curType === 'TEXT' || curType === 'MTEXT') {
+      if (c === 1) cur.str = (cur.str || '') + v;
+      else if (c === 3 && curType === 'MTEXT') cur.str = (cur.str || '') + v;
+      else if (c === 10) cur.x = +v; else if (c === 20) cur.y = +v;
+      else if (c === 40) cur.h = +v;
+    } else if (curType === 'DIMENSION') {
+      if (c === 13) cur.x13 = +v; else if (c === 23) cur.y13 = +v;
+      else if (c === 14) cur.x14 = +v; else if (c === 24) cur.y14 = +v;
+      else if (c === 42) cur.meas = +v;
+    }
+  }
+  flush();
+  return { texts: texts, dims: dims, geo: geo, rlines: rlines, rpolys: rpolys };
+}
+
+function mergeIntervals(ivals, gap) {
+  ivals.sort(function (a, b) { return a[0] - b[0]; });
+  const out = [];
+  for (let i = 0; i < ivals.length; i++) {
+    const iv = ivals[i], last = out[out.length - 1];
+    if (last && iv[0] - last[1] < gap) { if (iv[1] > last[1]) last[1] = iv[1]; }
+    else out.push([iv[0], iv[1]]);
+  }
+  return out;
+}
+
+function mode(arr) {
+  const f = {};
+  let best = null, bestN = 0;
+  for (let i = 0; i < arr.length; i++) {
+    const k = arr[i];
+    f[k] = (f[k] || 0) + 1;
+    if (f[k] > bestN) { bestN = f[k]; best = k; }
+  }
+  return best;
+}
+
+function analyzeDxf(text, fileName) {
+  const P = parseDxf(text);
+  const texts = P.texts, dims = P.dims, geo = P.geo;
+
+  // ---------- teknik tablo ----------
+  const kv = {};
+  const tableLabelXs = [];
+  const TABLE_RE = /^(Santral Adı|Model Adı|Boyut Adı|Genişlik|Yükseklik|Ayak Yüksekliği \(mm\)|Ağırlık|Hava Debisi|Proje Adı)$/;
+  for (let i = 0; i < texts.length; i++) {
+    const lt = texts[i];
+    if (!TABLE_RE.test(lt.str)) continue;
+    let val = null;
+    for (let j = 0; j < texts.length; j++) {
+      const t = texts[j];
+      if (Math.abs(t.y - lt.y) < 3 && t.x > lt.x + 10 && (!val || t.x < val.x)) val = t;
+    }
+    if (val && !(lt.str in kv)) kv[lt.str] = val.str;
+    tableLabelXs.push(lt.x);
+  }
+  // Kasa kunyesi — ayri harita (tableX'i etkilememeli, bkz. yukarisi)
+  const kasa = {};
+  const KASA_RE = /^(Profil Adı|İç Sac Adı|İç Sac Kalınlığı \(mm\)|Dış Sac Adı|Dış Sac Kalınlığı \(mm\))$/;
+  for (let i = 0; i < texts.length; i++) {
+    const lt = texts[i];
+    if (!KASA_RE.test(lt.str) || (lt.str in kasa)) continue;
+    let val = null;
+    for (let j = 0; j < texts.length; j++) {
+      const t = texts[j];
+      if (Math.abs(t.y - lt.y) < 3 && t.x > lt.x + 10 && (!val || t.x < val.x)) val = t;
+    }
+    if (val) kasa[lt.str] = val.str;
+  }
+
+  const modTypes = {};
+  for (let i = 0; i < texts.length; i++) {
+    const m = texts[i].str.match(/^\((M\d+)\)\s*-\s*(.+?)\s*-\s*/);
+    if (m && !modTypes[m[1]]) modTypes[m[1]] = m[2].trim();
+  }
+  const W = kv['Genişlik'] ? parseInt(kv['Genişlik'].replace(/[^\d]/g, ''), 10) : null;
+  const Htab = kv['Yükseklik'] ? parseInt(kv['Yükseklik'].replace(/[^\d]/g, ''), 10) : null;
+  const ayak = kv['Ayak Yüksekliği (mm)'] ? parseInt(kv['Ayak Yüksekliği (mm)'].replace(/[^\d]/g, ''), 10) : 150;
+  const tableX = tableLabelXs.length ? Math.min.apply(null, tableLabelXs) - 30 : Infinity;
+
+  // ---------- görünüş kutuları ----------
+  const gsegs = geo.filter(function (g) { return (g.yhi - g.ylo) <= 300 && g.xlo < tableX; });
+  const bands = mergeIntervals(gsegs.map(function (g) { return [g.ylo, g.yhi]; }), 25);
+  const boxes = [];
+  for (let bi = 0; bi < bands.length; bi++) {
+    const ylo = bands[bi][0], yhi = bands[bi][1];
+    const inBand = gsegs.filter(function (g) { return g.ylo >= ylo - 0.5 && g.yhi <= yhi + 0.5; });
+    const xIv = mergeIntervals(inBand.map(function (g) { return [g.xlo, g.xhi]; }), 25);
+    for (let xi = 0; xi < xIv.length; xi++) {
+      if (xIv[xi][1] - xIv[xi][0] < 20 || yhi - ylo < 20) continue;
+      boxes.push({ xlo: xIv[xi][0], xhi: xIv[xi][1], ylo: ylo, yhi: yhi, chains: [] });
+    }
+  }
+
+  // ---------- ölçüler ----------
+  const hsegs = dims.filter(function (d) {
+    return d.meas != null && d.x13 != null && d.x14 != null && d.y13 != null && d.y14 != null &&
+      Math.abs(d.y13 - d.y14) < 0.01;
+  }).map(function (d) {
+    return { lo: Math.min(d.x13, d.x14), hi: Math.max(d.x13, d.x14), y: d.y13, meas: d.meas };
+  }).filter(function (d) { return d.hi - d.lo >= 3; });
+  const vdims = dims.filter(function (d) {
+    return d.meas != null && d.x13 != null && d.x14 != null && d.y13 != null && d.y14 != null &&
+      Math.abs(d.x13 - d.x14) < 0.01;
+  }).map(function (d) {
+    return { lo: Math.min(d.y13, d.y14), hi: Math.max(d.y13, d.y14), x: d.x13, meas: d.meas };
+  });
+
+  for (let i = 0; i < hsegs.length; i++) {
+    const s = hsegs[i];
+    let best = null, bestD = 71;
+    for (let j = 0; j < boxes.length; j++) {
+      const b = boxes[j];
+      if (s.lo < b.xlo - 12 || s.hi > b.xhi + 12) continue;
+      const d = (s.y >= b.ylo && s.y <= b.yhi) ? 0 : (s.y < b.ylo ? b.ylo - s.y : s.y - b.yhi);
+      if (d < bestD) { bestD = d; best = b; }
+    }
+    if (best) best.chains.push(s);
+  }
+  for (let j = 0; j < boxes.length; j++) {
+    const b = boxes[j], byY = {};
+    for (let i = 0; i < b.chains.length; i++) {
+      const s = b.chains[i], key = Math.round(s.y * 2) / 2;
+      (byY[key] = byY[key] || []).push(s);
+    }
+    b.groups = Object.keys(byY).map(function (y) {
+      const uniq = [];
+      byY[y].sort(function (a, c) { return a.lo - c.lo || a.hi - c.hi; });
+      for (let i = 0; i < byY[y].length; i++) {
+        const s = byY[y][i], last = uniq[uniq.length - 1];
+        if (last && Math.abs(last.lo - s.lo) < 0.5 && Math.abs(last.hi - s.hi) < 0.5) continue;
+        uniq.push(s);
+      }
+      return { y: +y, segs: uniq };
+    });
+    b.extLo = b.chains.length ? Math.min.apply(null, b.chains.map(function (s) { return s.lo; })) : b.xlo;
+    b.extHi = b.chains.length ? Math.max.apply(null, b.chains.map(function (s) { return s.hi; })) : b.xhi;
+  }
+
+  // ---------- kat yapısı (kaide referanslı) ----------
+  const baseVal = ayak / 10;
+  const baseDims = vdims.filter(function (d) {
+    return Math.abs(d.meas - baseVal) < 1 && Math.abs((d.hi - d.lo) - baseVal) < 1;
+  });
+  let deckHeights = [], deckBounds = null, bandY = null;
+  if (baseDims.length) {
+    const ys = baseDims.map(function (b) { return Math.round(b.hi * 2) / 2; });
+    bandY = +mode(ys);
+    let curY = bandY;
+    for (let k = 0; k < 4; k++) {
+      let next = null;
+      for (let i = 0; i < vdims.length; i++) {
+        const d = vdims[i];
+        if (d.meas * 10 < (Htab ? Htab * 0.5 : 400)) continue;
+        if (Math.abs(d.lo - curY) >= 2 || d.hi <= d.lo) continue;
+        if (!next || d.meas < next.meas) next = d;
+      }
+      if (!next) break;
+      deckHeights.push(Math.round(next.meas * 10));
+      curY = next.hi;
+    }
+    if (deckHeights.length) {
+      deckBounds = [bandY];
+      let yy = bandY;
+      for (let i = 0; i < deckHeights.length; i++) { yy += deckHeights[i] / 10; deckBounds.push(yy); }
+    }
+  }
+  if (!deckHeights.length && Htab) deckHeights = [Htab];
+  const nDecks = deckHeights.length;
+
+  // ---------- modül etiketi -> zincir eşleştirme ----------
+  const mlabels = texts.filter(function (t) { return /^M\d+$/.test(t.str); })
+    .map(function (t) { return { str: t.str, x: t.x, y: t.y, h: t.h, cx: t.x + 0.35 * t.h * t.str.length }; });
+  const modVotes = {}, modDecksAll = {}, recs = [];
+  for (let li = 0; li < mlabels.length; li++) {
+    const ml = mlabels[li];
+    let box = null;
+    for (let j = 0; j < boxes.length; j++) {
+      const b = boxes[j];
+      if (ml.cx >= b.xlo - 8 && ml.cx <= b.xhi + 8 && ml.y >= b.ylo - 8 && ml.y <= b.yhi + 8) { box = b; break; }
+    }
+    if (!box || !box.groups.length) continue;
+    const isSideBox = bandY != null && box.ylo - 20 <= bandY && bandY <= box.yhi;
+    let deck = null;
+    if (isSideBox && deckBounds && nDecks > 1 &&
+        ml.y >= deckBounds[0] - 8 && ml.y <= deckBounds[nDecks] + 8) {
+      deck = 0;
+      for (let i = 1; i < nDecks; i++) if (ml.y > deckBounds[i]) deck = i;
+      (modDecksAll[ml.str] = modDecksAll[ml.str] || []).push(deck);
+    }
+    if (ml.cx < box.extLo - 8 || ml.cx > box.extHi + 8) continue;
+    let cands = box.groups.filter(function (g) {
+      return g.segs.some(function (s) { return s.hi - s.lo >= 15; });
+    });
+    if (!cands.length) continue;
+    if (deck != null) {
+      const side = deck === 0 ? cands.filter(function (g) { return g.y <= ml.y; })
+        : deck === nDecks - 1 ? cands.filter(function (g) { return g.y >= ml.y; }) : cands;
+      if (side.length) cands = side;
+    } else if (nDecks === 1) {
+      const below = cands.filter(function (g) { return g.y < ml.y - 5; });
+      if (below.length) cands = below;
+    }
+    const multi = cands.filter(function (g) { return g.segs.length >= 2; });
+    if (multi.length) cands = multi;
+    cands.sort(function (a, b) { return Math.abs(ml.y - a.y) - Math.abs(ml.y - b.y); });
+    const g = cands[0];
+    let val = null, lo = null, hi = null;
+    let seg = null;
+    for (let i = 0; i < g.segs.length; i++) {
+      if (ml.cx >= g.segs[i].lo - 0.5 && ml.cx <= g.segs[i].hi + 0.5) { seg = g.segs[i]; break; }
+    }
+    if (seg) { val = seg.meas; lo = seg.lo; hi = seg.hi; }
+    else {
+      const edges = [box.extLo];
+      for (let i = 0; i < g.segs.length; i++) { edges.push(g.segs[i].lo); edges.push(g.segs[i].hi); }
+      edges.push(box.extHi);
+      edges.sort(function (a, b) { return a - b; });
+      for (let i = 0; i + 1 < edges.length; i++) {
+        if (ml.cx >= edges[i] && ml.cx <= edges[i + 1]) {
+          const wgap = edges[i + 1] - edges[i];
+          if (wgap >= 4) { val = wgap; lo = edges[i]; hi = edges[i + 1]; }
+          break;
+        }
+      }
+      if (val == null) {
+        let near = null, nearD = Infinity;
+        for (let i = 0; i < g.segs.length; i++) {
+          const s = g.segs[i];
+          const d = ml.cx < s.lo ? s.lo - ml.cx : ml.cx - s.hi;
+          if (d < nearD) { nearD = d; near = s; }
+        }
+        if (near) { val = near.meas; lo = near.lo; hi = near.hi; }
+      }
+    }
+    if (val != null) {
+      (modVotes[ml.str] = modVotes[ml.str] || []).push(Math.round(val * 10));
+      recs.push({ name: ml.str, box: box, isSideBox: isSideBox, deck: deck, gy: g.y, lo: lo, hi: hi, ml: ml });
+    }
+  }
+
+  const modules = {};
+  Object.keys(modVotes).forEach(function (name) {
+    const arr = modVotes[name], freq = {};
+    for (let i = 0; i < arr.length; i++) freq[arr[i]] = (freq[arr[i]] || 0) + 1;
+    let best = null;
+    Object.keys(freq).forEach(function (k) {
+      if (!best || freq[k] > freq[best] || (freq[k] === freq[best] && +k > +best)) best = k;
+    });
+    modules[name] = { len: +best, votes: freq[best] + '/' + arr.length, all: freq };
+  });
+
+  let totalLen = null;
+  if (hsegs.length) totalLen = Math.round(Math.max.apply(null, hsegs.map(function (d) { return d.hi - d.lo; })) * 10);
+
+  const isEsanjor = function (name) { return /Eşanjör/i.test(modTypes[name] || ''); };
+
+  // ---------- modül çıktısı ----------
+  const modOut = Object.keys(modules).sort(function (a, b) { return +a.slice(1) - +b.slice(1); })
+    .map(function (name) {
+      const type = modTypes[name] || '';
+      let deck = null, hgt = null;
+      if (nDecks === 1) hgt = deckHeights[0];
+      else if (isEsanjor(name)) { deck = 'her iki kat'; hgt = deckHeights.reduce(function (a, b) { return a + b; }, 0); }
+      else if (modDecksAll[name] && modDecksAll[name].length) {
+        const best = +mode(modDecksAll[name]);
+        deck = best === 0 ? 'alt kat' : 'üst kat';
+        hgt = deckHeights[best] != null ? deckHeights[best] : deckHeights[0];
+        modules[name].deckIdx = best;
+      } else hgt = deckHeights[0];
+      return { name: name, type: type, en: W, boy: modules[name].len, yukseklik: hgt, deck: deck,
+               votes: modules[name].votes, all: modules[name].all };
+    });
+
+  // ---------- HÜCRE ÇIKARIMI ----------
+  // yan görünüş kutuları (uç görünüşleri ele: uzunluk ≈ genişlik olanlar)
+  const sideBoxes = boxes.filter(function (b) {
+    if (!(bandY != null && b.ylo - 20 <= bandY && bandY <= b.yhi)) return false;
+    const span = (b.extHi - b.extLo) * 10;
+    if (W && span <= W * 1.3) return false;
+    return b.groups && b.groups.length;
+  });
+  function segRuns(segs) {
+    const runs = [];
+    const sorted = segs.slice().sort(function (a, b) { return a.lo - b.lo; });
+    for (let i = 0; i < sorted.length; i++) {
+      const last = runs[runs.length - 1];
+      if (last && sorted[i].lo - last[1] <= 2) { if (sorted[i].hi > last[1]) last[1] = sorted[i].hi; }
+      else runs.push([sorted[i].lo, sorted[i].hi]);
+    }
+    return runs;
+  }
+
+  function hucreForBox(box) {
+    const inBox = recs.filter(function (r) { return r.box === box; });
+    if (!inBox.length) return null;
+    const perDeck = [];
+    let viewRange = null; // alt katın (bu görünüşteki) x aralığı; üst kat buna kırpılır
+    for (let d = 0; d < nDecks; d++) {
+      const dRecs = inBox.filter(function (r) { return (nDecks === 1 ? true : r.deck === d); });
+      const nonEs = dRecs.filter(function (r) { return !isEsanjor(r.name); });
+      const useRecs = nonEs.length ? nonEs : dRecs;
+      if (!useRecs.length) { perDeck.push(null); continue; }
+      const modeY = +mode(useRecs.map(function (r) { return r.gy; }));
+      const grp = box.groups.filter(function (g) { return g.y === modeY; })[0];
+      if (!grp) { perDeck.push(null); continue; }
+      // modül zincirini bitişik koşulara (run) ayır — aynı kutuda birleşmiş Sağ/Sol görünüşleri ayırt et
+      const runs = segRuns(grp.segs);
+      // en çok etiket içeren koşu = bu görünüşteki kat gövdesi
+      let bestRun = runs[0], bestN = -1;
+      for (let i = 0; i < runs.length; i++) {
+        const n = dRecs.filter(function (r) {
+          const mid = (r.lo + r.hi) / 2;
+          return mid >= runs[i][0] - 2 && mid <= runs[i][1] + 2;
+        }).length;
+        if (n > bestN) { bestN = n; bestRun = runs[i]; }
+      }
+      if (!bestRun) { perDeck.push(null); continue; }
+      let extLo = bestRun[0], extHi = bestRun[1];
+      // bitişik parçaları (etiket aralıkları + diğer koşular) kademeli olarak yut (ör. eşanjör boşluğu köprüsü)
+      const pieces = runs.slice();
+      for (let i = 0; i < dRecs.length; i++) {
+        if (dRecs[i].lo != null) pieces.push([dRecs[i].lo, dRecs[i].hi]);
+      }
+      let grew = true;
+      while (grew) {
+        grew = false;
+        for (let i = 0; i < pieces.length; i++) {
+          const p = pieces[i];
+          if (p[1] < extLo - 2 || p[0] > extHi + 2) continue; // temas etmiyor
+          if (p[0] < extLo - 0.5) { extLo = p[0]; grew = true; }
+          if (p[1] > extHi + 0.5) { extHi = p[1]; grew = true; }
+        }
+      }
+      if (d === 0) {
+        // alt katı, aynı görünüşteki toplam/ara-toplam koşusuyla sınırla
+        const center = (bestRun[0] + bestRun[1]) / 2;
+        let widest = null;
+        const lower = box.groups.filter(function (g) { return g.y < modeY - 1; });
+        for (let i = 0; i < lower.length; i++) {
+          const lruns = segRuns(lower[i].segs);
+          for (let j = 0; j < lruns.length; j++) {
+            if (lruns[j][0] - 2 <= center && center <= lruns[j][1] + 2) {
+              if (!widest || (lruns[j][1] - lruns[j][0]) > (widest[1] - widest[0])) widest = lruns[j];
+            }
+          }
+        }
+        if (widest) {
+          extLo = Math.max(extLo, widest[0] - 2);
+          extHi = Math.min(extHi, widest[1] + 2);
+          extLo = Math.min(extLo, bestRun[0]); extHi = Math.max(extHi, bestRun[1]);
+        }
+        viewRange = [extLo - 2, extHi + 2];
+      } else if (viewRange) {
+        // üst kat alt katın aralığı dışına taşamaz
+        extLo = Math.max(extLo, viewRange[0]);
+        extHi = Math.min(extHi, viewRange[1]);
+        if (extHi - extLo < 4) { perDeck.push(null); continue; }
+      }
+      // hücre zinciri: kat zincirinin dışındaki bir sonraki seviye
+      let candGroups;
+      if (nDecks > 1 && d === nDecks - 1) {
+        candGroups = box.groups.filter(function (g) {
+          return g.y > modeY + 1 && g.segs.some(function (s) { return s.hi - s.lo >= 15; });
+        }).sort(function (a, b) { return a.y - b.y; });
+      } else {
+        candGroups = box.groups.filter(function (g) {
+          return g.y < modeY - 1 && g.segs.some(function (s) { return s.hi - s.lo >= 15; });
+        }).sort(function (a, b) { return b.y - a.y; });
+      }
+      let cells = [];
+      const spanExt = extHi - extLo;
+      const cand = candGroups[0];
+      if (!cand) {
+        cells.push({ lo: extLo, hi: extHi, src: 'fill' });
+      } else if (cand.segs.length === 1 && (cand.segs[0].hi - cand.segs[0].lo) >= 0.9 * spanExt) {
+        cells.push({ lo: cand.segs[0].lo, hi: cand.segs[0].hi, src: 'seg' });
+      } else {
+        // ara toplam zinciri + boşluk doldurma (kat aralığına kırpılmış)
+        const segsIn = cand.segs.filter(function (s) { return s.hi > extLo + 1 && s.lo < extHi - 1; })
+          .map(function (s) { return { lo: Math.max(s.lo, extLo), hi: Math.min(s.hi, extHi) }; })
+          .filter(function (s) { return s.hi - s.lo >= 4; });
+        for (let i = 0; i < segsIn.length; i++) cells.push({ lo: segsIn[i].lo, hi: segsIn[i].hi, src: 'seg' });
+        // boşluklar
+        const evs = [extLo];
+        segsIn.sort(function (a, b) { return a.lo - b.lo; });
+        for (let i = 0; i < segsIn.length; i++) { evs.push(segsIn[i].lo); evs.push(segsIn[i].hi); }
+        evs.push(extHi);
+        evs.sort(function (a, b) { return a - b; });
+        for (let i = 0; i + 1 < evs.length; i += 1) {
+          const glo = evs[i], ghi = evs[i + 1];
+          const mid = (glo + ghi) / 2;
+          const covered = segsIn.some(function (s) { return mid > s.lo && mid < s.hi; });
+          if (!covered && ghi - glo >= 4) cells.push({ lo: glo, hi: ghi, src: 'fill' });
+        }
+        // dedupe/sırala
+        cells.sort(function (a, b) { return a.lo - b.lo; });
+        const ded = [];
+        for (let i = 0; i < cells.length; i++) {
+          const last = ded[ded.length - 1];
+          if (last && cells[i].lo < last.hi - 1) continue;
+          ded.push(cells[i]);
+        }
+        cells = ded;
+      }
+      perDeck.push(cells);
+    }
+    // dolgu kaynaklı (çizimde ara-toplam ölçüsü olmayan) hücreleri karşı katın hücre sınırlarında böl:
+    // ör. üst katta tek parça görünen uzantı, alt katın blok sınırında ikiye ayrılır
+    function splitFillCells(cells, otherCells) {
+      if (!cells || !otherCells || !otherCells.length) return cells;
+      const edges = [];
+      otherCells.forEach(function (c) { edges.push(c.lo); edges.push(c.hi); });
+      edges.sort(function (a, b) { return a - b; });
+      const out2 = [];
+      cells.forEach(function (c) {
+        if (c.src !== 'fill') { out2.push(c); return; }
+        const parts = [{ lo: c.lo, hi: c.hi, src: 'fill' }];
+        edges.forEach(function (e) {
+          const p = parts[parts.length - 1];
+          if (e > p.lo + 4 && e < p.hi - 4) {
+            parts[parts.length - 1] = { lo: p.lo, hi: e, src: 'fill' };
+            parts.push({ lo: e, hi: p.hi, src: 'fill' });
+          }
+        });
+        out2.push.apply(out2, parts);
+      });
+      return out2;
+    }
+
+    // eşanjör bloklarını tam yükseklik hücreye birleştir
+    const esRanges = inBox.filter(function (r) { return isEsanjor(r.name) && r.lo != null; })
+      .map(function (r) { return [r.lo, r.hi]; });
+    const out = [];
+    const used1 = [];
+    let cells0 = perDeck[0] || [], cells1 = nDecks > 1 ? (perDeck[1] || []) : [];
+    cells1 = splitFillCells(cells1, cells0);
+    cells0 = splitFillCells(cells0, cells1);
+    for (let i = 0; i < cells0.length; i++) {
+      const c0 = cells0[i];
+      let merged = false;
+      for (let j = 0; j < cells1.length; j++) {
+        const c1 = cells1[j];
+        if (Math.abs(c0.lo - c1.lo) < 3 && Math.abs(c0.hi - c1.hi) < 3) {
+          const hasEs = esRanges.some(function (er) {
+            return er[0] < c0.hi - 1 && er[1] > c0.lo + 1;
+          });
+          if (hasEs) {
+            out.push({ lo: c0.lo, hi: c0.hi, kat: 'tam', h: deckHeights.reduce(function (a, b) { return a + b; }, 0) });
+            used1.push(j); merged = true; break;
+          }
+        }
+      }
+      if (!merged) out.push({ lo: c0.lo, hi: c0.hi, kat: nDecks === 1 ? 'tek' : 'alt', h: deckHeights[0] });
+    }
+    for (let j = 0; j < cells1.length; j++) {
+      if (used1.indexOf(j) >= 0) continue;
+      out.push({ lo: cells1[j].lo, hi: cells1[j].hi, kat: 'üst', h: deckHeights[nDecks - 1] });
+    }
+    out.sort(function (a, b) { return a.lo - b.lo || (a.kat === 'üst' ? 1 : -1); });
+    // hücre içindeki modüller
+    const seen = {};
+    for (let i = 0; i < out.length; i++) {
+      const c = out[i];
+      c.boy = Math.round((c.hi - c.lo) * 10);
+      c.moduller = [];
+    }
+    inBox.forEach(function (r) {
+      if (seen[r.name]) return;
+      const mid = (r.lo + r.hi) / 2;
+      // yalnızca hücre aralığındaki etiketler (ayna görünüşteki kopyaları atla)
+      const inAny = out.some(function (c) { return mid > c.lo - 2 && mid < c.hi + 2; });
+      if (!inAny) return;
+      seen[r.name] = true;
+      for (let i = 0; i < out.length; i++) {
+        const c = out[i];
+        if (mid > c.lo && mid < c.hi) {
+          const dOk = c.kat === 'tam' || c.kat === 'tek' ||
+            (c.kat === 'alt' && (r.deck === 0 || r.deck == null)) ||
+            (c.kat === 'üst' && r.deck === nDecks - 1);
+          if (dOk || isEsanjor(r.name)) { c.moduller.push(r.name); break; }
+        }
+      }
+    });
+    for (let i = 0; i < out.length; i++) {
+      out[i].moduller.sort(function (a, b) { return +a.slice(1) - +b.slice(1); });
+    }
+    return { box: box, cells: out, nLabels: inBox.length };
+  }
+
+  let hucre = null, mirrorMismatch = null;
+  const hucreAll = sideBoxes.map(hucreForBox).filter(Boolean);
+  if (hucreAll.length) {
+    hucreAll.sort(function (a, b) { return b.nLabels - a.nLabels; });
+    hucre = hucreAll[0];
+    // ayna görünüş tutarlılığı: yeterli etiketi olan diğer yan görünüşler aynı hücre imzasını vermeli
+    function sig(h) { return h.cells.map(function (c) { return c.kat + ':' + c.boy; }).sort().join(' | '); }
+    const s0 = sig(hucre);
+    for (let i = 1; i < hucreAll.length; i++) {
+      if (hucreAll[i].nLabels < hucre.nLabels * 0.7) continue;
+      if (sig(hucreAll[i]) !== s0) { mirrorMismatch = sig(hucreAll[i]) + '  ≠  ' + s0; break; }
+    }
+  }
+  const hucreler = hucre ? hucre.cells.map(function (c, i) {
+    return { sira: i + 1, kat: c.kat === 'tam' ? 'Alt+Üst (tam yükseklik)' : c.kat === 'tek' ? 'Tek kat' : c.kat === 'alt' ? 'Alt kat' : 'Üst kat',
+             en: W, boy: c.boy, yukseklik: c.h, moduller: c.moduller.join(', '),
+             katKod: c.kat, lo: c.lo, hi: c.hi };
+  }) : [];
+
+  // ---------- DOĞRULAMA BATARYASI ----------
+  // Her sonuç, birbirinden bağımsız kontrollerden geçer. Kritik bir kontrol çökerse sonuç
+  // guvenilmez (error), kritik olmayan cokerse uyarili (warning) isaretlenir.
+  const checks = [];
+  function chk(name, ok, detail, critical) {
+    checks.push({ name: name, ok: !!ok, detail: detail || '', critical: !!critical });
+  }
+
+  // 1. teknik tablo okunabildi mi
+  chk('Teknik tablo (santral / genişlik / yükseklik)', kv['Santral Adı'] && W && Htab,
+    !kv['Santral Adı'] ? 'santral adı yok' : !W ? 'genişlik yok' : !Htab ? 'yükseklik yok' : '', true);
+
+  // 2. geometri: modül etiketi ve ölçü zinciri bulunabildi mi
+  chk('Modül etiketleri (M1, M2, …)', mlabels.length > 0, mlabels.length + ' etiket', true);
+  chk('Ölçü zincirleri', hsegs.length > 0, hsegs.length + ' yatay ölçü', true);
+
+  // 3. kat yüksekliği = tablo yüksekliği
+  if (Htab && deckHeights.length)
+    chk('Alt kat yüksekliği = tablo yüksekliği', deckHeights[0] === Htab,
+      deckHeights[0] + ' vs ' + Htab, false);
+
+  // 4. kat toplamı çizimdeki dikey toplam ölçüsüyle eşleşmeli
+  if (nDecks > 1) {
+    const deckSum = deckHeights.reduce(function (a, b) { return a + b; }, 0);
+    const okV = vdims.some(function (d) {
+      const v = Math.round(d.meas * 10);
+      return Math.abs(v - deckSum) < 25 || Math.abs(v - deckSum - ayak) < 25;
+    });
+    chk('Kat toplamı çizim ölçüsüyle teyit', okV, 'katlar: ' + deckHeights.join('+'), false);
+  }
+
+  // 5. tabloda listelenen modüller = çizimde bulunanlar
+  const tableMods = {};
+  for (let i = 0; i < texts.length; i++) {
+    const m = texts[i].str.match(/^\((M\d+)\)\s*-/);
+    if (m) tableMods[m[1]] = true;
+  }
+  const tmKeys = Object.keys(tableMods);
+  if (tmKeys.length) {
+    const missing = tmKeys.filter(function (m) { return !modules[m]; });
+    const extra = Object.keys(modules).filter(function (m) { return !tableMods[m]; });
+    chk('Tablo modülleri = bulunan modüller', !missing.length && !extra.length,
+      (missing.length ? 'eksik: ' + missing.join(',') : '') + (extra.length ? ' fazla: ' + extra.join(',') : ''), true);
+  }
+
+  // 6. modül ölçüsü oy güveni (her modül birden çok görünüşten teyitli olmalı)
+  const lowConf = [];
+  modOut.forEach(function (m) {
+    const p = m.votes.split('/');
+    if (+p[0] < 2 || +p[0] / +p[1] < 0.5) lowConf.push(m.name + ' (' + m.votes + ')');
+  });
+  chk('Modül ölçüleri çok görünüşten teyitli', !lowConf.length, lowConf.join(', '), false);
+
+  // 7. hücreler bulunabildi mi
+  chk('Hücre tespiti', hucreler.length > 0, hucreler.length + ' hücre', true);
+
+  // 8. alt kat hücre toplamı = çizimdeki toplam boy
+  let altSum = 0;
+  hucreler.forEach(function (h) { if (h.kat !== 'Üst kat') altSum += h.boy; });
+  if (hucreler.length && totalLen)
+    chk('Alt kat hücre toplamı = toplam boy', Math.abs(altSum - totalLen) <= 15,
+      altSum + ' vs ' + totalLen, true);
+
+  // 9. alt kat modül boyları toplamı = toplam boy (hücrelerden bağımsız ikinci yol)
+  if (totalLen && modOut.length) {
+    const altModSum = modOut.filter(function (m) { return !m.deck || m.deck === 'alt kat' || m.deck === 'her iki kat'; })
+      .reduce(function (a, m) { return a + m.boy; }, 0);
+    chk('Alt kat modül toplamı = toplam boy', Math.abs(altModSum - totalLen) <= 15,
+      altModSum + ' vs ' + totalLen, true);
+  }
+
+  // 10. üst kat modül toplamı = üst hücre toplamı
+  if (nDecks > 1 && hucreler.length) {
+    const ustModSum = modOut.filter(function (m) { return m.deck === 'üst kat' || m.deck === 'her iki kat'; })
+      .reduce(function (a, m) { return a + m.boy; }, 0);
+    const ustHucSum = hucreler.filter(function (h) { return h.kat === 'Üst kat' || h.kat.indexOf('Alt+Üst') === 0; })
+      .reduce(function (a, h) { return a + h.boy; }, 0);
+    chk('Üst kat modül toplamı = üst hücre toplamı', Math.abs(ustModSum - ustHucSum) <= 15,
+      ustModSum + ' vs ' + ustHucSum, false);
+  }
+
+  // 11. her modül bir hücreye atanmış olmalı
+  if (hucreler.length) {
+    const inCells = {};
+    hucreler.forEach(function (h) {
+      h.moduller.split(',').forEach(function (s) { s = s.trim(); if (s) inCells[s] = true; });
+    });
+    const unassigned = Object.keys(modules).filter(function (m) { return !inCells[m]; });
+    chk('Her modül bir hücrede', !unassigned.length, unassigned.join(', '), true);
+  }
+
+  // 13. profil serisi ile model adı aynı seriyi söylemeli (RW50 ↔ Alüminyum 50)
+  (function(){
+    const pm = String(kasa['Profil Adı'] || '').match(/Alüminyum\s*(\d+)/);
+    const mm2 = String(kv['Model Adı'] || '').match(/RW\s*(\d+)/);
+    if (!pm) chk('Profil serisi okunabildi', false, kasa['Profil Adı'] || 'Profil Adı alanı yok', false);
+    else if (mm2) chk('Profil serisi = model serisi', pm[1] === mm2[1], pm[1] + ' vs ' + mm2[1], false);
+  })();
+
+  // 14. iç sac malzemesi okunabildi mi
+  chk('İç sac malzemesi', !!kasa['İç Sac Adı'], kasa['İç Sac Adı'] || 'İç Sac Adı alanı yok', false);
+
+  // 12. ayna görünüş tutarlılığı (Sağ ve Sol aynı hücre imzasını vermeli)
+  if (hucreAll.length > 1)
+    chk('Ayna görünüşler aynı sonucu veriyor', !mirrorMismatch, mirrorMismatch || '', false);
+
+
+  const failCrit = checks.filter(function (c) { return !c.ok && c.critical; });
+  const failWarn = checks.filter(function (c) { return !c.ok && !c.critical; });
+  const status = failCrit.length ? 'error' : failWarn.length ? 'warning' : 'verified';
+
+  let warn = null;
+  if (hucreler.length && totalLen && Math.abs(altSum - totalLen) > 15)
+    warn = 'Alt kat hücre toplamı (' + altSum + ') toplam boy (' + totalLen + ') ile uyuşmuyor — kontrol edin.';
+
+  return {
+    file: fileName || '',
+    santral: kv['Santral Adı'] || null,
+    proje: kv['Proje Adı'] || null,
+    model: kv['Model Adı'] || null,
+    boyut: kv['Boyut Adı'] || null,
+    debi: kv['Hava Debisi'] || null,
+    genislik: W, yukseklikTablo: Htab, ayak: ayak,
+    agirlik: kv['Ağırlık'] || null,
+    deckHeights: deckHeights, totalLen: totalLen,
+    hucreler: hucreler,
+    modules: modOut,
+    profilAdi: kasa['Profil Adı'] || null,
+    icSac: kasa['İç Sac Adı'] || null,
+    disSac: kasa['Dış Sac Adı'] || null,
+    icSacKal: kasa['İç Sac Kalınlığı (mm)'] || null,
+    status: status, checks: checks,
+    warn: warn
+  };
+}
+
+  return { coz: analyzeDxf };
+})();
+
+// ---------- DXF -> AHU STUDIO ESLEME KATMANI ----------
+// DIKKAT — ad cakismasi: DXF.te M1/M2 diye etiketlenen sey bir ISLEVDIR (Fan, Filtre);
+// AHU Studio.nun modulu ise bir KUTU. Karsilik su sekildedir:
+//     DXF HUCRESI  <->  AHU Studio MODULU
+// Bu katman hucreleri kutuya cevirir; yuzlerdeki kapaklara HIC dokunmaz.
+// Saf model kodudur — renderAll'i cagirmaz, cagiran taraf bir kez cagirir.
+
+// Dosya adinda AYNALANACAK gecmesi Cenk'in isaretidir; DXF'in ICINDE bu bilgi yok (olculdu).
+function dxfAynalaOnerisi(dosyaAdi){
+  return /AYNALANACAK/i.test(String(dosyaAdi||''));
+}
+
+// Kunye: cizimin teknik tablosundan AHU duzeyindeki alanlar.
+function dxfKunye(r){
+  const uyari = [];
+  const pm = String(r.profilAdi||'').match(/Alüminyum\s*(\d+)/);
+  let seri = pm ? pm[1] : '';
+  if(!pm) uyari.push('Profil Adı okunamadı — profil serisi elle seçilmeli.');
+  else if(!PROFILES[seri]){ uyari.push('Profil serisi '+seri+' tanımlı değil — varsayımlar boş bırakıldı.'); seri = ''; }
+  let malzeme = '';
+  if(r.icSac) malzeme = /paslanmaz/i.test(r.icSac) ? 'paslanmaz' : 'galvaniz';
+  else uyari.push('İç Sac Adı okunamadı — malzeme elle seçilmeli.');
+  if(!r.genislik) uyari.push('Genişlik okunamadı — modüllerin W ölçüsü boş kalır.');
+  const ad = r.santral || String(r.file||'DXF').replace(/\.dxf$/i,'') || 'DXF';
+  return { ad, seri, malzeme, en: r.genislik||0, katlar: (r.deckHeights||[]).slice(),
+           profilAdi: r.profilAdi||'', icSac: r.icSac||'', toplamBoy: r.totalLen||0, uyari };
+}
+
+// Hucre listesi -> modul kutulari. Konum: x uzunluk ekseni, y kat.
+// Aynalandiginda yalniz x aynalanir (toplamBoy - x - L); kat ve olculer degismez.
+function dxfModulListesi(r, aynala){
+  const hs = (r && r.hucreler) || [];
+  if(!hs.length) return [];
+  const tipAd = {};
+  (r.modules||[]).forEach(function(m){ tipAd[m.name] = m.type || ''; });
+  const loList = hs.map(function(h){ return h.lo; });
+  const x0 = Math.min.apply(null, loList);
+  const altH = (r.deckHeights && r.deckHeights[0]) || 0;
+  const toplam = Math.max.apply(null, hs.map(function(h){ return Math.round((h.hi - x0)*10); }));
+  const out = hs.map(function(h){
+    const x = Math.round((h.lo - x0)*10);
+    // Hucredeki islev adlari: 'M2, M3' -> 'Filtre + DX Batarya' (ayni tip iki kez yazilmaz)
+    const ad = String(h.moduller||'').split(',').map(function(s){ return s.trim(); })
+      .filter(Boolean).map(function(n){ return tipAd[n] || n; })
+      .filter(function(v,i,a){ return v && a.indexOf(v)===i; }).join(' + ');
+    return { L: h.boy, H: h.yukseklik, W: r.genislik||0,
+             x: aynala ? toplam - x - h.boy : x,
+             y: h.katKod === 'üst' ? altH : 0,
+             kat: h.katKod, ad: ad };
+  });
+  out.sort(function(a,b){ return a.x - b.x || a.y - b.y; });
+  return out;
+}
+
+// Proje hic dokunulmamis mi? Oyleyse ilk aktarim bos AHU'yu DEGISTIRIR, yanina eklemez —
+// yoksa her oturum 'AHU-1 (bos)' artigiyla baslar.
+function dxfProjeBos(){
+  if(state.ahus.length !== 1) return false;
+  const a = state.ahus[0];
+  if(a.modules.length !== 1) return false;
+  const m = a.modules[0];
+  return !m.L && !m.H && !m.W && !a.malzeme && !a.varsayimlar.seri
+    && !state.proje.isNo && !state.proje.ad;
+}
+
+// AHU adi tekil olmali: iki cizim ayni Santral Adi'ni tasiyabiliyor (olculdu — KS-1 dosyasi
+// iki kez, farkli geometriyle). Excel dosya adi {isNo}_{ahuAd}_KAPAK_HESABI.xlsx oldugu icin
+// ayni ad ikinci uniteyi birincinin uzerine yazardi. Dosya adinda yasak karakter de temizlenir.
+// haric: adlandirilmakta olan AHU'nun kendisi (listeye girmis olabilir, kendiyle carpismasin)
+function dxfTekilAd(ad, haric){
+  const t = String(ad||'DXF').replace(/[\\/:*?<>|]/g, '-').trim() || 'DXF';
+  const dolu = function(x){ return state.ahus.some(function(a){ return a !== haric && a.ad === x; }); };
+  if(!dolu(t)) return t;
+  for(let i=2; i<100; i++){ const aday = t + ' (' + i + ')'; if(!dolu(aday)) return aday; }
+  return t;
+}
+
+// Bir cozumlemeyi yeni bir AHU olarak kurar. renderAll CAGIRMAZ.
+// Esanjor hucresinde module.esanjor ACILMAZ: DXF kenar/ust kat/saga uzaklik vermiyor,
+// gecersiz esanjor collectFaceIssues'e girip Excel ve DXF'i kilitler.
+function dxfAhuKur(r, aynala){
+  const k = dxfKunye(r);
+  const ml = dxfModulListesi(r, aynala);
+  if(!ml.length) return null;
+  const bos = dxfProjeBos();          // push'tan ONCE olculmeli
+  const yeni = newAhu(state.ahus.length+1);
+  yeni.malzeme = k.malzeme;
+  yeni.varsayimlar.seri = k.seri;
+  yeni.modules = ml.map(function(m, i){
+    const md = newModule();
+    md.L = m.L; md.H = m.H; md.W = m.W;
+    md.pos = { x: m.x, y: m.y, z: 0 };
+    if(m.ad) md.ad = m.ad;            // alan YALNIZ doluyken var olur (panel.yon deseni)
+    if(i > 0){                         // ilk modul cipa; digerleri silinince bosluk kapansin
+      md.attAxis = m.y > 0 ? 'y' : 'x';
+      md.attDir = 1;
+    }
+    return md;
+  });
+  yeni.active = 0;
+  if(bos) state.ahus[0] = yeni; else state.ahus.push(yeni);
+  yeni.ad = dxfTekilAd(k.ad, yeni);   // yerlestikten SONRA: bos AHU degistiyse adi serbest kalir
+  state.activeAhu = state.ahus.indexOf(yeni);
+  araKatNormalize();
+  esanjorNormalize();
+  return { ahu: yeni, modulSayisi: yeni.modules.length, kunye: k };
+}
+
+// ---------- DXF'TEN AKTARIM — ARAYUZ ----------
+// Model tarafi yukarida (dxfKunye / dxfModulListesi / dxfAhuKur). Burasi yalniz gosterim.
+var dxaPlanlar = [], dxaIdx = 0;
+
+// srcdoc TUM HTML varliklarini cozer: kaynaga &-a-m-p-; yazarsak calisma aninda tek & olur ve
+// kacis fonksiyonu sessizce etkisiz kalir (CLAUDE.md tuzak 11). Varlik metinleri bu yuzden
+// karakter kodundan kurulur, f1'deki esanjorEscapeHtml ile ayni yontem.
+function dxaKac(s){
+  const amp = String.fromCharCode(38);
+  return String(s == null ? '' : s)
+    .split(amp).join(amp + 'amp;')
+    .split('<').join(amp + 'lt;')
+    .split('>').join(amp + 'gt;')
+    .split(String.fromCharCode(34)).join(amp + 'quot;');
+}
+
+function dxaDurum(){ return { planlar: dxaPlanlar, idx: dxaIdx }; }
+
+function dxaPlanYap(r, dosya){
+  const ayna = dxfAynalaOnerisi(dosya);
+  return { dosya: dosya, coz: r, kunye: dxfKunye(r), ayna: ayna, aynaOto: ayna,
+           sec: r.hucreler.length > 0, hata: null };
+}
+function dxaHataPlani(dosya, mesaj){
+  return { dosya: dosya, coz: null, kunye: null, ayna: false, aynaOto: false, sec: false, hata: mesaj };
+}
+function dxaModuller(p){ return p.coz ? dxfModulListesi(p.coz, p.ayna) : []; }
+
+// Dosyalari oku -> coz -> modali ac. Her dosya kendi try/catch'inde: bozuk bir dosya
+// otekileri dusurmez, kendi seridinde kirmizi gorunur.
+function dxaDosyalariOku(fileList){
+  const files = Array.prototype.slice.call(fileList || []);
+  if(!files.length) return;
+  const planlar = new Array(files.length);
+  let kalan = files.length;
+  const bitir = function(){ if(--kalan === 0) dxaModalAc(planlar); };
+  files.forEach(function(file, i){
+    const fr = new FileReader();
+    fr.onload = function(e){
+      try{ planlar[i] = dxaPlanYap(DXFCEK.coz(String(e.target.result), file.name), file.name); }
+      catch(err){ planlar[i] = dxaHataPlani(file.name, err.message || 'çözümlenemedi'); }
+      bitir();
+    };
+    fr.onerror = function(){ planlar[i] = dxaHataPlani(file.name, 'dosya okunamadı'); bitir(); };
+    fr.readAsText(file);
+  });
+}
+
+function dxaModalAc(planlar){
+  dxaPlanlar = planlar || [];
+  dxaIdx = 0;
+  document.getElementById('dxa_modal').classList.add('open');
+  dxaCiz();
+}
+function dxaModalKapat(){
+  document.getElementById('dxa_modal').classList.remove('open');
+  dxaPlanlar = [];   // cozumleme nesneleri buyuk; oturum boyunca tutulmasin
+  dxaIdx = 0;
+}
+function dxaGit(delta){
+  const y = dxaIdx + delta;
+  if(y < 0 || y >= dxaPlanlar.length) return;
+  dxaIdx = y;
+  dxaCiz();
+}
+
+// Kutulari on gorunuste serer. Ham DXF cizimi degil KURULACAK MODULLERIN semasi:
+// aynalama burada aninda gorunur ve ekranda gorulen ile kurulan ayni kaynaktan gelir.
+function dxaSema(p){
+  const ml = dxaModuller(p);
+  if(!ml.length) return '';
+  const SW = 940, SH = 230, PAD = 22;
+  const toplamL = Math.max.apply(null, ml.map(function(m){ return m.x + m.L; }));
+  const toplamH = Math.max.apply(null, ml.map(function(m){ return m.y + m.H; }));
+  const sc = Math.min((SW - 2*PAD) / Math.max(toplamL, 1), (SH - 2*PAD) / Math.max(toplamH, 1));
+  const ox = (SW - toplamL*sc) / 2, oy = SH - PAD;
+  let s = '<svg viewBox=&quot;0 0 ' + SW + ' ' + SH + '&quot; style=&quot;width:100%;height:auto;display:block;&quot;>';
+  ml.forEach(function(m, i){
+    const x = ox + m.x*sc, y = oy - (m.y + m.H)*sc, w = m.L*sc, h = m.H*sc;
+    const renk = m.kat === 'üst' ? 'var(--warn)' : m.kat === 'tam' ? 'var(--bad)' : 'var(--accent)';
+    s += '<rect x=&quot;' + x.toFixed(1) + '&quot; y=&quot;' + y.toFixed(1) + '&quot; width=&quot;' + w.toFixed(1)
+       + '&quot; height=&quot;' + h.toFixed(1) + '&quot; fill=&quot;' + renk + '&quot; fill-opacity=&quot;0.13&quot; stroke=&quot;' + renk
+       + '&quot; stroke-width=&quot;1.5&quot; rx=&quot;2&quot;' + (m.kat === 'tam' ? ' stroke-dasharray=&quot;6,4&quot;' : '') + '/>';
+    const satirlar = ['M' + (i+1), m.L + ' × ' + m.H, m.ad || ''].filter(Boolean);
+    const gen = Math.max(w - 8, 18);
+    const olculen = satirlar.map(function(t, si){
+      return fitLabelText(t, gen, si === 0 ? 12.5 : 11, 6.5, si === 0 ? 700 : 400);
+    });
+    let yuk = 0;
+    olculen.forEach(function(f){ yuk += f.size*1.35; });
+    let ty = y + h/2 - yuk/2;
+    olculen.forEach(function(f, si){
+      ty += f.size*1.35;
+      s += '<text x=&quot;' + (x + w/2).toFixed(1) + '&quot; y=&quot;' + (ty - f.size*0.32).toFixed(1)
+         + '&quot; text-anchor=&quot;middle&quot; font-size=&quot;' + f.size.toFixed(1) + '&quot; font-weight=&quot;'
+         + (si === 0 ? 700 : 400) + '&quot; fill=&quot;var(--text)&quot;>' + dxaKac(f.text) + '</text>';
+    });
+  });
+  if(p.ayna) s += '<text x=&quot;' + (SW-6) + '&quot; y=&quot;16&quot; text-anchor=&quot;end&quot; font-size=&quot;12&quot; font-weight=&quot;700&quot; fill=&quot;var(--warn)&quot;>⇄ AYNALI</text>';
+  s += '</svg>';
+  return s;
+}
+
+function dxaCiz(){
+  const serit = document.getElementById('dxa_serit');
+  const govde = document.getElementById('dxa_body');
+  const sayac = document.getElementById('dxa_sayac');
+  const aktar = document.getElementById('dxa_aktar');
+  if(!serit || !govde) return;
+
+  const cok = dxaPlanlar.length > 1;
+  serit.style.display = cok ? 'flex' : 'none';
+  document.getElementById('dxa_onceki').style.display = cok ? '' : 'none';
+  document.getElementById('dxa_sonraki').style.display = cok ? '' : 'none';
+  sayac.textContent = cok ? (dxaIdx+1) + ' / ' + dxaPlanlar.length : '';
+  document.getElementById('dxa_onceki').disabled = dxaIdx <= 0;
+  document.getElementById('dxa_sonraki').disabled = dxaIdx >= dxaPlanlar.length - 1;
+
+  serit.innerHTML = dxaPlanlar.map(function(p, i){
+    const d = p.hata ? 'var(--bad)' : p.coz.status === 'verified' ? 'var(--good)'
+            : p.coz.status === 'warning' ? 'var(--warn)' : 'var(--bad)';
+    return '<span class=&quot;dxa-cip' + (i === dxaIdx ? ' sec' : '') + (p.sec ? '' : ' pas')
+      + '&quot; data-dxacip=&quot;' + i + '&quot;><span class=&quot;dxa-nokta&quot; style=&quot;background:' + d + '&quot;></span>'
+      + dxaKac(p.dosya) + '</span>';
+  }).join('');
+
+  const p = dxaPlanlar[dxaIdx];
+  if(!p){ govde.innerHTML = ''; return; }
+
+  if(p.hata){
+    govde.innerHTML = '<div class=&quot;status bad&quot;><b>Bu dosya çözümlenemedi</b><br>' + dxaKac(p.dosya)
+      + ' — ' + dxaKac(p.hata) + '</div>';
+  } else {
+    const k = p.kunye, r = p.coz, ml = dxaModuller(p);
+    const bosluk = function(v){ return v ? dxaKac(v) : '<b class=&quot;bos&quot;>—</b>'; };
+    const alan = function(baslik, deger, kaynak){
+      return '<div>' + dxaKac(baslik) + (deger === null ? '<b class=&quot;bos&quot;>—</b>' : '<b>' + dxaKac(deger) + '</b>')
+        + (kaynak ? dxaKac(kaynak) : '') + '</div>';
+    };
+    let h = '<div class=&quot;dxa-kunye&quot;>'
+      + alan('Dosya', p.dosya, '')
+      + alan('AHU Adı', k.ad, 'Santral Adı alanından')
+      + alan('Profil Serisi', k.seri ? k.seri + 'lik' : null, k.profilAdi || 'Profil Adı okunamadı')
+      + alan('İç Sac', k.malzeme || null, k.icSac || 'İç Sac Adı okunamadı')
+      + alan('Genişlik (W)', k.en ? k.en + ' mm' : null, 'her modüle uygulanır')
+      + alan('Katlar', k.katlar.length ? k.katlar.join(' + ') + ' mm' : null,
+             k.katlar.length > 1 ? k.katlar.length + ' kat' : 'tek kat')
+      + '</div>';
+
+    h += '<div class=&quot;dxa-secenek&quot;>'
+      + '<label><input type=&quot;checkbox&quot; id=&quot;dxa_ayna&quot;' + (p.ayna ? ' checked' : '') + '> Aynala (modül sırasını ters çevir)</label>'
+      + (dxaPlanlar.length > 1
+          ? '<label><input type=&quot;checkbox&quot; id=&quot;dxa_sec&quot;' + (p.sec ? ' checked' : '')
+            + (ml.length ? '' : ' disabled') + '> Bu dosyayı aktar</label>'
+          : '')
+      + '</div>';
+    if(p.aynaOto) h += '<div class=&quot;note&quot;>Dosya adında AYNALANACAK geçtiği için kendiliğinden işaretlendi.</div>';
+
+    const gecen = r.checks.filter(function(c){ return c.ok; }).length;
+    const dusen = r.checks.filter(function(c){ return !c.ok; });
+    const cls = r.status === 'verified' ? 'good' : r.status === 'warning' ? 'warn' : 'bad';
+    let bas;
+    if(r.status === 'verified') bas = '✔ ' + r.checks.length + ' bağımsız kontrolün ' + gecen + '\'i geçti.';
+    else if(r.status === 'warning') bas = '⚠ Uyarılı sonuç — ölçüleri çizimden teyit edin.';
+    else bas = '⛔ Kritik kontrol geçemedi — bu çizim beklenen P-KS düzeninde olmayabilir. Yine de aktarabilirsiniz; modülleri elle doğrulayın.';
+    const uyarilar = (k.uyari || []).concat(r.warn ? [r.warn] : [])
+      .concat(dusen.map(function(c){ return c.name + (c.detail ? ' (' + c.detail + ')' : ''); }));
+    h += '<div class=&quot;status ' + cls + '&quot;>' + dxaKac(bas)
+      + (uyarilar.length ? '<ul class=&quot;dxa-liste&quot;>' + uyarilar.map(function(u){
+           return '<li>' + dxaKac(u) + '</li>'; }).join('') + '</ul>' : '')
+      + '</div>';
+
+    if(!ml.length){
+      h += '<div class=&quot;status bad&quot;>Kurulacak modül bulunamadı — bu dosyadan aktarım yapılamaz.</div>';
+    } else {
+      h += '<h3>Kurulacak Modüller (' + ml.length + ')</h3>'
+        + '<table><thead><tr><th>#</th><th>Kat</th><th class=&quot;n&quot;>L</th><th class=&quot;n&quot;>H</th><th class=&quot;n&quot;>W</th>'
+        + '<th>Konum x, y, z</th><th>Modül Adı (içindeki işlevler)</th></tr></thead><tbody>'
+        + ml.map(function(m, i){
+            const sinif = m.kat === 'üst' ? 'k-ust' : m.kat === 'tam' ? 'k-tam' : 'k-alt';
+            const katAd = m.kat === 'üst' ? 'Üst kat' : m.kat === 'tam' ? 'Alt+Üst (tam)'
+                        : m.kat === 'tek' ? 'Tek kat' : 'Alt kat';
+            return '<tr class=&quot;' + sinif + '&quot;><td>M' + (i+1) + '</td><td>' + katAd
+              + '</td><td class=&quot;n&quot;>' + m.L + '</td><td class=&quot;n&quot;>' + m.H + '</td><td class=&quot;n&quot;>' + m.W
+              + '</td><td>' + m.x + ', ' + m.y + ', 0</td><td>' + dxaKac(m.ad || '—') + '</td></tr>';
+          }).join('')
+        + '</tbody></table>';
+      const altToplam = ml.filter(function(m){ return m.y === 0; })
+        .reduce(function(a, m){ return a + m.L; }, 0);
+      h += '<div class=&quot;note&quot;>Alt kat uzunlukları toplamı ' + altToplam + ' mm · çizimdeki toplam boy '
+        + (r.totalLen || '—') + ' mm. DXF\'teki M1/M2 etiketleri işlevleri gösterir; her hücre AHU Studio\'da bir modül olur.</div>';
+      h += '<h3>Şema — kurulacak modüller (ön görünüş)</h3><div class=&quot;dxa-sema&quot;>' + dxaSema(p) + '</div>';
+    }
+    govde.innerHTML = h;
+  }
+
+  const secili = dxaPlanlar.filter(function(x){ return x.sec && !x.hata; }).length;
+  aktar.disabled = secili === 0;
+  aktar.textContent = secili === 0 ? 'Aktarılacak dosya yok'
+    : dxaPlanlar.length > 1 ? secili + ' dosyayı aktar'
+    : (p && p.coz && p.coz.status === 'error' ? 'Yine de Aktar' : 'Aktar');
+}
+
+function dxaAktar(){
+  const secilenler = dxaPlanlar.filter(function(p){ return p.sec && !p.hata; });
+  if(!secilenler.length) return;
+  let modul = 0, ahu = 0;
+  const adlar = [];
+  secilenler.forEach(function(p){
+    const s = dxfAhuKur(p.coz, p.ayna);
+    if(s){ ahu++; modul += s.modulSayisi; adlar.push(s.ahu.ad); }
+  });
+  dxaModalKapat();
+  renderAll();
+  const not = document.getElementById('excel_note');
+  if(not) not.textContent = ahu + ' AHU (' + adlar.join(', ') + ') · ' + modul
+    + ' modül kuruldu. Kapak yerleşimi girilene kadar Excel ve DXF kilitli kalır — yüzlerdeki kapakları girmek size ait.';
+}
+
 buildTabs();
 attachListeners();
 renderAll();
@@ -4738,7 +5867,7 @@ document.getElementById('btn_dxf').addEventListener('click', exportToDxf);
 // v4: panel.colSpan + face.anaSplitLevels (eski dosyaların alan göçü syncStructure'da yapılır)
 // v5: module.araKat (ara kat — 7. sanal yüz). Eski v4/v3/v2 dosyalar açılmaya devam eder,
 //     ara katsız modül olarak gelirler (araKatNormalize kurar).
-const PROJECT_VERSION = 7;   // v7 = yönlü elemanın çizim yönü (panel.yon)
+const PROJECT_VERSION = 8;   // v8 = DXF aktarımından gelen modül adı (module.ad)
 
 // Yüklenen her modülde araKat alanını kurar. Tembel kurulum (araKatOf) tek başına yeterli
 // olurdu ama o zaman projectData() → JSON → applyProjectData() → projectData() gidiş-dönüşü
@@ -11637,8 +12766,8 @@ const YOL_HARITASI = [
   {n:9,  t:'Filtre kasetleri', durum:'plan', d:''},
   {n:10, t:'Pano sacı', durum:'plan', d:''},
   {n:11, t:'Motor hava akımı körleme sacı', durum:'plan', d:''},
-  {n:12, t:'DXF\'ten modülleri otomatik çizme', durum:'plan',
-   d:'Modüller DXF\'ten otomatik kurulacak; yüzlerdeki kapakları düzenlemek kullanıcıya kalacak.'},
+  {n:12, t:'DXF\'ten modülleri otomatik çizme', durum:'tamam', tarih:'26.08.2026',
+   d:'P-KS teknik resmi okunur: hücre ölçüleri, profil serisi (50/60) ve iç sac (galvaniz/paslanmaz) çıkarılıp her dosya yeni bir AHU olarak kurulur. Yüzlerdeki kapaklar kullanıcıya kalır.'},
   {n:13, t:'Çatı sacı', durum:'plan', d:''},
   {n:14, t:'Rotor sacı', durum:'plan', d:''},
   {n:15, t:'Karbon filtre sacı', durum:'plan', d:''}
