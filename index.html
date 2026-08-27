@@ -431,6 +431,22 @@ iframe.active{display:block;}
     </div>
   </div>
 
+  <div class=&quot;section&quot;>
+    <h2>Otomatik Kapak Yerleşimi</h2>
+    <div class=&quot;grid&quot; style=&quot;grid-template-columns:1fr 1fr 1fr;&quot;>
+      <div><label>Sac En (mm)</label><input type=&quot;number&quot; id=&quot;oto_sac_w&quot; value=&quot;1500&quot;></div>
+      <div><label>Sac Boy (mm)</label><input type=&quot;number&quot; id=&quot;oto_sac_h&quot; value=&quot;3000&quot;></div>
+      <div><label>Kenar Payı (mm)</label><input type=&quot;number&quot; id=&quot;oto_sac_pay&quot; value=&quot;3&quot;></div>
+    </div>
+    <div class=&quot;checkbox-row&quot; style=&quot;margin-top:8px;&quot;>
+      <input type=&quot;checkbox&quot; id=&quot;oto_atla_birlesik&quot;>
+      <label for=&quot;oto_atla_birlesik&quot;>Modüllerin birleşme yüzlerini kapaksız işaretle</label>
+    </div>
+    <button class=&quot;add-btn2&quot; id=&quot;btn_oto_doldur&quot; style=&quot;width:100%;margin-top:10px;&quot; title=&quot;Aktif AHU'daki her modülün her yüzünü, kapaklar saca sığacak en az sayıda parçaya böler&quot;>⚡ Tüm AHU'yu Otomatik Doldur</button>
+    <button class=&quot;add-btn2 ghost&quot; id=&quot;btn_oto_takviye&quot; style=&quot;width:100%;margin-top:6px;white-space:normal;line-height:1.3;&quot; title=&quot;Bölüm ve kapak sayısına dokunmaz — yalnız araları açar/kapatır ve ölçüleri yeniden dağıtır&quot;>+ Aralara Takviye Ekle</button>
+    <div class=&quot;note&quot;>Kaba maliyet iskeleti içindir: her yüz, kapağın açılımı (DIŞ sac payı dahil) sac ölçüsüne sığacak <b>en az</b> sayıda parçaya bölünür ve ölçüler tam oturacak şekilde dağıtılır. Kapak tipleri <b>Normal Panel</b> kurulur.</div>
+  </div>
+
 </aside>
 
 <main class=&quot;main&quot;>
@@ -1715,6 +1731,228 @@ function computeFace(fi){
     colResults, anaTakAdedi, araTakToplam,
     icKullAlong, kalanAlong, toplamKapak, status,
     takviyeRecords, bars, barWarnings};
+}
+
+// ---------- OTOMATİK KAPAK YERLEŞİMİ (kaba maliyet iskeleti) ----------
+// Bir yüzü, kapakların sac ölçüsüne sığacağı EN AZ sayıda parçaya böler. Ölçüler
+// computeFace'in kendi zincirinden (icKullAlong / icColAcross) türetildiği için
+// uygulandığında yüzün durum satırı &quot;TAM OTURDU&quot; der.
+const OTO_SAC_KEY = 'kh_oto_sac';
+const OTO_SAC_VARSAYILAN = {w:1500, h:3000, pay:3, birlesikAtla:true};
+const OTO_MAX_BOLME = 40;   // arama üst sınırı — gerçek yüzlerde birkaç basamakta biter
+
+// Kapak DIŞ sacının açılım payı — f1'deki nestFootprint ile AYNI sayılar (50 → +98,
+// 60 → +125). Buradaki kopya yalnız &quot;kaç parçaya bölelim&quot; kararı içindir; DXF ve nesting
+// hâlâ f1'in kendi tablosundan çizer. Sayı değişirse iki yer birden güncellenmeli.
+const OTO_ACILIM_PAYI = {'50':98, '60':125};
+
+let otoSac = Object.assign({}, OTO_SAC_VARSAYILAN);
+try{
+  const otoHam = localStorage.getItem(OTO_SAC_KEY);
+  if(otoHam) otoSac = Object.assign({}, OTO_SAC_VARSAYILAN, JSON.parse(otoHam));
+}catch(e){}
+function otoSacYaz(){ try{ localStorage.setItem(OTO_SAC_KEY, JSON.stringify(otoSac)); }catch(e){} }
+
+// Bilinmeyen/özel seride en büyük pay alınır: küçük tahmin edip sacı taşırmaktansa
+// bir kapak fazla bölmek güvenli taraftır.
+function otoAcilimPayi(){
+  const seri = String(state.varsayimlar.seri||'').replace('P','');
+  return OTO_ACILIM_PAYI[seri] !== undefined ? OTO_ACILIM_PAYI[seri] : 125;
+}
+
+// total'i n parçaya TAM dağıtır: taban ölçü + artan mm'ler baştan birer birer, kesir
+// varsa sonuncuya. Toplam bire bir korunur — aksi halde yüzde &quot;EKSİK&quot; uyarısı kalırdı.
+function otoDagit(total, n){
+  const base = Math.floor(total/n);
+  const out = [];
+  for(let i=0;i<n;i++) out.push(base);
+  let kalan = total - base*n;
+  for(let i=0;i<n && kalan>=1;i++){ out[i] += 1; kalan -= 1; }
+  if(kalan > 1e-9) out[n-1] += kalan;
+  return out;
+}
+
+// Kesim ölçüsü a × b olan kapak, açılım payıyla birlikte saca sığıyor mu? Parça
+// nesting'de döndürülebildiği için uzun kenar sacın uzun kenarına bakılır.
+function otoSigar(a, b){
+  const pay = otoAcilimPayi();
+  const limUzun = Math.max(otoSac.w, otoSac.h) - 2*otoSac.pay - pay;
+  const limKisa = Math.min(otoSac.w, otoSac.h) - 2*otoSac.pay - pay;
+  return Math.max(a,b) <= limUzun && Math.min(a,b) <= limKisa;
+}
+
+// Aktif modülün fi. yüzü için en az kapaklı (N bölüm × M kapak) ızgarayı arar; eşit
+// kapak sayısında kareye en yakın olan kazanır. tak = aralara takviye konacak mı
+// (takviye yer kapladığı için kullanılabilir ölçüyü değiştirir).
+function otoPlan(fi, tak){
+  const def = faceDefOf(fi), V = vOf(fi), face = faceOf(fi);
+  const faceW = Number(state.dims[def.wKey])||0, faceH = Number(state.dims[def.hKey])||0;
+  if(faceW<=0 || faceH<=0) return null;
+  const orient = face.orient;
+  const alongDim  = orient==='H' ? faceW : faceH;
+  const acrossDim = orient==='H' ? faceH : faceW;
+  const tolAlong  = orient==='H' ? V.tolW : V.tolH;
+  const tolAcross = orient==='H' ? V.tolH : V.tolW;
+  let best = null;
+  for(let N=1; N<=OTO_MAX_BOLME; N++){
+    const kullA = alongDim - 2*V.kenar - (tak ? (N-1)*V.takviye : 0);
+    if(kullA <= 0) break;
+    const cs = kullA/N;
+    for(let M=1; M<=OTO_MAX_BOLME; M++){
+      const kullB = acrossDim - 2*V.kenar - (tak ? (M-1)*V.takviye : 0);
+      if(kullB <= 0) break;
+      const a = cs - tolAlong, b = kullB/M - tolAcross;
+      if(a<=0 || b<=0) continue;
+      if(!otoSigar(a,b)) continue;
+      const adet = N*M, oran = Math.max(a,b)/Math.min(a,b);
+      if(!best || adet < best.adet || (adet === best.adet && oran < best.oran))
+        best = {N, M, adet, oran, kullA, kullB,
+                kapakW: orient==='H' ? a : b, kapakH: orient==='H' ? b : a};
+    }
+  }
+  if(!best) return null;
+  best.colSizes   = otoDagit(best.kullA, best.N);
+  best.panelSizes = otoDagit(best.kullB, best.M);
+  return best;
+}
+
+// Planı modele yazar. Seçimler ve ana takviye kesim seviyeleri sıfırlanır — yeni
+// ızgarada eski indeksler anlamsızdır.
+function otoUygulaYuz(fi, tak){
+  const plan = otoPlan(fi, tak);
+  if(!plan) return null;
+  const face = faceOf(fi);
+  face.columns = plan.colSizes.map(cs=>({
+    size: cs,
+    panels: plan.panelSizes.map(ps=>({size: ps, type:'Normal Panel', colSpan:1})),
+    innerGaps: plan.panelSizes.slice(1).map(()=>!!tak),
+    araJoinNext: plan.panelSizes.slice(1).map(()=>false)
+  }));
+  face.colGaps = plan.colSizes.slice(1).map(()=>!!tak);
+  face.anaSplitLevels = plan.colSizes.slice(1).map(()=>[]);
+  face.selectedCells = [];
+  face.selectedBars = [];
+  return plan;
+}
+
+// Bölüm ve kapak SAYISINA dokunmadan takviyeleri açar/kapatır ve ölçüleri yeniden
+// eşit dağıtır. Dönüş: sac ölçüsünü aşan kapak sayısı (takviye kalkınca kapaklar
+// büyür), ölçü girilmemiş yüzde -1.
+function otoTakviyeYuz(fi, tak){
+  const def = faceDefOf(fi), V = vOf(fi), face = faceOf(fi);
+  const faceW = Number(state.dims[def.wKey])||0, faceH = Number(state.dims[def.hKey])||0;
+  if(faceW<=0 || faceH<=0) return -1;
+  syncStructure(face);
+  const orient = face.orient;
+  const alongDim  = orient==='H' ? faceW : faceH;
+  const acrossDim = orient==='H' ? faceH : faceW;
+  const tolAlong  = orient==='H' ? V.tolW : V.tolH;
+  const tolAcross = orient==='H' ? V.tolH : V.tolW;
+  const N = face.columns.length;
+  const kullA = alongDim - 2*V.kenar - (tak ? (N-1)*V.takviye : 0);
+  if(kullA <= 0) return -1;
+  face.colGaps = face.colGaps.map(()=>!!tak);
+  const cs = otoDagit(kullA, N);
+  let tasan = 0;
+  face.columns.forEach((col, ci)=>{
+    col.size = cs[ci];
+    col.innerGaps = col.innerGaps.map(()=>!!tak);
+    const M = col.panels.length;
+    const kullB = acrossDim - 2*V.kenar - (tak ? (M-1)*V.takviye : 0);
+    const ps = otoDagit(Math.max(kullB,0), M);
+    col.panels.forEach((p, pi)=>{
+      p.size = ps[pi];
+      // Bireysel genişlik ve elle girilmiş birleşim genişliği artık bayat — bölüm
+      // ölçüsünden türetilene geri dönülür (alanlar tamamen düşer, JSON temiz kalır).
+      delete p.colSize;
+      delete p.spanSize;
+      const span = Math.max(1, Math.min(Math.round(Number(p.colSpan)||1), N - ci));
+      let a = -tolAlong;
+      for(let k=0; k<span; k++) a += cs[ci+k] + (k>0 && tak ? V.takviye : 0);
+      const b = ps[pi] - tolAcross;
+      if(!isEleman(p.type) && !isBos(p.type) && a>0 && b>0 && !otoSigar(a,b)) tasan++;
+    });
+  });
+  return tasan;
+}
+
+// Aktif AHU'da açık bir takviye var mı — düğmenin yönünü (ekle / kaldır) belirler.
+function otoTakviyeAcikMi(){
+  return state.modules.some(m=> m.faces.some(f=>
+    !f.kapaksiz && ((f.colGaps||[]).some(Boolean)
+      || (f.columns||[]).some(c=>(c.innerGaps||[]).some(Boolean)))));
+}
+
+// Aktif AHU'nun bütün modül × yüzünde çalışır. mod: 'doldur' | 'takviye'
+function otoTumAHU(mod, tak){
+  const sonuc = {yuz:0, kapak:0, atlanan:0, mated:0, tasan:0, cozumsuz:[]};
+  state.modules.forEach((m, mi)=>{
+    withModule(mi, ()=>{
+      FACE_DEFS.forEach((fdef, fi)=>{
+        const face = state.faces[fi];
+        // İki modülün birleştiği iç yüzde kapak olmaz — maliyeti şişirmesin diye
+        // kapaksız işaretlenir (kutucukla kapatılabilir).
+        if(otoSac.birlesikAtla && faceMated(mi, fi)){
+          if(!face.kapaksiz){ face.kapaksiz = true; sonuc.mated++; }
+          return;
+        }
+        if(face.kapaksiz){ sonuc.atlanan++; return; }
+        if(mod === 'doldur'){
+          const plan = otoUygulaYuz(fi, tak);
+          if(!plan){ sonuc.cozumsuz.push('M'+(mi+1)+' '+fdef.name); return; }
+          sonuc.yuz++; sonuc.kapak += plan.adet;
+        } else {
+          const t = otoTakviyeYuz(fi, tak);
+          if(t < 0){ sonuc.cozumsuz.push('M'+(mi+1)+' '+fdef.name); return; }
+          sonuc.yuz++; sonuc.tasan += t;
+          sonuc.kapak += face.columns.reduce((a,c)=>a+c.panels.length, 0);
+        }
+      });
+    });
+  });
+  return sonuc;
+}
+
+function otoNot(s, mod){
+  const not = document.getElementById('excel_note');
+  if(!not) return;
+  const p = [];
+  if(mod === 'doldur') p.push(s.yuz+' yüz otomatik dolduruldu — toplam '+s.kapak
+    +' kapak (sac '+otoSac.w+'×'+otoSac.h+' mm, seri payı '+otoAcilimPayi()+' mm).');
+  else p.push(s.yuz+' yüzde takviyeler '+(mod==='takviye-ac'?'AÇILDI':'KALDIRILDI')
+    +' ve ölçüler yeniden dağıtıldı ('+s.kapak+' kapak).');
+  if(s.mated) p.push(s.mated+' birleşme yüzü kapaksız işaretlendi.');
+  if(s.atlanan) p.push(s.atlanan+' kapaksız yüz atlandı.');
+  if(s.tasan) p.push('⚠ '+s.tasan+' kapak sac ölçüsüne sığmıyor — Otomatik Doldur ile yeniden bölün.');
+  if(s.cozumsuz.length) p.push('⚠ Çözülemedi (ölçü girilmemiş ya da sac çok küçük): '+s.cozumsuz.join(', ')+'.');
+  not.textContent = p.join(' ');
+}
+
+function otoDoldurTikla(){
+  const s = otoTumAHU('doldur', true);
+  renderAll();
+  otoNot(s, 'doldur');
+}
+
+function otoTakviyeTikla(){
+  const tak = !otoTakviyeAcikMi();
+  const s = otoTumAHU('takviye', tak);
+  renderAll();
+  otoNot(s, tak ? 'takviye-ac' : 'takviye-kapa');
+}
+
+// Kenar çubuğundaki sac kutuları ve takviye düğmesinin yönü (renderAll'dan beslenir)
+function renderOtoPanel(){
+  const sw = document.getElementById('oto_sac_w');
+  if(!sw) return;
+  sw.value = otoSac.w;
+  document.getElementById('oto_sac_h').value = otoSac.h;
+  document.getElementById('oto_sac_pay').value = otoSac.pay;
+  document.getElementById('oto_atla_birlesik').checked = !!otoSac.birlesikAtla;
+  const btn = document.getElementById('btn_oto_takviye');
+  if(btn) btn.textContent = otoTakviyeAcikMi()
+    ? '− Aralardaki Takviyeleri Kaldır'
+    : '+ Aralara Takviye Ekle';
 }
 
 function renderVarsayimlar(){
@@ -3025,6 +3263,7 @@ function renderModTabs(){
 
 function renderAll(){
   renderVarsayimlar();
+  renderOtoPanel();
   renderAhuTabs();
   renderModTabs();
   FACE_DEFS.forEach((_,i)=>renderFace(i));
@@ -3785,6 +4024,17 @@ async function exportExcel(){
 // ---------- OLAYLAR ----------
 function attachListeners(){
   document.getElementById('btn_excel').addEventListener('click', exportExcel);
+  document.getElementById('btn_oto_doldur').addEventListener('click', otoDoldurTikla);
+  document.getElementById('btn_oto_takviye').addEventListener('click', otoTakviyeTikla);
+  ['oto_sac_w','oto_sac_h','oto_sac_pay'].forEach(id=>{
+    document.getElementById(id).addEventListener('input', e=>{
+      otoSac[id.slice(8)] = Math.max(0, Number(e.target.value)||0);
+      otoSacYaz();
+    });
+  });
+  document.getElementById('oto_atla_birlesik').addEventListener('change', e=>{
+    otoSac.birlesikAtla = e.target.checked; otoSacYaz();
+  });
   document.getElementById('issuesBadge').addEventListener('click', e=>{
     const panel = document.getElementById('issuesPanel');
     panel.style.display = panel.style.display==='none' ? 'block' : 'none';
@@ -13068,7 +13318,9 @@ const YOL_HARITASI = [
    d:'P-KS teknik resmi okunur: hücre ölçüleri, profil serisi (50/60) ve iç sac (galvaniz/paslanmaz) çıkarılıp her dosya yeni bir AHU olarak kurulur. Yüzlerdeki kapaklar kullanıcıya kalır.'},
   {n:13, t:'Çatı sacı', durum:'plan', d:''},
   {n:14, t:'Rotor sacı', durum:'plan', d:''},
-  {n:15, t:'Karbon filtre sacı', durum:'plan', d:''}
+  {n:15, t:'Karbon filtre sacı', durum:'plan', d:''},
+  {n:16, t:'Otomatik kapak yerleşimi (kaba maliyet)', durum:'tamam', tarih:'27.08.2026',
+   d:'Tek tuşla aktif AHU\'nun bütün yüzleri, kapaklar sac ölçüsüne sığacak en az sayıda parçaya bölünür; ikinci tuş kapak aralarındaki takviyeleri açıp kapatır ve ölçüleri yeniden dağıtır.'}
 ];
 const ROZET = {plan:['rz-plan','PLANLANDI'], suruyor:['rz-suruyor','SÜRÜYOR'], tamam:['rz-tamam','TAMAM']};
 function yolKacar(){
