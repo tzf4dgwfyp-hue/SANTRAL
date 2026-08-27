@@ -4648,16 +4648,22 @@ function analyzeDxf(text, fileName) {
   // ---------- teknik tablo ----------
   const kv = {};
   const tableLabelXs = [];
+  // Bazı çizimler (P-ESF, P-HSV-WM ailesi) tablo etiketini grup önekiyle yazıyor:
+  // 'Özellikler - Santral Adı', 'Boyut - Genişlik', 'Malzemeler - İç Sac Adı'.
+  // Önek listesi KAPALI tutulur; '(M2) - Filtre - Genişlik(1)' ve
+  // 'Bağlantı Noktaları - Taze Hava - … - Genişlik' tabloya GİRMEMELİ.
+  const GRUP_ONEK = /^(Özellikler|Boyut|Malzemeler) - /;
   const TABLE_RE = /^(Santral Adı|Model Adı|Boyut Adı|Genişlik|Yükseklik|Ayak Yüksekliği \(mm\)|Ağırlık|Hava Debisi|Proje Adı)$/;
   for (let i = 0; i < texts.length; i++) {
     const lt = texts[i];
-    if (!TABLE_RE.test(lt.str)) continue;
+    const etiket = lt.str.replace(GRUP_ONEK, '');
+    if (!TABLE_RE.test(etiket)) continue;
     let val = null;
     for (let j = 0; j < texts.length; j++) {
       const t = texts[j];
       if (Math.abs(t.y - lt.y) < 3 && t.x > lt.x + 10 && (!val || t.x < val.x)) val = t;
     }
-    if (val && !(lt.str in kv)) kv[lt.str] = val.str;
+    if (val && !(etiket in kv)) kv[etiket] = val.str;
     tableLabelXs.push(lt.x);
   }
   // Kasa kunyesi — ayri harita (tableX'i etkilememeli, bkz. yukarisi)
@@ -4665,13 +4671,14 @@ function analyzeDxf(text, fileName) {
   const KASA_RE = /^(Profil Adı|İç Sac Adı|İç Sac Kalınlığı \(mm\)|Dış Sac Adı|Dış Sac Kalınlığı \(mm\))$/;
   for (let i = 0; i < texts.length; i++) {
     const lt = texts[i];
-    if (!KASA_RE.test(lt.str) || (lt.str in kasa)) continue;
+    const ketiket = lt.str.replace(GRUP_ONEK, '');
+    if (!KASA_RE.test(ketiket) || (ketiket in kasa)) continue;
     let val = null;
     for (let j = 0; j < texts.length; j++) {
       const t = texts[j];
       if (Math.abs(t.y - lt.y) < 3 && t.x > lt.x + 10 && (!val || t.x < val.x)) val = t;
     }
-    if (val) kasa[lt.str] = val.str;
+    if (val) kasa[ketiket] = val.str;
   }
 
   const modTypes = {};
@@ -4774,10 +4781,39 @@ function analyzeDxf(text, fileName) {
   if (!deckHeights.length && Htab) deckHeights = [Htab];
   const nDecks = deckHeights.length;
 
+  // ---------- yan görünüş kutuları + toplam boy ----------
+  // Uç görünüşün yatay ölçüsü santralin ENİdir, yan görünüşünki BOYudur. Ayrım eni
+  // referans alır: en tablodan kesin okunur, boy okunmaz.
+  //
+  // 'En uzun yatay ölçü boydur' varsayımı YANLIŞ: eni boyundan büyük santralde en uzun
+  // ölçü endir (P-ESF 30000 → en 3100 / boy 3000; P-PH-100T → en 1750 / boy 1600).
+  // Bu yüzden toplam boy da genel maksimumdan değil YAN GÖRÜNÜŞLERDEN okunur.
+  //
+  // Kare santralde (boy = en) iki görünüş geometrik olarak ayırt edilemez; o durumda
+  // hepsi yan görünüş sayılır — ölçü zaten aynı olduğu için sonuç değişmez. Eski kod
+  // burada hiçbirini kabul etmiyordu ve santral hiç okunmuyordu (P-PH-52T kusuru).
+  const bandBoxes = boxes.filter(function (b) {
+    return bandY != null && b.ylo - 20 <= bandY && bandY <= b.yhi && b.groups && b.groups.length;
+  });
+  const kutuSpan = function (b) { return (b.extHi - b.extLo) * 10; };
+  let sideBoxes = bandBoxes.filter(function (b) {
+    return !W || (Math.abs(kutuSpan(b) - W) > 20 && kutuSpan(b) > W * 0.5);
+  });
+  if (!sideBoxes.length)
+    sideBoxes = bandBoxes.filter(function (b) { return !W || kutuSpan(b) >= W * 0.9; });
+
+  let totalLen = null;
+  const yanZincir = [];
+  sideBoxes.forEach(function (b) { for (let i = 0; i < b.chains.length; i++) yanZincir.push(b.chains[i]); });
+  if (yanZincir.length)
+    totalLen = Math.round(Math.max.apply(null, yanZincir.map(function (d) { return d.hi - d.lo; })) * 10);
+  else if (hsegs.length)
+    totalLen = Math.round(Math.max.apply(null, hsegs.map(function (d) { return d.hi - d.lo; })) * 10);
+
   // ---------- modül etiketi -> zincir eşleştirme ----------
   const mlabels = texts.filter(function (t) { return /^M\d+$/.test(t.str); })
     .map(function (t) { return { str: t.str, x: t.x, y: t.y, h: t.h, cx: t.x + 0.35 * t.h * t.str.length }; });
-  const modVotes = {}, modDecksAll = {}, recs = [];
+  const modVotes = {}, modVotesYan = {}, modDecksAll = {}, recs = [];
   for (let li = 0; li < mlabels.length; li++) {
     const ml = mlabels[li];
     let box = null;
@@ -4809,6 +4845,34 @@ function analyzeDxf(text, fileName) {
     }
     const multi = cands.filter(function (g) { return g.segs.length >= 2; });
     if (multi.length) cands = multi;
+    // Etiket hiçbir ölçünün üstüne denk gelmiyorsa değer, komşu iki ölçü arasındaki
+    // BOŞLUKTAN türetilir (aşağıdaki 'edges' dalı). Böyle bir boşluk santralin toplam
+    // boyunu aşıyorsa o zincir bu görünüşe ait değildir: iki görünüş tek kutuda
+    // birleşmiş demektir (aradaki küçük semboller kutuları köprülüyor — DES-01'de M1
+    // için 3790 mm çıkıyordu, santralin tamamı 3500 mm).
+    if (totalLen) {
+      const makul = cands.filter(function (g) {
+        if (g.segs.some(function (s) { return ml.cx >= s.lo - 0.5 && ml.cx <= s.hi + 0.5; })) return true;
+        const ke = [box.extLo];
+        for (let i = 0; i < g.segs.length; i++) { ke.push(g.segs[i].lo); ke.push(g.segs[i].hi); }
+        ke.push(box.extHi);
+        ke.sort(function (a, b) { return a - b; });
+        for (let i = 0; i + 1 < ke.length; i++)
+          if (ml.cx >= ke[i] && ml.cx <= ke[i + 1]) return (ke[i + 1] - ke[i]) * 10 <= totalLen + 1;
+        return true;
+      });
+      if (makul.length) cands = makul;
+    }
+    // Modüller santralin boyunu paylaşır: modül ölçü zinciri görünüşün UCUNDAN UCUNA gider.
+    // Uçlara değmeyen zincir (iç ölçü, kapak açıklığı, ventüri…) modül zinciri değildir.
+    // Tek modüllü çizimde belirleyici olan tek şey budur: etikete en yakın ölçü iç ölçüdür
+    // (P-PH-100T: 1650), modülün kendisi dış ölçüdür (1600).
+    const uctanUca = cands.filter(function (g) {
+      let mlo = Infinity, mhi = -Infinity;
+      for (let i = 0; i < g.segs.length; i++) { mlo = Math.min(mlo, g.segs[i].lo); mhi = Math.max(mhi, g.segs[i].hi); }
+      return mlo <= box.extLo + 2 && mhi >= box.extHi - 2;
+    });
+    if (uctanUca.length) cands = uctanUca;
     cands.sort(function (a, b) { return Math.abs(ml.y - a.y) - Math.abs(ml.y - b.y); });
     const g = cands[0];
     let val = null, lo = null, hi = null;
@@ -4841,13 +4905,20 @@ function analyzeDxf(text, fileName) {
     }
     if (val != null) {
       (modVotes[ml.str] = modVotes[ml.str] || []).push(Math.round(val * 10));
+      if (sideBoxes.indexOf(box) >= 0)
+        (modVotesYan[ml.str] = modVotesYan[ml.str] || []).push(Math.round(val * 10));
       recs.push({ name: ml.str, box: box, isSideBox: isSideBox, deck: deck, gy: g.y, lo: lo, hi: hi, ml: ml });
     }
   }
 
   const modules = {};
   Object.keys(modVotes).forEach(function (name) {
-    const arr = modVotes[name], freq = {};
+    // Modül boyu santralin UZUNLUK ekseninde ölçülür. Uç görünüşteki yatay ölçü modülün
+    // boyu değil kasanın enidir; çok görünüşlü çizimde bu oylar doğru boyu bastırabiliyordu
+    // (P-PH ailesinde 4 uç görünüş 1750 diyor, 2 yan görünüş 1600). Yan görünüşten oy
+    // geldiyse yalnız onlar sayılır. NOT: 'isSideBox' bunun yerine kullanılamaz — o yalnız
+    // kutunun kaide bandında olduğunu söyler, uç görünüşler de o banttadır.
+    const arr = (modVotesYan[name] && modVotesYan[name].length) ? modVotesYan[name] : modVotes[name], freq = {};
     for (let i = 0; i < arr.length; i++) freq[arr[i]] = (freq[arr[i]] || 0) + 1;
     let best = null;
     Object.keys(freq).forEach(function (k) {
@@ -4855,9 +4926,6 @@ function analyzeDxf(text, fileName) {
     });
     modules[name] = { len: +best, votes: freq[best] + '/' + arr.length, all: freq };
   });
-
-  let totalLen = null;
-  if (hsegs.length) totalLen = Math.round(Math.max.apply(null, hsegs.map(function (d) { return d.hi - d.lo; })) * 10);
 
   const isEsanjor = function (name) { return /Eşanjör/i.test(modTypes[name] || ''); };
 
@@ -4879,13 +4947,6 @@ function analyzeDxf(text, fileName) {
     });
 
   // ---------- HÜCRE ÇIKARIMI ----------
-  // yan görünüş kutuları (uç görünüşleri ele: uzunluk ≈ genişlik olanlar)
-  const sideBoxes = boxes.filter(function (b) {
-    if (!(bandY != null && b.ylo - 20 <= bandY && bandY <= b.yhi)) return false;
-    const span = (b.extHi - b.extLo) * 10;
-    if (W && span <= W * 1.3) return false;
-    return b.groups && b.groups.length;
-  });
   function segRuns(segs) {
     const runs = [];
     const sorted = segs.slice().sort(function (a, b) { return a.lo - b.lo; });
@@ -4895,6 +4956,31 @@ function analyzeDxf(text, fileName) {
       else runs.push([sorted[i].lo, sorted[i].hi]);
     }
     return runs;
+  }
+
+  // ---------- gövde dikdörtgenleri (modül yükseklikleri) ----------
+  // Yan görünüşte her modül, kaide çizgisine oturan bir dikdörtgendir; o dikdörtgenin
+  // yüksekliği modülün yüksekliğidir. Plakalı eşanjör gibi modüller kat yüksekliğinden
+  // TAŞAR (DES ailesi: kat 920, eşanjör 1600) ve çizimin ölçü zinciri bunu ayrı hücre
+  // olarak göstermeyebilir — böyle bir çelişkide GEOMETRİ doğruyu söyler.
+  // Kaideden yukarıda başlayan iç parçalar (panel, kapak, ızgara) bu filtreye takılmaz.
+  function govdeKutulari(lo, hi) {
+    const cikti = [];
+    if (bandY == null) return cikti;
+    const gorulen = {};
+    for (let i = 0; i < geo.length; i++) {
+      const g = geo[i];
+      if (Math.abs(g.ylo - bandY) > 1.2) continue;
+      if (g.xlo < lo - 1 || g.xhi > hi + 1) continue;
+      const gen = (g.xhi - g.xlo) * 10, yuk = (g.yhi - g.ylo) * 10;
+      if (gen < 200 || yuk < 200) continue;
+      const k = Math.round(g.xlo * 2) + '|' + Math.round(g.xhi * 2);
+      if (gorulen[k]) { if (Math.round(yuk) > gorulen[k].h) gorulen[k].h = Math.round(yuk); continue; }
+      gorulen[k] = { lo: g.xlo, hi: g.xhi, h: Math.round(yuk) };
+      cikti.push(gorulen[k]);
+    }
+    cikti.sort(function (a, b) { return a.lo - b.lo || a.hi - b.hi; });
+    return cikti;
   }
 
   function hucreForBox(box) {
@@ -4983,9 +5069,17 @@ function analyzeDxf(text, fileName) {
         cells.push({ lo: cand.segs[0].lo, hi: cand.segs[0].hi, src: 'seg' });
       } else {
         // ara toplam zinciri + boşluk doldurma (kat aralığına kırpılmış)
-        const segsIn = cand.segs.filter(function (s) { return s.hi > extLo + 1 && s.lo < extHi - 1; })
+        let segsIn = cand.segs.filter(function (s) { return s.hi > extLo + 1 && s.lo < extHi - 1; })
           .map(function (s) { return { lo: Math.max(s.lo, extLo), hi: Math.min(s.hi, extHi) }; })
           .filter(function (s) { return s.hi - s.lo >= 4; });
+        // Aynı satırda bir ölçü bir diğerini TAMAMEN kapsıyorsa, kapsayan ölçü bir ara
+        // toplam değil GENEL toplamdır — bazı çizimler toplamı hücre satırına da yazıyor
+        // (DES-03: 3900 ile 1900 aynı y'de). Hücre sayılırsa komşu hücreyi yutar.
+        segsIn = segsIn.filter(function (s) {
+          return !segsIn.some(function (o) {
+            return o !== s && o.lo >= s.lo - 0.5 && o.hi <= s.hi + 0.5 && (o.hi - o.lo) < (s.hi - s.lo) - 0.5;
+          });
+        });
         for (let i = 0; i < segsIn.length; i++) cells.push({ lo: segsIn[i].lo, hi: segsIn[i].hi, src: 'seg' });
         // boşluklar
         const evs = [extLo];
@@ -5064,6 +5158,42 @@ function analyzeDxf(text, fileName) {
       out.push({ lo: cells1[j].lo, hi: cells1[j].hi, kat: 'üst', h: deckHeights[nDecks - 1] });
     }
     out.sort(function (a, b) { return a.lo - b.lo || (a.kat === 'üst' ? 1 : -1); });
+
+    // Gövde yükseklikleri: tek katlı santralde hücre, farklı yükseklikteki gövdelerin
+    // sınırında BÖLÜNÜR ve her parça kendi yüksekliğini alır — ölçü zinciri ikisini tek
+    // hücre gösterse bile (DES ailesinde eşanjör böyle: zincir 2000 diyor, gövdeler
+    // 900 + 1100 ve ikincisi 1600 mm yüksek). Çok katlıda eşanjör zaten 'tam yükseklik'
+    // hücresi olarak çözülüyor, oraya dokunulmaz.
+    if (nDecks === 1 && out.length) {
+      let sinirLo = Infinity, sinirHi = -Infinity;
+      out.forEach(function (c) { sinirLo = Math.min(sinirLo, c.lo); sinirHi = Math.max(sinirHi, c.hi); });
+      const gov = govdeKutulari(sinirLo, sinirHi);
+      if (gov.length) {
+        const yeni = [];
+        for (let i = 0; i < out.length; i++) {
+          const c = out[i];
+          const ic = gov.filter(function (b) {
+            const orta = (b.lo + b.hi) / 2;
+            return orta > c.lo + 0.5 && orta < c.hi - 0.5;
+          });
+          if (!ic.length) { yeni.push(c); continue; }
+          let hMax = -Infinity, hMin = Infinity;
+          ic.forEach(function (b) { hMax = Math.max(hMax, b.h); hMin = Math.min(hMin, b.h); });
+          if (hMax - hMin <= 10) { yeni.push(c); continue; }
+          let x = c.lo;
+          for (let j = 0; j < ic.length; j++) {
+            const bl = Math.max(c.lo, ic[j].lo), bh = Math.min(c.hi, ic[j].hi);
+            if (bl - x > 0.4) yeni.push({ lo: x, hi: bl, kat: c.kat, h: c.h });
+            yeni.push({ lo: bl, hi: bh, kat: c.kat, h: ic[j].h });
+            x = bh;
+          }
+          if (c.hi - x > 0.4) yeni.push({ lo: x, hi: c.hi, kat: c.kat, h: c.h });
+        }
+        out.length = 0;
+        out.push.apply(out, yeni);
+      }
+    }
+
     // hücre içindeki modüller
     const seen = {};
     for (let i = 0; i < out.length; i++) {
@@ -5091,7 +5221,15 @@ function analyzeDxf(text, fileName) {
     for (let i = 0; i < out.length; i++) {
       out[i].moduller.sort(function (a, b) { return +a.slice(1) - +b.slice(1); });
     }
-    return { box: box, cells: out, nLabels: inBox.length };
+    // kat yüksekliğinden taşan modüller (uyarı metni için)
+    const tasan = [];
+    if (nDecks === 1 && deckHeights[0])
+      out.forEach(function (c) {
+        if (Math.abs(c.h - deckHeights[0]) > 10)
+          tasan.push((c.moduller.length ? c.moduller.join('+') : Math.round((c.hi - c.lo) * 10) + ' mm') +
+            ' → ' + c.h + ' mm');
+      });
+    return { box: box, cells: out, nLabels: inBox.length, tasan: tasan };
   }
 
   let hucre = null, mirrorMismatch = null;
@@ -5112,6 +5250,30 @@ function analyzeDxf(text, fileName) {
              en: W, boy: c.boy, yukseklik: c.h, moduller: c.moduller.join(', '),
              katKod: c.kat, lo: c.lo, hi: c.hi };
   }) : [];
+
+  // ---------- FAN / MOTOR ----------
+  // Cizim her modulun alanlarini '(M5) - Fan - Guc' bicimindeki etiket satirlariyla tasiyor;
+  // deger her zaman ayni satirda SAGDAKI en yakin metindir (teknik tablodaki desenin ayni).
+  const fanlar = {};
+  const FAN_ALAN = /^(Fan Tipi|Fan Adı|Fan İşlevi|Fan Sayısı|Motor Adı|Güç|Devir \(d\/d\)|Fan Kasnak Çapı \(mm\)|Motor Kasnak Çapı \(mm\)|Kayış Uzunluğu|Kasnak Adı)$/;
+  for (let i = 0; i < texts.length; i++) {
+    const lt = texts[i];
+    const m = lt.str.match(/^\((M\d+)\)\s*-\s*(.+)$/);
+    if (!m) continue;
+    const ad = m[1], tur = modTypes[ad] || '';
+    if (!/fan/i.test(tur)) continue;
+    let alan = m[2];
+    if (tur && alan.indexOf(tur + ' - ') === 0) alan = alan.slice(tur.length + 3);
+    if (!FAN_ALAN.test(alan)) continue;
+    const kayit = fanlar[ad] || (fanlar[ad] = { modul: ad, tur: tur });
+    if (alan in kayit) continue;
+    let val = null;
+    for (let j = 0; j < texts.length; j++) {
+      const t = texts[j];
+      if (Math.abs(t.y - lt.y) < 3 && t.x > lt.x + 10 && (!val || t.x < val.x)) val = t;
+    }
+    kayit[alan] = val ? val.str : '';
+  }
 
   // ---------- DOĞRULAMA BATARYASI ----------
   // Her sonuç, birbirinden bağımsız kontrollerden geçer. Kritik bir kontrol çökerse sonuç
@@ -5215,6 +5377,14 @@ function analyzeDxf(text, fileName) {
   // 14. iç sac malzemesi okunabildi mi
   chk('İç sac malzemesi', !!kasa['İç Sac Adı'], kasa['İç Sac Adı'] || 'İç Sac Adı alanı yok', false);
 
+  // 15. gövde yüksekliği kat yüksekliğinden taşan modül var mı
+  // Kritik değil: ölçü gövde geometrisinden doğru alındı, aktarım engellenmez —
+  // ama çizimin tablosu/ölçü zinciri bunu söylemediği için kullanıcıya haber verilir.
+  if (hucre && hucre.tasan && hucre.tasan.length)
+    chk('Modül yükseklikleri = kat yüksekliği', false,
+      hucre.tasan.join(', ') + ' (kat ' + deckHeights[0] + ' mm) — ölçü zinciri bu modülü ayrı ' +
+      'hücre göstermiyor, yükseklik gövde geometrisinden alındı', false);
+
   // 12. ayna görünüş tutarlılığı (Sağ ve Sol aynı hücre imzasını vermeli)
   if (hucreAll.length > 1)
     chk('Ayna görünüşler aynı sonucu veriyor', !mirrorMismatch, mirrorMismatch || '', false);
@@ -5240,6 +5410,7 @@ function analyzeDxf(text, fileName) {
     deckHeights: deckHeights, totalLen: totalLen,
     hucreler: hucreler,
     modules: modOut,
+    fanlar: fanlar,
     profilAdi: kasa['Profil Adı'] || null,
     icSac: kasa['İç Sac Adı'] || null,
     disSac: kasa['Dış Sac Adı'] || null,
@@ -5251,6 +5422,100 @@ function analyzeDxf(text, fileName) {
 
   return { coz: analyzeDxf };
 })();
+
+// ---------- MOTOR GÖVDESİ VE KAİDE ----------
+// Kaynak: proje kökündeki 'motor gövde bilgisi.xlsx' (Cenk, 26.08.2026).
+// Kural: aynı kW'ta devir düştükçe gövde büyür (moment arttığı için).
+// Tablo tam kare DEĞİL: 0,55 kW yalnız 3000'de, 37 ve 45 kW yalnız 1500'de var.
+const MOTOR_GOVDE = [
+  { kw: 0.55, g: {3000: 71} },
+  { kw: 0.75, g: {3000: 80,  1500: 80,  1000: 90} },
+  { kw: 1.1,  g: {3000: 80,  1500: 90,  1000: 90} },
+  { kw: 1.5,  g: {3000: 90,  1500: 90,  1000: 100} },
+  { kw: 2.2,  g: {3000: 90,  1500: 100, 1000: 112} },
+  { kw: 3,    g: {3000: 100, 1500: 100, 1000: 132} },
+  { kw: 4,    g: {3000: 112, 1500: 112, 1000: 132} },
+  { kw: 5.5,  g: {3000: 132, 1500: 132, 1000: 132} },
+  { kw: 7.5,  g: {3000: 132, 1500: 132, 1000: 160} },
+  { kw: 11,   g: {3000: 160, 1500: 160, 1000: 160} },
+  { kw: 15,   g: {3000: 160, 1500: 160, 1000: 180} },
+  { kw: 18.5, g: {3000: 160, 1500: 180, 1000: 200} },
+  { kw: 22,   g: {3000: 180, 1500: 180, 1000: 200} },
+  { kw: 30,   g: {3000: 200, 1500: 200, 1000: 225} },
+  { kw: 37,   g: {1500: 225} },
+  { kw: 45,   g: {1500: 225} }
+];
+
+// Tam kademe yoksa BİR ÜST kW kademesine çıkılır — büyük gövde güvenli taraftır.
+// O devirde hiç karşılık yoksa null döner; çağıran motor adına düşer.
+function motorGovde(kw, devir){
+  if(!(kw > 0) || !(devir > 0)) return null;
+  for(let i = 0; i < MOTOR_GOVDE.length; i++){
+    const s = MOTOR_GOVDE[i];
+    if(s.kw + 1e-9 < kw) continue;
+    const g = s.g[devir];
+    if(g) return { govde: g, kademe: s.kw, yuvarlandi: Math.abs(s.kw - kw) > 1e-9 };
+  }
+  return null;
+}
+
+// 'SYWB 400 R' -> 400 · 'SYQ 450 R' -> 450
+// 'RLM E6-5663-43-21-A' -> 630 : dört haneli kodun İKİNCİ yarısı çapı verir (Cenk, 26.08.2026),
+// yani 5663 -> 630, 6371 -> 710, 7180 -> 800.
+function fanCapi(fanAd){
+  const s = String(fanAd || '');
+  if(/^RLM/i.test(s)){
+    const m = s.match(/\b\d{2}(\d{2})\b\s*-/);
+    if(m) return +m[1] * 10;
+  }
+  const d = s.match(/^[A-Za-zĞÜŞİÖÇğüşıöç]+\s*(\d{3,4})\b/);
+  return d ? +d[1] : null;
+}
+
+// 'AGM3EL 132 M 4b IE3' -> 132
+function motorAdiGovde(motorAd){
+  const m = String(motorAd || '').match(/\b(\d{2,3})\s*[SML]\b/);
+  return m ? +m[1] : null;
+}
+
+const FAN_KASNAK = ['Fan Kasnak Çapı (mm)', 'Motor Kasnak Çapı (mm)', 'Kayış Uzunluğu', 'Kasnak Adı'];
+
+// Çizimden gelen ham fan alanlarını çözer. TABLO ASIL KAYNAKTIR, motor adı doğrulamadır
+// (Cenk, 26.08.2026); çeliştiklerinde ikisi de yazılır ve uyarı düşülür.
+function dxfFanCoz(fk){
+  if(!fk) return null;
+  const sayi = function(s){
+    const m = String(s == null ? '' : s).replace(/\./g, '').replace(/,/g, '.').match(/-?\d+(\.\d+)?/);
+    return m ? parseFloat(m[0]) : null;
+  };
+  const kayis = FAN_KASNAK.some(function(k){ return fk[k]; });
+  const kw = sayi(fk['Güç']), devir = sayi(fk['Devir (d/d)']);
+  const cap = fanCapi(fk['Fan Adı']);
+  const t = motorGovde(kw, devir);
+  const adG = motorAdiGovde(fk['Motor Adı']);
+  const uyari = [];
+  let govde = t ? t.govde : null, kaynak = 'tablo';
+  if(t && t.yuvarlandi) uyari.push('Tabloda ' + kw + ' kW yok — ' + t.kademe + ' kW kademesine yuvarlandı.');
+  if(!govde && adG){ govde = adG; kaynak = 'motor adı'; uyari.push('kW + devir tablosunda karşılık yok; gövde motor adından okundu.'); }
+  if(govde && adG && govde !== adG) uyari.push('Tablo ' + govde + ' gövde diyor, motor adı ' + adG + ' diyor — çizimden teyit edin.');
+  if(!cap) uyari.push('Fan çapı addan çözülemedi: ' + (fk['Fan Adı'] || '—'));
+  let kaide = '', kapsam = '';
+  if(kayis) kapsam = 'Kayış-kasnaklı fan — motor kaidesi kütüphanesi kapsamı dışında.';
+  else if(cap && govde) kaide = 'SYWB' + cap + '-' + govde;
+  return { modul: fk.modul || '', ad: fk['Fan Adı'] || '', tip: fk['Fan Tipi'] || '',
+           islev: fk['Fan İşlevi'] || '', adet: sayi(fk['Fan Sayısı']) || 1,
+           cap: cap, kw: kw, devir: devir, govde: govde, govdeKaynak: kaynak,
+           motorAd: fk['Motor Adı'] || '', kayis: kayis, kaide: kaide, kapsam: kapsam, uyari: uyari };
+}
+
+// Modele yazılan kalıcı alan — sunum bilgisi (uyarı/kaynak/kapsam) taşınmaz, o her seferinde
+// yeniden üretilir.
+function dxfFanKalici(f){
+  if(!f) return null;
+  return { ad: f.ad, tip: f.tip, islev: f.islev, adet: f.adet, cap: f.cap,
+           kw: f.kw, devir: f.devir, govde: f.govde, motorAd: f.motorAd,
+           kayis: f.kayis, kaide: f.kaide };
+}
 
 // ---------- DXF -> AHU STUDIO ESLEME KATMANI ----------
 // DIKKAT — ad cakismasi: DXF.te M1/M2 diye etiketlenen sey bir ISLEVDIR (Fan, Filtre);
@@ -5297,10 +5562,12 @@ function dxfModulListesi(r, aynala){
     const ad = String(h.moduller||'').split(',').map(function(s){ return s.trim(); })
       .filter(Boolean).map(function(n){ return tipAd[n] || n; })
       .filter(function(v,i,a){ return v && a.indexOf(v)===i; }).join(' + ');
+    const fk = String(h.moduller||'').split(',').map(function(s){ return s.trim(); })
+      .map(function(nm){ return (r.fanlar||{})[nm]; }).filter(Boolean)[0];
     return { L: h.boy, H: h.yukseklik, W: r.genislik||0,
              x: aynala ? toplam - x - h.boy : x,
              y: h.katKod === 'üst' ? altH : 0,
-             kat: h.katKod, ad: ad };
+             kat: h.katKod, ad: ad, fan: fk ? dxfFanCoz(fk) : null };
   });
   out.sort(function(a,b){ return a.x - b.x || a.y - b.y; });
   return out;
@@ -5345,6 +5612,7 @@ function dxfAhuKur(r, aynala){
     md.L = m.L; md.H = m.H; md.W = m.W;
     md.pos = { x: m.x, y: m.y, z: 0 };
     if(m.ad) md.ad = m.ad;            // alan YALNIZ doluyken var olur (panel.yon deseni)
+    if(m.fan) md.fan = dxfFanKalici(m.fan);
     if(i > 0){                         // ilk modul cipa; digerleri silinince bosluk kapansin
       md.attAxis = m.y > 0 ? 'y' : 'x';
       md.attDir = 1;
@@ -5446,7 +5714,7 @@ function dxaSema(p){
     const satirlar = ['M' + (i+1), m.L + ' × ' + m.H, m.ad || ''].filter(Boolean);
     const gen = Math.max(w - 8, 18);
     const olculen = satirlar.map(function(t, si){
-      return fitLabelText(t, gen, si === 0 ? 12.5 : 11, 6.5, si === 0 ? 700 : 400);
+      return fitLabelText(t, gen, si === 0 ? 12.5 : 11, 8.5, si === 0 ? 700 : 400);
     });
     let yuk = 0;
     olculen.forEach(function(f){ yuk += f.size*1.35; });
@@ -5551,6 +5819,36 @@ function dxaCiz(){
         .reduce(function(a, m){ return a + m.L; }, 0);
       h += '<div class=&quot;note&quot;>Alt kat uzunlukları toplamı ' + altToplam + ' mm · çizimdeki toplam boy '
         + (r.totalLen || '—') + ' mm. DXF\'teki M1/M2 etiketleri işlevleri gösterir; her hücre AHU Studio\'da bir modül olur.</div>';
+      const fanli = ml.filter(function(m){ return m.fan; });
+      if(fanli.length){
+        h += '<h3>Fan ve Motor (' + fanli.length + ')</h3>'
+          + '<table><thead><tr><th>Modül</th><th>Fan</th><th class=&quot;n&quot;>Çap</th><th class=&quot;n&quot;>kW</th>'
+          + '<th class=&quot;n&quot;>d/dk</th><th>Motor</th><th class=&quot;n&quot;>Gövde</th><th>Motor Kaidesi</th></tr></thead><tbody>'
+          + fanli.map(function(m, i){
+              const fn = m.fan;
+              const sira = ml.indexOf(m) + 1;
+              const kaideHuc = fn.kayis
+                ? '<span style=&quot;color:var(--warn)&quot;>kapsam dışı — kayış-kasnaklı</span>'
+                : fn.kaide ? '<b>' + dxaKac(fn.kaide) + '</b>'
+                : '<span style=&quot;color:var(--bad)&quot;>çözülemedi</span>';
+              return '<tr><td>M' + sira + '</td><td>' + dxaKac(fn.ad) + '</td>'
+                + '<td class=&quot;n&quot;>' + (fn.cap || '—') + '</td><td class=&quot;n&quot;>' + (fn.kw || '—') + '</td>'
+                + '<td class=&quot;n&quot;>' + (fn.devir || '—') + '</td><td>' + dxaKac(fn.motorAd) + '</td>'
+                + '<td class=&quot;n&quot;>' + (fn.govde || '—') + '</td><td>' + kaideHuc + '</td></tr>';
+            }).join('')
+          + '</tbody></table>';
+        const fanUyari = fanli.reduce(function(a, m){
+          return a.concat((m.fan.uyari || []).map(function(u){ return m.fan.ad + ': ' + u; }))
+                  .concat(m.fan.kapsam ? [m.fan.ad + ': ' + m.fan.kapsam] : []);
+        }, []);
+        if(fanUyari.length){
+          h += '<div class=&quot;status warn&quot;>Fan/motor notları<ul class=&quot;dxa-liste&quot;>'
+            + fanUyari.map(function(u){ return '<li>' + dxaKac(u) + '</li>'; }).join('') + '</ul></div>';
+        } else {
+          h += '<div class=&quot;note&quot;>Gövde kW + devir tablosundan çözüldü ve motor adıyla doğrulandı. '
+            + 'Kaide kodu <b>SYWB{fan çapı}-{motor gövdesi}</b> biçimindedir.</div>';
+        }
+      }
       h += '<h3>Şema — kurulacak modüller (ön görünüş)</h3><div class=&quot;dxa-sema&quot;>' + dxaSema(p) + '</div>';
     }
     govde.innerHTML = h;
@@ -5867,7 +6165,7 @@ document.getElementById('btn_dxf').addEventListener('click', exportToDxf);
 // v4: panel.colSpan + face.anaSplitLevels (eski dosyaların alan göçü syncStructure'da yapılır)
 // v5: module.araKat (ara kat — 7. sanal yüz). Eski v4/v3/v2 dosyalar açılmaya devam eder,
 //     ara katsız modül olarak gelirler (araKatNormalize kurar).
-const PROJECT_VERSION = 8;   // v8 = DXF aktarımından gelen modül adı (module.ad)
+const PROJECT_VERSION = 9;   // v9 = DXF aktarımından gelen fan/motor bilgisi (module.fan)
 
 // Yüklenen her modülde araKat alanını kurar. Tembel kurulum (araKatOf) tek başına yeterli
 // olurdu ama o zaman projectData() → JSON → applyProjectData() → projectData() gidiş-dönüşü
