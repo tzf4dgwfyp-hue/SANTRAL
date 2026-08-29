@@ -444,7 +444,13 @@ iframe.active{display:block;}
     </div>
     <button class=&quot;add-btn2&quot; id=&quot;btn_oto_doldur&quot; style=&quot;width:100%;margin-top:10px;&quot; title=&quot;Aktif AHU'daki her modülün her yüzünü, kapaklar saca sığacak en az sayıda parçaya böler&quot;>⚡ Tüm AHU'yu Otomatik Doldur</button>
     <button class=&quot;add-btn2 ghost&quot; id=&quot;btn_oto_takviye&quot; style=&quot;width:100%;margin-top:6px;white-space:normal;line-height:1.3;&quot; title=&quot;Bölüm ve kapak sayısına dokunmaz — yalnız araları açar/kapatır ve ölçüleri yeniden dağıtır&quot;>+ Aralara Takviye Ekle</button>
-    <div class=&quot;note&quot;>Kaba maliyet iskeleti içindir: her yüz, kapağın açılımı (DIŞ sac payı dahil) sac ölçüsüne sığacak <b>en az</b> sayıda parçaya bölünür ve ölçüler tam oturacak şekilde dağıtılır. Kapak tipleri <b>Normal Panel</b> kurulur.</div>
+    <div class=&quot;note&quot; id=&quot;oto_not_kaba&quot;>Kaba maliyet iskeleti içindir: her yüz, kapağın açılımı (DIŞ sac payı dahil) sac ölçüsüne sığacak <b>en az</b> sayıda parçaya bölünür ve ölçüler tam oturacak şekilde dağıtılır. Kapak tipleri <b>Normal Panel</b> kurulur.</div>
+  </div>
+
+  <div class=&quot;section&quot; id=&quot;gercek_panel&quot; style=&quot;display:none;&quot;>
+    <h2>İmalat — Gerçek Kapak Yerleşimi</h2>
+    <div class=&quot;note&quot;>Kapakların yeri ve tipi <b>DXF çiziminden okunan gerçek değerlerden</b> kurulur: açılır kapak <b>500 mm</b> (fan/motor bölümünde camlı), ısıtma bataryası önü <b>300 mm</b> ya da kalınlık+100, soğutma bataryası önü <b>kalınlık+250</b>. Soğutma bataryasının altına <b>ALT yüze tava</b> konur (600 mm; batarya 400 mm'den kalınsa kalınlık+250). Üstü açık modülde ÜST PANEL kurulur. Kalan alan saca sığacak en az sayıda normal panele bölünür.</div>
+    <button class=&quot;add-btn2&quot; id=&quot;btn_gercek&quot; style=&quot;width:100%;margin-top:10px;&quot; title=&quot;DXF'ten aktarılmış modüllerde gerçek kapak yerleşimini kurar&quot;>🔧 Gerçek Değerlerle Kapakları Kur</button>
   </div>
 
 </aside>
@@ -584,8 +590,24 @@ const isDikeyEleman = p => isYonlu(p.type) && p.yon === 'dikey';
 // eşiği (damper 1800 / boğaz 1950) de takas SONRASI yatay ölçüye bakar, çünkü bölünme
 // yatay parçanın imal edilebilir uzunluğundan doğar. Takas YALNIZ çizime gider: yüzdeki
 // yerleşim, tolerans ve kesim ölçüsü değişmez.
+// TAM BOGAZ (Cenk, 29.08.2026): agiz gozu bolumun tamamini kaplayabilir ama BOGAZIN
+// KESIM OLCUSU cizimden gelendir — aradaki pay cerceveye gider, kapak degildir.
+// panel.elemanOlcu YALNIZ boyle bir durumda var olur (panel.yon deseni); yoksa gozun
+// kendi olcusu (sabitW/sabitH) kesim olcusudur.
+// PANELE MONTE AGIZ: panelin IC ve DIS sacina acilan delik. Alan YALNIZ boyle bir
+// panelde var olur (panel.yon deseni) — gecersizse syncStructure dusurur ki JSON
+// gidis-donusu sabit nokta kalsin. x/y panelin SOL-ALT kosesine gore (DXF yonu).
+function gecerliDelik(p){
+  const d = p && p.delik;
+  return !!(d && Number(d.w) > 0 && Number(d.h) > 0 && Number(d.x) >= 0 && Number(d.y) >= 0);
+}
+function kesimOlcusu(p){
+  const eo = p.elemanOlcu;
+  return { w: (eo && eo.w > 0) ? eo.w : p.sabitW, h: (eo && eo.h > 0) ? eo.h : p.sabitH };
+}
 function elemanCizimOlcusu(p){
-  return isDikeyEleman(p) ? {w: p.sabitH, h: p.sabitW} : {w: p.sabitW, h: p.sabitH};
+  const k = kesimOlcusu(p);
+  return isDikeyEleman(p) ? {w: k.h, h: k.w} : {w: k.w, h: k.h};
 }
 
 const TYPE_COLORS = {
@@ -1086,6 +1108,34 @@ function faceMated(m, fi){
   });
 }
 
+// Yüzün YÜKSEKLİK ekseninde (0 = modülün altı) komşu modüllerin kapladığı ÜST sınır.
+// faceMated TAM örtüşme arar (komşu yüzü bütünüyle kapatmalı); bu ise KISMİ örtüşmeyi de
+// verir — KS-10'da M1 (H=1740) ile M2 (H=870) yan yana, yüzün alt 870 mm'si kapalıdır.
+// Cenk (29.08.2026): «birbirine denk gelen yüzler boş olmalı — bu cihazların içinde hava
+// akışı var, geçemez.» Yalnız DÜŞEY yüzler (SOL/SAĞ/ÖN/ARKA) için anlamlıdır ve komşunun
+// tabandan başlaması aranır; yandaki eksende tam örtüşme şartı korunur.
+function faceMateHi(m, fi){
+  const A = state.modules[m];
+  const att = FACE_ATT[fi];
+  if(att.axis === 'y') return 0;
+  const aExt = {x:modExt(A,'x'), y:modExt(A,'y'), z:modExt(A,'z')};
+  const plane = A.pos[att.axis] + (att.dir>0 ? aExt[att.axis] : 0);
+  const yan = (att.axis === 'x') ? 'z' : 'x';
+  const eps = 0.5;
+  let hi = 0;
+  state.modules.forEach(function(B, bi){
+    if(bi === m) return;
+    const bExt = {x:modExt(B,'x'), y:modExt(B,'y'), z:modExt(B,'z')};
+    const bPlane = B.pos[att.axis] + (att.dir>0 ? 0 : bExt[att.axis]);
+    if(Math.abs(bPlane-plane) > eps) return;
+    if(!(B.pos[yan] <= A.pos[yan]+eps && B.pos[yan]+bExt[yan] >= A.pos[yan]+aExt[yan]-eps)) return;
+    if(B.pos.y > A.pos.y + eps) return;
+    const t = B.pos.y + bExt.y - A.pos.y;
+    if(t > hi) hi = t;
+  });
+  return Math.min(hi, aExt.y);
+}
+
 // Yüz kısa kodları — kapak adlandırmasında yüz ayrımı için (örn. ÖN-B1K1)
 const FACE_CODE = ['ÖN','AR','ÜS','AL','SO','SA'];
 
@@ -1163,6 +1213,14 @@ function syncStructure(face){
       // anlamlıdır — başka her durumda alan tamamen DÜŞER. Böylece yatay (varsayılan)
       // projelerin JSON'u eskisiyle bayt bayt aynı kalır ve gidiş-dönüş sabit nokta olur.
       if(p.yon !== undefined && !(isYonlu(p.type) && p.yon === 'dikey')) delete p.yon;
+      // elemanOlcu (tam bogazda cizimdeki kesim olcusu) yalniz ELEMAN gozunde ve
+      // gecerli olcuyle anlamlidir — baska her durumda DUSER ki JSON gidis-donusu
+      // sabit nokta kalsin.
+      if(p.elemanOlcu !== undefined && !(isEleman(p.type) && p.elemanOlcu
+         && Number(p.elemanOlcu.w) > 0 && Number(p.elemanOlcu.h) > 0)) delete p.elemanOlcu;
+      // delik yalniz KAPAK panelinde (eleman/bos degil) ve gecerli olcuyle anlamlidir
+      if(p.delik !== undefined && !(gecerliDelik(p) && !isEleman(p.type) && !isBos(p.type)))
+        delete p.delik;
     });
   });
 
@@ -1378,6 +1436,11 @@ function computeFace(fi){
 
       const out = {entered, auto, eff, pColSize, type:p.type, acilir, eleman, bos,
                    yon: (isYonlu(p.type) && p.yon === 'dikey') ? 'dikey' : '',
+                   elemanOlcu: (eleman && p.elemanOlcu && Number(p.elemanOlcu.w) > 0
+                                && Number(p.elemanOlcu.h) > 0)
+                     ? {w: Number(p.elemanOlcu.w), h: Number(p.elemanOlcu.h)} : null,
+                   delik: gecerliDelik(p) ? {w:+p.delik.w, h:+p.delik.h, x:+p.delik.x,
+                                             y:+p.delik.y, tip:p.delik.tip} : null,
                    spanN, covered:false, spanCovers:null, spanOwner:null, spanLast:false, colAuto:false};
       applyDims(out);
       return out;
@@ -1762,6 +1825,22 @@ function otoAcilimPayi(){
 
 // total'i n parçaya TAM dağıtır: taban ölçü + artan mm'ler baştan birer birer, kesir
 // varsa sonuncuya. Toplam bire bir korunur — aksi halde yüzde &quot;EKSİK&quot; uyarısı kalırdı.
+// Otomatik bölünen kapağın en büyük kenarı (Cenk, 29.08.2026: «saca sığsın yeter demiştim
+// ancak 2000 mm'yi geçmemesini istiyorum; üst panel olarak değerlendirilenlerde ise 1200
+// mm'yi geçmesin»). Sınır YALNIZ programın bölebildiği eksende uygulanır — öbür eksen
+// modülün kendi ölçüsünden gelir — ve YALNIZ gerçek yerleşimde geçerlidir; kaba maliyet
+// otomatiği (⚡ düğmesi) eskisi gibi yalnız saca bakar.
+// En dar kapak (Cenk, 29.08.2026): altında kalan şerit komşu kapağa katılır. 100 mm
+// seçildi ki KS-10 SAĞ yüzdeki 120 mm Boğaz Uzun geçerli kalsın, 62 mmlik şerit kalksın.
+const GERCEK_MIN_KAPAK = 100;
+// PANELE MONTE AGIZ (kayis-kasnakli = sik/seyrek kanatli fanin ATIS agzi): cizim ondalikli
+// bir olcu uretiyor (fan capindan turuyor: 560 -> 715, 630 -> 801, 710 -> 898), imalat ise
+// 10'un ust katini kullanir — Cenk, 29.08.2026: «115 cizilmis ama 120 yaziyor ve 120 olmali».
+// Kural YALNIZ bu agiza uygulanir; tam bogaz ve oteki agizlar cizimdeki olcusunde kalir.
+const GERCEK_AGIZ_YUVARLA = 10;
+const GERCEK_KAPAK_MAX = 2000;
+const GERCEK_UST_MAX   = 1200;
+
 function otoDagit(total, n){
   const base = Math.floor(total/n);
   const out = [];
@@ -1784,7 +1863,7 @@ function otoSigar(a, b){
 // Aktif modülün fi. yüzü için en az kapaklı (N bölüm × M kapak) ızgarayı arar; eşit
 // kapak sayısında kareye en yakın olan kazanır. tak = aralara takviye konacak mı
 // (takviye yer kapladığı için kullanılabilir ölçüyü değiştirir).
-function otoPlan(fi, tak){
+function otoPlan(fi, tak, limit){
   const def = faceDefOf(fi), V = vOf(fi), face = faceOf(fi);
   const faceW = Number(state.dims[def.wKey])||0, faceH = Number(state.dims[def.hKey])||0;
   if(faceW<=0 || faceH<=0) return null;
@@ -1804,6 +1883,7 @@ function otoPlan(fi, tak){
       const a = cs - tolAlong, b = kullB/M - tolAcross;
       if(a<=0 || b<=0) continue;
       if(!otoSigar(a,b)) continue;
+      if(limit && (a > limit || b > limit)) continue;   // gerçek yerleşimin kapak sınırı
       const adet = N*M, oran = Math.max(a,b)/Math.min(a,b);
       if(!best || adet < best.adet || (adet === best.adet && oran < best.oran))
         best = {N, M, adet, oran, kullA, kullB,
@@ -1818,8 +1898,8 @@ function otoPlan(fi, tak){
 
 // Planı modele yazar. Seçimler ve ana takviye kesim seviyeleri sıfırlanır — yeni
 // ızgarada eski indeksler anlamsızdır.
-function otoUygulaYuz(fi, tak){
-  const plan = otoPlan(fi, tak);
+function otoUygulaYuz(fi, tak, limit){
+  const plan = otoPlan(fi, tak, limit);
   if(!plan) return null;
   const face = faceOf(fi);
   face.columns = plan.colSizes.map(cs=>({
@@ -1874,6 +1954,1426 @@ function otoTakviyeYuz(fi, tak){
     });
   });
   return tasan;
+}
+
+
+// ---------- GERÇEK DEĞERLERLE KAPAK YERLEŞİMİ (2026-08-28, gizli) ----------
+// 27.08'deki otomatik yerleşim KABA MALİYET içindir: yüzü saca sığacak en az parçaya
+// böler, kapak tipi hep 'Normal Panel'dir. Buradaki ikinci motor İMALAT içindir —
+// kapakların yerini ve tipini DXF çiziminden okunan gerçek değerlerden kurar
+// (module.dxfBilgi, bkz. dxfParcaListesi). Yalnız DXF'ten kurulmuş modüllerde çalışır;
+// dxfBilgi'si olmayan modül eski otomatikle dolar.
+//
+// Kurallar (Cenk, 28.08.2026):
+//   açılır kapak          — BÖLÜM genişliği 500 mm; fan/motor bölümündeyse CAMLI
+//   ısıtma bataryası önü  — kalınlık <= 220 ise 300 mm, değilse kalınlık + 100
+//   soğutma bataryası önü — kalınlık + 250
+//   üst yüz               — üstünde modül varsa 'Normal Panel', açıksa 'Üst Panel'
+//   kapağın yeri          — çizimdeki kapağın MERKEZİNE oturur, genişliği 500'e çıkar
+//   kalan alan            — saca sığacak en az sayıda 'Normal Panel'
+const GERCEK_ACILIR_W = 500;      // standart açılır kapak BÖLÜM genişliği
+const GERCEK_ISITMA_ESIK = 220;   // bu kalınlığın üstünde kapak kalınlıktan türer
+const GERCEK_ISITMA_W = 300;
+const GERCEK_ISITMA_EK = 100;
+const GERCEK_SOGUTMA_EK = 250;
+const GERCEK_TAVA_W = 600;        // soğutma bataryası altındaki tava (varsayılan)
+const GERCEK_TAVA_ESIK = 400;     // batarya bu kalınlığın üstündeyse tava kalınlıktan türer
+const GERCEK_TAVA_EK = 250;
+
+// DXF'teki işlev adı → kural ailesi. 'Kondenser Batarya' ısıtma tarafına konur: örnekte
+// kalınlığı 145 mm ve modül kasası 300 mm — soğutma kuralı (145+250=395) kasaya sığmazdı.
+function gercekIslev(p){
+  const t = String((p && p.islev) || '');
+  if(/Isıt|Kondenser/i.test(t)) return 'isitma';
+  if(/Batarya/i.test(t)) return 'sogutma';
+  if(/Fan/i.test(t)) return 'fan';
+  return 'diger';
+}
+
+// Bir parçanın kapağı: {w, tip} ya da null.
+//
+// AÇILIR OLUP OLMADIĞINI ÇİZİM SÖYLER (Cenk, 29.08.2026): açılır panel kapı kolu ve menteşe
+// sembolüyle çizilmiştir (`p.acilir`). Bataryanın önünde kapak VARDIR — ölçüsü bataryanın
+// kendisinden gelir — ama menteşesi yoksa o kapak `Normal Panel`dir, açılır değil.
+// Cam yalnız fan/motor bölümünde olur.
+function gercekKapakTipi(p, acilir){
+  if(!acilir) return 'Normal Panel';
+  return gercekIslev(p) === 'fan' ? 'Camlı Açılır' : 'Camsız Açılır';
+}
+
+function gercekKapak(p){
+  const t = gercekIslev(p);
+  const kal = (p.batarya && Number(p.batarya.kalinlik)) || 0;
+  const ac = !!p.acilir;
+  if(t === 'isitma')
+    return { w: kal > GERCEK_ISITMA_ESIK ? kal + GERCEK_ISITMA_EK : GERCEK_ISITMA_W,
+             tip: gercekKapakTipi(p, ac) };
+  if(t === 'sogutma')
+    return kal > 0 ? { w: kal + GERCEK_SOGUTMA_EK, tip: gercekKapakTipi(p, ac) } : null;
+  if(!ac) return null;
+  return { w: GERCEK_ACILIR_W, tip: gercekKapakTipi(p, true) };
+}
+
+// Bir parçanın ALT yüze düşen tavaları: [{lo, w}] — parçanın KENDİ başından ölçülü.
+// Tava ALT yüze konur (Cenk, 28.08.2026): ALT yüz L×W'dir ve tavanın ayak izi de L×W'dir,
+// ÖN yüz (L×H) değil. 'Tava' bir ELEMAN göz tipidir — toleransı yoktur.
+//
+// KAYNAK (Cenk, 29.08.2026):
+//   soğutma bataryası → 28.08'de verdiği kural (600 / kalınlık+250), bataryanın merkezinde
+//   ısıtıcı batarya   → TAVA YOK (çizimde var ama «hatalı çizilmiş»)
+//   diğerleri         → ölçü ve yer ÇİZİMDEN (nemlendirici, rotorlu/plakalı eşanjör, karışım)
+// Ölçüldü: rotorlu eşanjörde 2 tava var, ötekilerde 1.
+function gercekTavalar(p){
+  const t = gercekIslev(p);
+  const boy = Number(p.boy)||0;
+  if(t === 'isitma') return [];
+  if(t === 'sogutma'){
+    const kal = (p.batarya && Number(p.batarya.kalinlik)) || 0;
+    if(kal <= 0) return [];
+    const w = kal > GERCEK_TAVA_ESIK ? kal + GERCEK_TAVA_EK : GERCEK_TAVA_W;
+    if(w > boy) return [];
+    const merkez = p.batarya ? (Number(p.batarya.lo)||0) + kal/2 : boy/2;
+    let lo = Math.round(merkez - w/2);
+    if(lo < 0) lo = 0;
+    if(lo > boy - w) lo = boy - w;
+    return [{ lo: lo, w: w }];
+  }
+  // Çizimdeki tava kasadan taşabiliyor (rotorlu eşanjörde 10 mm) — bölme boyuna kırpılır.
+  return (p.tavalar || []).map(function(x){
+    const lo = Math.max(0, Number(x.lo)||0);
+    let w = Number(x.w)||0;
+    if(lo + w > boy) w = boy - lo;
+    return { lo: lo, w: w };
+  }).filter(function(x){ return x.w > 0; });
+}
+
+// Eski tekil arayüz — yalnız soğutma bataryası için, geriye dönük çağrılar ve testler için.
+function gercekTava(p){
+  const l = gercekTavalar(p);
+  return l.length ? { w: l[0].w, tip: 'Tava' } : null;
+}
+
+// Kapaksız bir boşluğu, açılımı saca sığacak EN AZ sayıda eşit parçaya böler. Bölme BÖLÜM
+// ölçüsünde yapılır; ölçüler ilerideki düşümle yalnız KISALACAĞI için bu güvenli taraftır.
+function gercekBolNormal(segs, w, across, limit){
+  if(w <= 0.5) return;
+  const lim = limit || GERCEK_KAPAK_MAX;
+  let n = 1;
+  while(n < OTO_MAX_BOLME && (!otoSigar(w/n, across) || w/n > lim)) n++;
+  const pay = otoDagit(w, n);
+  for(let i=0;i<n;i++) segs.push({ w: pay[i], tip: 'Normal Panel', sabit: false });
+}
+
+// Bir katın parçalarını ham segmentlere çevirir; toplamları modül boyuna (L) eşittir.
+// Kapak segmenti ham genişliğinin YANINDA bir de 'hedef' taşır: düşüm hedefi bozmaz,
+// yani 500 mm kapak 500 mm kalır. Çizimde kapak çerçeveye dayalı başladığı için
+// (x = kenar) uçta kalan kenar payı kapağa katılır — o pay kapak değil çerçevedir.
+function gercekSatirSegment(parcalar, across, V, uyari, secici, limit){
+  const segs = [];
+  // Uçtaki segmentten çerçeve payı da düşer, ortadakinden düşmez — eşik ona göre.
+  const esikUc = V.kenar + GERCEK_MIN_KAPAK, esikOrta = GERCEK_MIN_KAPAK;
+  const esik = esikOrta;
+  const sec = secici || gercekKapak;
+  // ARDIŞIK KAPAKSIZ ALAN BİRİKTİRİLİR (Cenk, 29.08.2026). Eskiden her parçanın kalanı
+  // ayrı bölünüyordu; iki parçanın bitişik kalanları (DX'in sağındaki 220 + fanın
+  // solundaki 500) ayrı bölümlere düşüyor ve orada olmayan bir dikme çıkıyordu.
+  let bos = 0;
+  function bosBosalt(){
+    if(bos <= 0.5){ bos = 0; return; }
+    // en dar kapaktan ince kalan şerit komşu kapağa katılır
+    if(segs.length && bos <= esikUc){ segs[segs.length-1].w += bos; bos = 0; return; }
+    gercekBolNormal(segs, bos, across, limit);
+    bos = 0;
+  }
+  parcalar.forEach(function(p){
+    const boy = Number(p.boy)||0;
+    if(boy <= 0) return;
+    const k = sec(p);
+    if(k && k.w > 0 && k.w <= boy){
+      let merkez;
+      if(p.batarya) merkez = (Number(p.batarya.lo)||0) + (Number(p.batarya.kalinlik)||0)/2;
+      else if(p.kapak) merkez = (Number(p.kapak.x)||0) + (Number(p.kapak.w)||0)/2;
+      else merkez = boy/2;
+      let lo = Math.round(merkez - k.w/2);
+      if(lo < 0) lo = 0;
+      if(lo > boy - k.w) lo = boy - k.w;
+      const sag = boy - lo - k.w;
+      let ham = k.w;
+      bos += lo;
+      // Uçta kalan çerçeve payı kapağa katılır — o pay kapak değil çerçevedir.
+      if(bos <= (segs.length ? esikOrta : esikUc)){ ham += bos; bos = 0; }
+      bosBosalt();
+      segs.push({ w: ham, hedef: k.w, tip: k.tip, sabit: true });
+      bos = sag;
+      if(bos <= esik){ segs[segs.length-1].w += bos; bos = 0; }
+    }else{
+      if(k && k.w > boy)
+        uyari.push(p.islev + ' kapağı ' + k.w + ' mm ama bölme yalnız ' + boy + ' mm — kapak konmadı');
+      bos += boy;
+    }
+  });
+  bosBosalt();
+  return segs;
+}
+
+// Segment listesinin iç sınırları (0 ve L hariç).
+function gercekSinirlar(segs){
+  const out = []; let c = 0;
+  for(let i=0;i<segs.length-1;i++){ c += segs[i].w; out.push(c); }
+  return out;
+}
+
+// İki katın sınırları birleştirilir: takviye kalınlığından yakın olanlar tek sınıra iner,
+// kapak kenarı olan sınır kazanır (kapak genişliği bozulmamalı). AYNI KATIN iki sınırı
+// asla birleştirilmez — birleşseydi o katın iki segmenti tek sütuna düşer ve çakışırdı.
+// Dönüş sınırların yanında ESLEME HARITASINI da verir: harita[kat][segment] = sütun indeksi.
+function gercekSinirBirlestir(satirlar, tak){
+  const ham = [];
+  satirlar.forEach(function(sa, ri){
+    let c = 0;
+    for(let i=0;i<sa.segs.length-1;i++){
+      c += sa.segs[i].w;
+      ham.push({ x: c, ri: ri, i: i, sabit: !!(sa.segs[i].sabit || sa.segs[i+1].sabit) });
+    }
+  });
+  ham.sort(function(a,b){ return a.x - b.x; });
+  const kume = [];
+  ham.forEach(function(h){
+    const son = kume[kume.length-1];
+    if(son && Math.abs(h.x - son.x) < tak && !son.katlar[h.ri]){
+      if(h.sabit && !son.sabit) son.x = h.x;
+      son.sabit = son.sabit || h.sabit;
+      son.katlar[h.ri] = true;
+      son.uye.push(h);
+      return;
+    }
+    const y = { x: h.x, sabit: h.sabit, katlar: {}, uye: [h] };
+    y.katlar[h.ri] = true;
+    kume.push(y);
+  });
+  const harita = satirlar.map(function(){ return {}; });
+  kume.forEach(function(kk, ki){
+    kk.uye.forEach(function(u){ harita[u.ri][u.i] = ki + 1; });
+  });
+  return { sinir: kume.map(function(kk){ return kk.x; }), harita: harita };
+}
+
+// Ham bölüm genişliklerinden hedef toplama iner. KAPAK bölümü hedefine sabitlenir
+// (500 mm kapak 500 mm kalır); çerçeve ve takviye payı kapak dışı bölümlerden
+// ham genişlikleriyle orantılı alınır. Kapak dışı alan yetmezse kapaklar da kısalır ve
+// bu duyurulur — sessizce yanlış ölçü vermektense söylemek daha iyidir.
+function gercekDusur(ham, hedefler, toplamHedef, uyari){
+  const toplam = ham.reduce(function(a,b){ return a+b; }, 0);
+  const D = toplam - toplamHedef;
+  let sabitDus = 0;
+  for(let i=0;i<ham.length;i++) if(hedefler[i] != null) sabitDus += ham[i] - hedefler[i];
+  let serbest = hedefler.map(function(h){ return h == null; });
+  let havuz = ham.reduce(function(a,b,i){ return a + (serbest[i] ? b : 0); }, 0);
+  let kalanD = D - sabitDus;
+  if(kalanD < 0 || havuz < kalanD + serbest.filter(Boolean).length){
+    uyari.push('kapak dışı alan yetersiz — kapak ölçüleri de kısaldı');
+    serbest = ham.map(function(){ return true; });
+    havuz = toplam;
+    kalanD = D;
+  }
+  // Butun segmentler sabitse (agiz yuzunde tek bolum: yan paylar cerceve kadar oldugu icin
+  // banda katilir) serbest havuz sifirdir. Kalan pay da sifirsa cevap HEDEFLERIN TA KENDISI —
+  // 'oynayacak yer yok' diye null donmek dogru cevabi atmak olurdu.
+  if(havuz <= 0){
+    if(Math.abs(kalanD) < 0.5 && hedefler.every(function(h){ return h != null; }))
+      return hedefler.map(function(h){ return Math.max(1, Math.round(h)); });
+    return null;
+  }
+  const yuv = ham.map(function(w,i){
+    if(!serbest[i] && hedefler[i] != null) return Math.max(1, Math.round(hedefler[i]));
+    return Math.max(1, Math.round(w - kalanD*(w/havuz)));
+  });
+  let fark = toplamHedef - yuv.reduce(function(a,b){ return a+b; }, 0);
+  for(let tur=0; fark !== 0 && tur < 5000; tur++){
+    let oynadi = false;
+    for(let i=0;i<yuv.length && fark!==0;i++){
+      if(!serbest[i]) continue;
+      if(fark > 0){ yuv[i]++; fark--; oynadi = true; }
+      else if(yuv[i] > 1){ yuv[i]--; fark++; oynadi = true; }
+    }
+    if(!oynadi) break;
+  }
+  if(fark !== 0){ uyari.push('ölçüler tam oturmadı ('+fark+' mm)'); return null; }
+  return yuv;
+}
+
+// Aktif modülün ÖN yüzünü gerçek değerlerle kurar. withModule içinden çağrılır.
+// Dönüş: {kapak, acilir, camli} ya da null (kurulamadı).
+function gercekOnYuz(uyari){
+  const md = state.modules[state.active];
+  const bilgi = md && md.dxfBilgi;
+  if(!bilgi || !bilgi.parcalar || !bilgi.parcalar.length) return null;
+  const L = Number(state.dims.L)||0, H = Number(state.dims.H)||0;
+  if(L <= 0 || H <= 0) return null;
+  const V = getV(), face = state.faces[0], ps = bilgi.parcalar;
+  const icAcross = H - 2*V.kenar;
+  if(icAcross <= 1) return null;
+
+  // Tam yükseklik hücresinde parçalar seri değil, ALT ve ÜST katta ayrı dizilir.
+  const ikiKat = ps.some(function(p){ return p.kat==='alt'; })
+              && ps.some(function(p){ return p.kat==='üst'; });
+  const satirlar = [];
+  if(ikiKat){
+    const icColAcross = icAcross - V.takviye;
+    if(icColAcross <= 2) return null;
+    let a = Math.round((Number(bilgi.altKat)||0) - V.kenar - V.takviye/2);
+    if(a < 1) a = 1;
+    if(a > icColAcross-1) a = icColAcross-1;
+    // panels[] dizisi yüzün ÜSTÜNDEN ALTINA doğrudur — ÜST kat önce gelmeli.
+    // (Cenk, 29.08.2026: çizimde fan üst katta ama camlı açılır 3B'de alt sırada çıkıyordu.)
+    satirlar.push({ yuk: icColAcross-a, parcalar: ps.filter(function(p){ return p.kat==='üst'||p.kat==='tam'; }) });
+    satirlar.push({ yuk: a, parcalar: ps.filter(function(p){ return p.kat==='alt'||p.kat==='tam'; }) });
+  }else{
+    satirlar.push({ yuk: icAcross, parcalar: ps });
+  }
+
+  for(let i=0;i<satirlar.length;i++){
+    satirlar[i].segs = gercekSatirSegment(satirlar[i].parcalar, satirlar[i].yuk, V, uyari);
+    if(!satirlar[i].segs.length) return null;
+    const t = satirlar[i].segs.reduce(function(a,b){ return a+b.w; }, 0);
+    if(Math.abs(t - L) > 1.5){ uyari.push('kat toplamı '+Math.round(t)+' mm, modül boyu '+L+' mm'); return null; }
+  }
+
+  let sinir, harita;
+  if(ikiKat){
+    const b = gercekSinirBirlestir(satirlar, V.takviye);
+    sinir = b.sinir; harita = b.harita;
+  }else{
+    sinir = gercekSinirlar(satirlar[0].segs);
+    harita = [{}];
+    for(let i=0;i<sinir.length;i++) harita[0][i] = i+1;
+  }
+  const N = sinir.length + 1;
+  const icKullAlong = L - 2*V.kenar - (N-1)*V.takviye;
+  if(icKullAlong <= N){ uyari.push(L+' mm modüle '+N+' bölüm sığmıyor'); return null; }
+
+  const kenarlar = [0].concat(sinir, [L]);
+  const hamCol = [], hedefCol = [];
+  for(let i=0;i<N;i++) hamCol.push(kenarlar[i+1]-kenarlar[i]);
+  // Bir sütun ancak TEK BAŞINA bir kapak segmentine denk düşüyorsa hedefe sabitlenir.
+  // Kapak birden çok sütuna yayılıyorsa (üst kat o kapağın ortasında bölünüyorsa) genişliği
+  // türetilir — aradaki dikme gerçekten oradadır.
+  for(let i=0;i<N;i++) hedefCol.push(null);
+  satirlar.forEach(function(sa, ri){
+    let i0 = 0;
+    for(let j=0;j<sa.segs.length;j++){
+      const i1 = (j === sa.segs.length-1) ? N : harita[ri][j];
+      if(i1 == null || i1 <= i0) return;
+      if(sa.segs[j].sabit && i1 - i0 === 1 && hedefCol[i0] == null) hedefCol[i0] = sa.segs[j].hedef;
+      i0 = i1;
+    }
+  });
+  const colSize = gercekDusur(hamCol, hedefCol, icKullAlong, uyari);
+  if(!colSize) return null;
+
+  // Her satırın segmentini sütun aralığına eşle (birleşik kapak = colSpan).
+  const sahip = [];
+  for(let i=0;i<N;i++) sahip.push([]);
+  let hata = null;
+  satirlar.forEach(function(sa, ri){
+    let i0 = 0;
+    for(let j=0; j<sa.segs.length && !hata; j++){
+      const i1 = (j === sa.segs.length-1) ? N : harita[ri][j];
+      if(i1 == null){ hata = 'kat sınırı sütunlara oturmadı'; break; }
+      if(i1 <= i0){ hata = 'kat sınırları çakıştı'; break; }
+      sahip[i0][ri] = { tip: sa.segs[j].tip, span: i1-i0 };
+      for(let k=i0+1;k<i1;k++) sahip[k][ri] = { tip: 'Normal Panel', span: 1 };
+      i0 = i1;
+    }
+    if(!hata && i0 !== N) hata = 'kat sütunları kapatmadı';
+  });
+  if(hata){ uyari.push(hata); return null; }
+
+  const tek = satirlar.length === 1;
+  face.kapaksiz = false;
+  face.orient = 'H';
+  face.columns = colSize.map(function(cs, ci){
+    return {
+      size: cs,
+      panels: satirlar.map(function(sa, ri){
+        const h = sahip[ci][ri] || { tip: 'Normal Panel', span: 1 };
+        return { size: tek ? 0 : sa.yuk, type: h.tip, colSpan: h.span };
+      }),
+      innerGaps: satirlar.slice(1).map(function(){ return true; }),
+      // İki katlı modülde kat ayırıcı YATAY TAKVİYE BÜTÜNDÜR (Cenk, 29.08.2026):
+      // bölümler arasında kesilmez, bir uçtan öbür uca gider. (İstisna kuralları Cenk
+      // sonra anlatacak.)
+      araJoinNext: satirlar.slice(1).map(function(){ return true; })
+    };
+  });
+  face.colGaps = colSize.slice(1).map(function(){ return true; });
+  // Kat ayırıcı yatay takviye BÜTÜN olacaksa aradaki dikey ana takviye o seviyeden
+  // KESİLMELİ — motorun şartı (yoksa birleşme çözülür ve segmentli düzene düşer).
+  const katKesim = (satirlar.length > 1) ? [0] : [];
+  face.anaSplitLevels = colSize.slice(1).map(function(){ return katKesim.slice(); });
+  face.selectedCells = [];
+  face.selectedBars = [];
+
+  let kapak = 0, acilir = 0, camli = 0;
+  for(let ci=0; ci<N; ci++) for(let ri=0; ri<satirlar.length; ri++){
+    const h = sahip[ci][ri];
+    if(!h) continue;
+    kapak++;
+    if(isAcilir(h.tip)) acilir++;
+    if(h.tip === 'Camlı Açılır') camli++;
+  }
+  return { kapak: kapak, acilir: acilir, camli: camli };
+}
+
+// Agiz yuzunde takviye kararı: bir aralığa ancak İKİ YANINDAKİ parça da bir takviye
+// kalınlığı kadar genişse kuşak/dikme konur. Uçtaki parçadan çerçeve payı düşülür —
+// çizimde ağzın çevresinde kalan 25 mm'lik şerit çerçevenin devamıdır, panel değildir.
+// (KS-9: ağız 700×650, yüz 820; kuşak konsa kullanılabilir 580'e düşer ve ağız sığmaz.)
+// Tek bir bolumun genisligi bu siniri asarsa parca saca HIC girmez — satirlar ne kadar
+// bolunurse bolunsun. Bolum sayisi bu yuzden once genisligden, sonra yukseklikten cozulur.
+function gercekEnGenisBolum(){
+  return Math.max(otoSac.w, otoSac.h) - 2*otoSac.pay - otoAcilimPayi();
+}
+
+// Bir genisligi, her parcasi saca girecek en az sayida esit bolume ayirir.
+function gercekBolGenislik(hedef, w, limit){
+  if(w <= 0.5) return;
+  const sac = gercekEnGenisBolum();
+  const lim = Math.min(sac > 0 ? sac : Infinity, limit || GERCEK_KAPAK_MAX);
+  let n = 1;
+  while(n < OTO_MAX_BOLME && lim > 0 && w/n > lim) n++;
+  const pay = otoDagit(w, n);
+  for(let i=0;i<n;i++) hedef.push({ w: pay[i] });
+}
+
+function gercekAraliklar(ham, kenar, takviye){
+  const n = ham.length, g = [];
+  const net = ham.map(function(v,i){ return (i===0 || i===n-1) ? v - kenar : v; });
+  for(let i=0;i<n-1;i++) g.push(net[i] >= takviye && net[i+1] >= takviye);
+  return g;
+}
+
+// PANEL UZERINE MONTE AGIZ (Cenk, 29.08.2026): kayis-kasnakli fanin BASMA (ATIS) agzi
+// yuze kendi bolumunu acmaz — yuz normal kapak kuraliyla bolunur, agzin geldigi panelin
+// IC ve DIS sacina ayni olcude delik acilir ve bogaz o delige monte edilir.
+// Olculdu (634 cizim, 1393 agiz): 372 tane; hicbiri tam bogazla ayni yuzde degil ve
+// boyle yuzlerin hepsinde TEK agiz var. Fan tipi (sik/seyrek kanat) kayis-kasnakli
+// olmasiyla birlikte gelir — ayrimi Cenk sectiği icin geometriye degil FANA bakilir.
+function gercekMonteAgiz(md, p, a){
+  return !!(md && md.fan && md.fan.kayis && p && p.islev === 'Fan' && a.etiket === 'ATIŞ');
+}
+
+// Bir ekseni, DELIGIN TEK PARCADA kalacagi ve her parcanin saca sigacagi en az sayida
+// bolume ayirir. Delik parcasi once saca sigan en genis olcude kurulur ve delige
+// ORTALANIR (cevresindeki pay en buyuk olsun), sonra iki yandaki kalan normal bolunur.
+// across null ise sinir yalniz genisliktendir (sutun bolmesi, 28.08 dersi).
+function gercekDelikBol(toplam, lo, hi, across, esikHam){
+  const sac = gercekEnGenisBolum();
+  let lim = Math.min(sac > 0 ? sac : Infinity, GERCEK_KAPAK_MAX);
+  if(across != null){
+    // otoSigar w'de monoton: en genis sigan olcuyu ikili aramayla bul
+    let lo2 = 1, hi2 = Math.min(lim, toplam), en = 0;
+    while(lo2 <= hi2){
+      const orta = Math.floor((lo2 + hi2)/2);
+      if(otoSigar(orta, across)){ en = orta; lo2 = orta + 1; } else hi2 = orta - 1;
+    }
+    lim = en;
+  }
+  if(!(lim > 0)) return null;
+  if(toplam <= lim + 0.5) return [{ w: toplam, delik: true }];
+  const pw = Math.min(lim, toplam);
+  if(pw < hi - lo - 0.5) return null;              // delik hicbir parcaya sigmiyor
+  let A = (lo + hi)/2 - pw/2;
+  if(A < 0) A = 0;
+  if(A + pw > toplam) A = toplam - pw;
+  // Delik parcasinin yaninda 100 mm den ince kapak kalirsa parca O KENARA DAYANIR
+  // ve pay otekine yigilir — 'agiz kenara dayanir' kuralinin ayni mantigi. Ham esik
+  // cerceve + takviye + 100'dur; delik parcanin icinde kalmaya devam etmeli.
+  const es = Number(esikHam) || 0;
+  if(es > 0){
+    const solPay = A, sagPay = toplam - A - pw;
+    if(solPay > 0.5 && solPay < es && hi <= pw + 0.5) A = 0;
+    else if(sagPay > 0.5 && sagPay < es && lo >= toplam - pw - 0.5) A = toplam - pw;
+  }
+  const segs = [];
+  gercekBolGenislik(segs, A);
+  segs.push({ w: pw, delik: true });
+  gercekBolGenislik(segs, toplam - A - pw);
+  return segs;
+}
+
+// Bolum olculeri cozuldukten sonra her bolumun yuz uzerindeki FIZIKSEL araligi:
+// cerceve payiyla baslar, aradaki takviyeyi de sayar.
+function gercekAralikKonum(olcu, gap, kenar, takviye){
+  const out = []; let c = kenar;
+  olcu.forEach(function(v, i){ out.push({ lo: c, hi: c + v }); c += v + (gap[i] ? takviye : 0); });
+  return out;
+}
+
+// Kayis-kasnakli fanin basma agzi: yuz normal kapaklarla bolunur, agiz bir panelin
+// DELIGI olur. withModule icinden cagrilir. Donus: {damper, bogaz, kapak, monte} | null.
+function gercekMontajYuz(fi, a, uyari){
+  const V = getV(), face = state.faces[fi];
+  const W = Number(state.dims.W)||0, H = Number(state.dims.H)||0;
+  if(W <= 0 || H <= 0 || !(a.w > 0 && a.h > 0)) return null;
+  const yuzAd = fi === 4 ? 'SOL' : 'SAĞ';
+  // OLCU 10'UN UST KATINA YUVARLANIR (Cenk, 29.08.2026) — buyume MERKEZE gore olur ki
+  // kanalin ekseni cizimdeki yerinde kalsin; W ekseninde zaten ortali.
+  const yv = GERCEK_AGIZ_YUVARLA;
+  const aw = Math.ceil(a.w/yv)*yv, ah = Math.ceil(a.h/yv)*yv;
+  const ay = a.y - (ah - a.h)/2;
+  a = { etiket: a.etiket, tip: a.tip, w: aw, h: ah, y: ay };
+  // agiz W ekseninde ORTALI (1345 agzin 1343'u cizimde de oyle), H ekseninde cizimdeki yerinde
+  const x0 = (W - a.w)/2, x1 = x0 + a.w, y0 = a.y, y1 = y0 + a.h;
+  if(x0 < V.kenar - 0.5 || x1 > W - V.kenar + 0.5 || y0 < V.kenar - 0.5 || y1 > H - V.kenar + 0.5){
+    uyari.push(a.etiket+' ağzı '+yuzAd+' yüzde çerçevenin içine sığmıyor — konmadı, elle eklenmeli');
+    return null;
+  }
+  const esikHam = V.kenar + V.takviye + GERCEK_MIN_KAPAK;
+  const colSeg = gercekDelikBol(W, x0, x1, null, esikHam);
+  if(!colSeg){ uyari.push(a.etiket+' ağzı '+yuzAd+' yüzde tek panele sığmıyor — konmadı'); return null; }
+  const colGap = gercekAraliklar(colSeg.map(function(g){ return g.w; }), V.kenar, V.takviye);
+  const icKullAlong = W - 2*V.kenar - colGap.filter(Boolean).length*V.takviye;
+  if(icKullAlong <= colSeg.length) return null;
+  const colSize = gercekDusur(colSeg.map(function(g){ return g.w; }),
+                              colSeg.map(function(){ return null; }), icKullAlong, uyari);
+  if(!colSize) return null;
+  let enGenis = 0;
+  colSize.forEach(function(c){ if(c > enGenis) enGenis = c; });
+  // satirlar USTTEN ALTA kurulur (panels[] dizisinin yonu)
+  const rowSeg = gercekDelikBol(H, H - y1, H - y0, enGenis, esikHam);
+  if(!rowSeg){ uyari.push(a.etiket+' ağzı '+yuzAd+' yüzde tek panele sığmıyor — konmadı'); return null; }
+  const rowGap = gercekAraliklar(rowSeg.map(function(g){ return g.w; }), V.kenar, V.takviye);
+  const icKullAcross = H - 2*V.kenar - rowGap.filter(Boolean).length*V.takviye;
+  if(icKullAcross <= rowSeg.length) return null;
+  const rowSize = gercekDusur(rowSeg.map(function(g){ return g.w; }),
+                              rowSeg.map(function(){ return null; }), icKullAcross, uyari);
+  if(!rowSize) return null;
+  // delik hangi panelin icinde? (olculer dustugu icin FIZIKSEL konumdan bulunur)
+  const colK = gercekAralikKonum(colSize, colGap, V.kenar, V.takviye);
+  const rowK = gercekAralikKonum(rowSize, rowGap, V.kenar, V.takviye);   // ustten alta
+  let dCi = -1, dRi = -1;
+  colK.forEach(function(k, i){ if(x0 >= k.lo - 0.5 && x1 <= k.hi + 0.5) dCi = i; });
+  rowK.forEach(function(k, i){ if(H - y1 >= k.lo - 0.5 && H - y0 <= k.hi + 0.5) dRi = i; });
+  if(dCi < 0 || dRi < 0){
+    uyari.push(a.etiket+' ağzı '+yuzAd+' yüzde iki panelin sınırına denk geliyor — konmadı, elle eklenmeli');
+    return null;
+  }
+  // delik konumu panelin SOL-ALT kosesine gore (DXF cizim yonu)
+  // rowK USTTEN olculur; panelin ALT kenari yuzde: H - rowK[dRi].hi.
+  // Delik KESIM dikdortgenine gore verilir: kapak acikliktan tolerans kadar kucuktur ve
+  // aciklikta ORTALANIR, yani her kenarda tolerans/2 bosluk kalir.
+  const kaymaX = (Number(V.tolW)||0)/2, kaymaY = (Number(V.tolH)||0)/2;
+  const delik = { w: a.w, h: a.h, tip: a.tip,
+                  x: Math.round((x0 - colK[dCi].lo - kaymaX)*10)/10,
+                  y: Math.round((y0 - (H - rowK[dRi].hi) - kaymaY)*10)/10 };
+  if(delik.x < 0.5 || delik.y < 0.5
+     || delik.x + a.w > colSize[dCi] - 0.5 || delik.y + a.h > rowSize[dRi] - 0.5){
+    uyari.push(a.etiket+' ağzı '+yuzAd+' yüzde panelin kenarına dayanıyor — konmadı, elle eklenmeli');
+    return null;
+  }
+  face.kapaksiz = false;
+  face.orient = 'H';
+  face.columns = colSize.map(function(cs, ci){
+    return {
+      size: cs,
+      panels: rowSize.map(function(rs, ri){
+        const p = { size: rs, type: 'Normal Panel', colSpan: 1 };
+        if(ci === dCi && ri === dRi) p.delik = { w: delik.w, h: delik.h, x: delik.x, y: delik.y, tip: delik.tip };
+        return p;
+      }),
+      innerGaps: rowGap.slice(),
+      araJoinNext: rowSize.slice(1).map(function(){ return false; })
+    };
+  });
+  face.colGaps = colGap.slice();
+  face.anaSplitLevels = colSize.slice(1).map(function(){ return []; });
+  face.selectedCells = [];
+  face.selectedBars = [];
+  return { damper: a.tip === 'Damper' ? 1 : 0, bogaz: a.tip === 'Damper' ? 0 : 1,
+           kapak: colSize.length*rowSize.length, monte: 1 };
+}
+
+// Bir agiz yuzunde satir segmentinin SABIT hedefi (agiz / bos alan) ya da null (serbest kapak).
+function gercekSegHedef(sg){
+  if(sg.agiz) return (sg.hedef != null) ? sg.hedef : sg.agiz.h;
+  if(sg.bos) return sg.hedef;
+  return null;
+}
+
+// Serbest segmentlerin dusum sonrasi olcusunu tahmin eder: gercekDusur serbest
+// segmentleri ORANLARINI KORUYARAK kisaltir, sabitler hedefinde kalir.
+function gercekSeritOlcu(rowSeg, ic){
+  let sabit = 0, havuz = 0;
+  rowSeg.forEach(function(sg){
+    const h = gercekSegHedef(sg);
+    if(h != null) sabit += h; else havuz += sg.h;
+  });
+  const kalan = ic - sabit;
+  return rowSeg.map(function(sg){
+    return gercekSegHedef(sg) != null ? null : (havuz > 0 ? sg.h*kalan/havuz : 0);
+  });
+}
+
+// Ince seridin OTE YANINDAKI serbest kapak: aradaki segmentlerin hepsi AGIZ olmali.
+// Bos Alan sabittir, oradan gecilmez. Iki yan da uygunsa GENIS olana aktarilir.
+function gercekSeritKomsu(rowSeg, i){
+  function ara(yon){
+    for(let j = i + yon; j >= 0 && j < rowSeg.length; j += yon){
+      if(rowSeg[j].bos) return -1;
+      if(rowSeg[j].agiz) continue;
+      return j;
+    }
+    return -1;
+  }
+  const asagi = ara(1), yukari = ara(-1);
+  if(asagi < 0) return yukari;
+  if(yukari < 0) return asagi;
+  return rowSeg[asagi].h >= rowSeg[yukari].h ? asagi : yukari;
+}
+
+function gercekAgizKomsu(rowSeg, i){
+  if(i > 0 && rowSeg[i-1].agiz) return i-1;
+  if(i < rowSeg.length-1 && rowSeg[i+1].agiz) return i+1;
+  return -1;
+}
+
+// AGIZ KENARA DAYANIR (Cenk, 29.08.2026): agzin bir yaninda 100 mm den ince kapak
+// kaliyorsa agiz O KENARA dayanir ve pay otekine yigilir — ustte 100 + altta 100
+// yerine USTTE YOK + ALTTA 200. Aktarim serbest segmentler ARASINDA ham olcuyle
+// yapildigi icin dusum olcegi degismez: oteki kapaklarin olcusu aynen kalir ve
+// agzin KESIM OLCUSU korunur (28.08 de seridi komsu kapaga katmak tam bunu bozuyordu).
+//
+// Aktaracak ikinci kapak yoksa pay bile 100 mm nin altindadir: o zaman serit hic olmaz,
+// AGIZ GOZU BOLUMUN TAMAMINI KAPLAR (yut) ve kesim olcusu cizimdekinden buyur —
+// Cenk in 29.08 karari. Olculdu: ince seridi olan 232 bolumun 178 i kenara dayamayla,
+// 54 u yutmayla cozuluyor.
+function gercekAgizKenara(rowSeg, ic, V, uyari, yuzAd){
+  const esik = GERCEK_MIN_KAPAK + (Number(V.tolH)||0);
+  for(let tur=0; tur<12; tur++){
+    const olc = gercekSeritOlcu(rowSeg, ic);
+    let i = -1;
+    for(let j=0;j<olc.length;j++)
+      if(olc[j] != null && olc[j] < esik - 0.5 && (i < 0 || olc[j] < olc[i])) i = j;
+    if(i < 0) return;
+    const j = gercekSeritKomsu(rowSeg, i);
+    if(j >= 0){ rowSeg[j].h += rowSeg[i].h; rowSeg.splice(i, 1); continue; }
+    const a = gercekAgizKomsu(rowSeg, i);
+    if(a < 0) return;
+    const buyu = olc[i];
+    rowSeg[a].hedef = gercekSegHedef(rowSeg[a]) + buyu;
+    rowSeg[a].yut = true;
+    rowSeg[a].h += rowSeg[i].h;
+    rowSeg.splice(i, 1);
+    uyari.push(yuzAd+' yüzde ağzın yanına 100 mm altı pay kalıyor — TAM BOĞAZ:'
+      +' ağız bölümün tamamını kaplıyor, '+Math.round(buyu)+' mm pay çerçeveye gidiyor');
+  }
+}
+
+// Aktif modulun SOL (fi=4) / SAG (fi=5) yuzune cizimden okunan agizlari (bogaz / damper)
+// yerlestirir. withModule icinden cagrilir. Donus: {damper, bogaz, kapak} ya da null
+// (agiz yok / kurulamadi -> yuz eski otomatikle dolar).
+//
+// Yuz W x H'dir. Agiz W ekseninde ORTALANIR: 634 cizimde olculen 1345 SOL/SAG agzin
+// 1343'u zaten tam ortali, bu yuzden W ekseninin yonu hic sorulmaz. Yukseklikteki yeri
+// cizimden gelir (900 ortali, 408 uste yakin, 37 alta yakin). Kalan alan gercek kapak
+// kuralindaki gibi saca sigacak en az sayida 'Normal Panel'e bolunur.
+//
+// UST yuzdeki agizlar icin gercekUstYuz'e bakin — o yuz bu fonksiyonun TRANSPOZESIDIR.
+function gercekYanYuz(fi, uyari){
+  const md = state.modules[state.active];
+  const bilgi = md && md.dxfBilgi;
+  if(!bilgi || !bilgi.parcalar || !bilgi.parcalar.length) return null;
+  const yuzAd = fi === 4 ? 'SOL' : 'SAĞ';
+  const ps = bilgi.parcalar;
+  const altKat = Number(bilgi.altKat)||0;
+  // Agiz ancak KENDI KATININ ucundaki parcada gecerlidir: iki katli kasada alt ve ust
+  // zincir ayri ayri baslar/biter (tam yukseklikli parca ikisine de girer).
+  const zAlt = ps.filter(function(p){ return p.kat !== 'üst'; });
+  const zUst = ps.filter(function(p){ return p.kat === 'üst' || p.kat === 'tam'; });
+  const list = [], monte = [];
+  ps.forEach(function(p){
+    if(!p.agizlar || !p.agizlar.length) return;
+    const zin = (p.kat === 'üst') ? zUst : zAlt;
+    const ucta = (fi === 4) ? (zin[0] === p) : (zin[zin.length-1] === p);
+    p.agizlar.forEach(function(a){
+      if(a.yuz !== yuzAd) return;
+      if(!(a.w > 0 && a.h > 0)){
+        uyari.push(a.etiket+' ağzı ('+yuzAd+') çizimden ölçülemedi — elle eklenmeli'); return;
+      }
+      if(!ucta){
+        uyari.push(a.etiket+' ağzı modülün '+yuzAd+' ucunda değil ('+p.islev+') — elle eklenmeli'); return;
+      }
+      const kayit = { etiket: a.etiket, w: Number(a.w)||0, h: Number(a.h)||0,
+                      y: (Number(a.y)||0) + (p.kat === 'üst' ? altKat : 0),
+                      tip: a.damper ? 'Damper' : 'Boğaz' };
+      if(gercekMonteAgiz(md, p, a)) monte.push(kayit); else list.push(kayit);
+    });
+  });
+  // Kayis-kasnakli fanin basma agzi kendi bolumunu ACMAZ, PANELE MONTE edilir.
+  // Olculdu (634 cizim): boyle bir yuzde hep TEK agiz var ve tam bogazla hic karismiyor.
+  if(monte.length){
+    if(list.length){
+      uyari.push(yuzAd+' yüzde hem tam boğaz hem panele monte ağız var — monte olan elle eklenmeli');
+    }else{
+      if(monte.length > 1) uyari.push(yuzAd+' yüzde birden çok panele monte ağız var — yalnız ilki kondu');
+      return gercekMontajYuz(fi, monte[0], uyari);
+    }
+  }
+  if(!list.length) return null;
+
+  const W = Number(state.dims.W)||0, H = Number(state.dims.H)||0;
+  if(W <= 0 || H <= 0) return null;
+  const V = getV(), face = state.faces[fi];
+  // AĞIZ YÜZÜNDE eşik BÜYÜTÜLMEZ: ince şerit, komşu KAPAĞA katılarak kaldırılamaz —
+  // öyle yapınca serbest alan sıfırlanıyor ve gercekDusur ağzın KESİM ÖLÇÜSÜNÜ
+  // kısaltıyordu (ölçüldü: 56-57 ağız sapması). Şerit bunun yerine AĞIZ KAYDIRILARAK
+  // kaldırılır — bkz. gercekAgizKenara (Cenk, 29.08.2026).
+  const esik = V.kenar + 10;
+  const esikSatir = esik;
+
+  let band = 0, dar = 0;
+  list.forEach(function(a){ if(a.w > band) band = a.w; });
+  list.forEach(function(a){ if(a.w < band) dar++; });
+  const icGenis = W - 2*V.kenar;
+  if(band > icGenis + 0.5){
+    // Ölçüldü: P-PH-15xT ailesinde ağız modül genişliğinin ta kendisi (teknik tablo da
+    // öyle diyor). Çerçeveden sonra o kadar yer kalmıyor; kısaltılmış bir ağız üretmektense
+    // konmaz ve söylenir.
+    uyari.push('ağız '+band+' mm ama '+yuzAd+' yüzde çerçeveden sonra '+icGenis
+      +' mm kalıyor — konmadı, elle eklenmeli');
+    return null;
+  }
+  if(dar) uyari.push(yuzAd+' yüzde ağızlar farklı genişlikte (en geniş '+band
+    +' mm) — dar olan kendi ölçüsünü taşır, yüz satır genişliği uyarısı verir');
+  let disari = null;
+  list.forEach(function(a){ if(a.y < -1 || a.y + a.h > H + 1) disari = a; });
+  if(disari){
+    uyari.push(disari.etiket+' ağzı yüz yüksekliğinin dışında ('+disari.y+'+'+disari.h+' > '+H+') — konmadı');
+    return null;
+  }
+
+  // --- SUTUNLAR (W ekseni) --- agiz ortada; yanlar cerceve payi kadarsa banda katilir
+  const yanPay = Math.round((W - band)/2);
+  let bandHam = band, solHam = yanPay, sagHam = W - band - yanPay;
+  // TAM BOĞAZ, GENİŞLİK EKSENİ (Cenk, 29.08.2026): ağzın yanında 100 mm’den ince kapak
+  // kalıyorsa o pay da banda katılır — ağız bölümün tamamını kaplar, KESİM ölçüsü
+  // çizimdeki kalır (elemanOlcu). Uçtaki bölümden çerçeve + bir takviye + tolerans
+  // düştüğü için eşik ham ölçüde bu kadar yukarıdadır.
+  const esikYan = Math.max(esik, GERCEK_MIN_KAPAK + V.kenar + V.takviye + (Number(V.tolW)||0));
+  let bandYut = false;
+  if(solHam <= esikYan){ bandHam += solHam; if(solHam > esik) bandYut = true; solHam = 0; }
+  if(sagHam <= esikYan){ bandHam += sagHam; if(sagHam > esik) bandYut = true; sagHam = 0; }
+  const colSeg = [];
+  gercekBolGenislik(colSeg, solHam);
+  const bandIdx = colSeg.length;
+  colSeg.push({ w: bandHam, hedef: bandYut ? null : band, sabit: !bandYut });
+  gercekBolGenislik(colSeg, sagHam);
+  const N0 = colSeg.length;
+  const colGap0 = gercekAraliklar(colSeg.map(function(g){ return g.w; }), V.kenar, V.takviye);
+  const icKullAlong = W - 2*V.kenar - colGap0.filter(Boolean).length*V.takviye;
+  if(icKullAlong <= N0){ uyari.push(W+' mm '+yuzAd+' yüze '+N0+' bölüm sığmıyor'); return null; }
+  const colSize0 = gercekDusur(colSeg.map(function(g){ return g.w; }),
+                               colSeg.map(function(g){ return g.sabit ? g.hedef : null; }),
+                               icKullAlong, uyari);
+  if(!colSize0) return null;
+
+  // Agiz bandi tek basina saca sigmiyorsa bolunur ve AGIZ O BOLUMLERI KAPSAR (colSpan).
+  // Birlesik kapagin genisligi = kapladigi bolumlerin toplami + aradaki ACIK ana
+  // takviyelerin kalinligi; yani alt bolumler (band - (k-1)*takviye)'yi paylasinca
+  // agzin olcusu tam olarak 'band' kalir ve dikme gercekten oradadir.
+  const limB = gercekEnGenisBolum();
+  let bandK = 1;
+  while(bandK < OTO_MAX_BOLME && limB > 0
+     && (colSize0[bandIdx] - (bandK-1)*V.takviye)/bandK > limB) bandK++;
+  const bandPay = (bandK > 1)
+    ? otoDagit(colSize0[bandIdx] - (bandK-1)*V.takviye, bandK) : [colSize0[bandIdx]];
+  if(bandPay.some(function(x){ return x < 1; })){
+    uyari.push(yuzAd+' yüzde ağız bandı saca sığacak şekilde bölünemedi'); return null;
+  }
+  const colSize = colSize0.slice(0, bandIdx).concat(bandPay, colSize0.slice(bandIdx+1));
+  const colGap = colGap0.slice(0, bandIdx)
+    .concat(new Array(bandK-1).fill(true), colGap0.slice(bandIdx));
+  const N = colSize.length;
+
+  // --- SATIRLAR (H ekseni) --- ustten alta; agiz satirlari hedefine sabitlenir
+  list.sort(function(a,b){ return b.y - a.y; });
+  const rowSeg = [];
+  let tavan = H, cakisma = false;
+  list.forEach(function(a){
+    const tepe = a.y + a.h;
+    if(tepe > tavan + 0.5){ cakisma = true; return; }
+    rowSeg.push({ h: tavan - tepe, agiz: null });
+    rowSeg.push({ h: a.h, agiz: a });
+    tavan = a.y;
+  });
+  if(cakisma){ uyari.push(yuzAd+' yüzde ağızlar üst üste biniyor — konmadı'); return null; }
+  // KISMİ BİRLEŞME: komşu modülün kapattığı bölge BOŞ kalır; kapak komşunun üst
+  // profilinin yüzeyini örtene kadar iner (sınır = örtüşme − kenar profili).
+  const mateHi = faceMateHi(state.active, fi);
+  const bosSinir = (mateHi > 0.5 && mateHi < H - 0.5) ? Math.max(0, mateHi - V.kenar) : 0;
+  if(bosSinir > 0.5 && tavan < bosSinir - 0.5){
+    uyari.push(yuzAd+' yüzde ağız komşu modülün kapattığı bölgede kalıyor — konmadı');
+    return null;
+  }
+  if(bosSinir > 0.5){
+    // Boş bölge ile ağız arasında kalan şerit GERÇEK BİR KAPAKTIR (Cenk, 29.08.2026:
+    // KS-10 M1 SAĞ yüzde boğazın altında 750×120 'Boğaz Uzun' olmalı) — boş alana
+    // katılmaz. Boş alanın yanında TAKVİYE de olmaz: orada profil değil komşu modülün
+    // gövdesi var (aşağıda rowGap'te sıfırlanır).
+    const ustPay = tavan - bosSinir;
+    if(ustPay > 0.5) rowSeg.push({ h: ustPay, agiz: null });
+    // son segment: çerçeve payı bundan düşer, hedef ona göre verilir
+    rowSeg.push({ h: bosSinir, agiz: null, bos: true, hedef: Math.max(1, bosSinir - V.kenar) });
+  }else{
+    rowSeg.push({ h: tavan, agiz: null });
+  }
+  if(rowSeg.length > 1 && !rowSeg[0].agiz && rowSeg[0].h <= esikSatir){
+    rowSeg[1].h += rowSeg[0].h; rowSeg.shift();
+  }
+  const sonI = rowSeg.length - 1;
+  if(rowSeg.length > 1 && !rowSeg[sonI].agiz && rowSeg[sonI].h <= esikSatir){
+    rowSeg[sonI-1].h += rowSeg[sonI].h; rowSeg.pop();
+  }
+  // AĞIZ KENARA DAYANIR — ağzın yanındaki 100 mm altı şerit kalkar, pay öteki yana
+  // yığılır. Takviye payı tahmini: ağzın yanına ve boş alanın yanına takviye konmaz.
+  (function(){
+    const g0 = gercekAraliklar(rowSeg.map(function(sg){ return sg.h; }), V.kenar, V.takviye);
+    let nt = 0;
+    for(let i=0;i<g0.length;i++){
+      if(!g0[i]) continue;
+      if(rowSeg[i].bos || rowSeg[i+1].bos) continue;
+      if(bandK === 1 && (rowSeg[i].agiz || rowSeg[i+1].agiz)) continue;
+      nt++;
+    }
+    gercekAgizKenara(rowSeg, H - 2*V.kenar - nt*V.takviye, V, uyari, yuzAd);
+  })();
+  let enGenis = 0;
+  colSize.forEach(function(c){ if(c > enGenis) enGenis = c; });
+  const rows = [];
+  rowSeg.forEach(function(rw){
+    if(rw.agiz || rw.bos){ rows.push(rw); return; }
+    if(rw.h <= 0.5) return;
+    const tmp = [];
+    gercekBolNormal(tmp, rw.h, enGenis);
+    tmp.forEach(function(t){ rows.push({ h: t.w, agiz: null }); });
+  });
+  const M = rows.length;
+  if(!M) return null;
+  const rowGap = gercekAraliklar(rows.map(function(g){ return g.h; }), V.kenar, V.takviye);
+  // Boş alanın yanında takviye olmaz — orada profil değil komşu modülün gövdesi var.
+  for(let i=0;i<rowGap.length;i++)
+    if(rows[i].bos || rows[i+1].bos) rowGap[i] = false;
+  // Ağzın yanına TAKVİYE PROFİLİ KONMAZ (Cenk, 28.08.2026) — bu kural ÜST yüz dışındaki
+  // yüzler içindir; ÜST'te ağzın yanında takviye durur (bkz. gercekUstYuz).
+  //
+  // TEK İSTİSNA: ağız saca sığsın diye BİRDEN ÇOK bölüme yayıldıysa (bandK>1) sınırdaki
+  // ara takviye KALIR. O bölümler arasındaki dikey ana takviye ağız hizasında kesiliyor;
+  // ucu bir yere dayanmazsa motor birleşimi çözer ve ağız kendi ölçüsünü kaybeder
+  // (ölçüldü: 16 yüz, ağız 3150 mm yerine 1545 mm çıkıyordu).
+  if(bandK > 1){
+    uyari.push(yuzAd+' yüzde ağız '+band+' mm — saca sığması için '+bandK
+      +' bölüme yayıldı, yanındaki ara takviye kaldırılamadı');
+  }else{
+    for(let i=0;i<rowGap.length;i++)
+      if(rows[i].agiz || rows[i+1].agiz) rowGap[i] = false;
+  }
+  const icKullAcross = H - 2*V.kenar - rowGap.filter(Boolean).length*V.takviye;
+  if(icKullAcross <= M){ uyari.push(H+' mm '+yuzAd+' yüze '+M+' kapak sığmıyor'); return null; }
+  const rowHedef = rows.map(function(g){
+    const h = gercekSegHedef(g);
+    return h == null ? null : Math.max(1, Math.round(h));
+  });
+  // Ağız bölümün tamamını yuttuysa serbest kapak kalmaz; yuvarlama artığı da ona gider
+  // ki satır toplamı iç ölçüye TAM otursun.
+  if(rowHedef.every(function(h){ return h != null; })){
+    let yi = -1;
+    for(let i=0;i<rows.length;i++) if(rows[i].yut) yi = i;
+    if(yi >= 0) rowHedef[yi] += icKullAcross - rowHedef.reduce(function(a,b){ return a+b; }, 0);
+  }
+  const rowSize = gercekDusur(rows.map(function(g){ return g.h; }), rowHedef,
+                              icKullAcross, uyari);
+  if(!rowSize) return null;
+
+  face.kapaksiz = false;
+  face.orient = 'H';
+  // Ağza değen kapak UZUN kesilir (Cenk, 28.08.2026): iki ağız arasındaysa 'Boğaz 2 Uzun',
+  // yalnız bir yanı ağızsa 'Boğaz Uzun'. Yalnız ağız bandının kapladığı sütunlar sayılır —
+  // yandaki dar şeritler ağza değmez, onlar 'Normal Panel' kalır.
+  const bandSon = bandIdx + bandK - 1;
+  face.columns = colSize.map(function(cs, ci){
+    const bandda = (ci >= bandIdx && ci <= bandSon);
+    return {
+      size: cs,
+      panels: rows.map(function(rw, ri){
+        const p = { size: rowSize[ri], type: 'Normal Panel', colSpan: 1 };
+        if(rw.agiz && ci === bandIdx){
+          p.type = rw.agiz.tip;
+          p.colSpan = bandK;
+          // Ayni yuzde farkli genislikte iki agiz varsa dar olan KENDI olcusunu tasir.
+          // Tek bolumde bu 'colSize', birlesik kapakta 'spanSize'dir.
+          if(rw.agiz.w < band - 0.5){
+            if(bandK > 1) p.spanSize = rw.agiz.w; else p.colSize = rw.agiz.w;
+          }
+          // TAM BOGAZ (Cenk, 29.08.2026): goz bolumun tamamini kapladiginda bogazin
+          // KESIM olcusu cizimdekidir — aradaki pay cerceveye gider. Alan yalniz
+          // burada var olur; syncStructure gecersizse dusurur.
+          if(rw.yut || bandYut) p.elemanOlcu = {w: rw.agiz.w, h: rw.agiz.h};
+        }else if(rw.bos){
+          p.type = 'Boş Alan';
+        }else if(!rw.agiz && bandda){
+          const ustA = ri > 0 && !!rows[ri-1].agiz;
+          const altA = ri < rows.length-1 && !!rows[ri+1].agiz;
+          if(ustA && altA) p.type = 'Boğaz 2 Uzun';
+          else if(ustA || altA) p.type = 'Boğaz Uzun';
+        }
+        return p;
+      }),
+      innerGaps: rowGap.slice(),
+      araJoinNext: rows.slice(1).map(function(){ return false; })
+    };
+  });
+  face.colGaps = colGap.slice();
+  face.anaSplitLevels = colSize.slice(1).map(function(){ return []; });
+  face.selectedCells = [];
+  face.selectedBars = [];
+  let damper = 0, bogaz = 0;
+  list.forEach(function(a){ if(a.tip === 'Damper') damper++; else bogaz++; });
+  return { damper: damper, bogaz: bogaz, kapak: N*M };
+}
+
+// Aktif modülün ÜST yüzüne çizimden okunan ağızları yerleştirir. withModule içinden
+// çağrılır. Dönüş: {damper, bogaz, kapak, tabloDan, ustPanel} ya da null (ağız yok /
+// kurulamadı → yüz eski otomatikle dolar, tipini gercekTumAHU atar).
+//
+// Yüz L×W'dir ve gercekYanYuz'un TRANSPOZESİDİR: ağız L ekseninde ÇİZİMDEKİ YERİNE,
+// W ekseninde ORTAYA oturur. Ölçüldü (634 çizim, 48 ÜST ağız): doğru okunan 32 ağzın
+// 32'si W ekseninde tam ortalı, L ekseninde yalnız 1'i — yani W'de ortalamak, L'de
+// çizimi okumak doğrudur. Ölçüsü teknik tablodan gelen ağzın L'deki yeri bilinmez;
+// ortalanır ve bu uyarıyla söylenir.
+//
+// ÜST yüz kasanın TAVANIDIR: yalnız üst/tam/tek kattaki parçanın ağzı buraya düşer.
+// İki katlı kasada alt katın tavanındaki ağız ara döşemededir — uyarı verilir, konmaz.
+function gercekUstYuz(uyari){
+  const md = state.modules[state.active];
+  const bilgi = md && md.dxfBilgi;
+  if(!bilgi || !bilgi.parcalar || !bilgi.parcalar.length) return null;
+  const ps = bilgi.parcalar;
+  const zUst = ps.filter(function(p){ return p.kat !== 'alt'; });
+  const lim = gercekEnGenisBolum();
+  const list = [];
+  let c = 0, tabloDan = 0;
+  zUst.forEach(function(p){
+    const boy = Number(p.boy)||0;
+    (p.agizlar||[]).forEach(function(a){
+      if(a.yuz !== 'ÜST') return;
+      if(!(a.w > 0 && a.h > 0)){
+        uyari.push(a.etiket+' ağzı (ÜST) çizimden ölçülemedi — elle eklenmeli'); return;
+      }
+      if(a.w > boy + 0.5){
+        uyari.push(a.etiket+' ağzı '+a.w+' mm ama bölme yalnız '+boy
+          +' mm — konmadı, elle eklenmeli'); return;
+      }
+      if(lim > 0 && a.w > lim){
+        // Agiz bir ELEMAN, kendisi saca sigmak zorunda degil; ama sutunu paylasan normal
+        // kapaklar sigmali. Yan yuzde band bolunup colSpan ile kapsaniyordu; UST'te
+        // olculen en genis agiz 750 mm, yani bu dal hic tetiklenmiyor — yine de sessizce
+        // sacа sigmayan kapak uretmektense soylemek dogru.
+        uyari.push(a.etiket+' ağzı '+a.w+' mm — ÜST yüzde saca sığacak bölüme girmiyor,'
+          +' konmadı, elle eklenmeli'); return;
+      }
+      let x = (a.x == null) ? Math.round((boy - a.w)/2) : (Number(a.x)||0);
+      if(x < 0) x = 0;
+      if(x > boy - a.w) x = boy - a.w;
+      if(a.tabloDan){
+        tabloDan++;
+        uyari.push(a.etiket+' ağzının ölçüsü teknik tablodan alındı (çizimde ağız'
+          +' dikdörtgeni yok) — '+p.islev+' bölmesinin ortasına kondu');
+      }
+      list.push({ etiket: a.etiket, w: a.w, h: a.h, x: c + x,
+                  tip: a.damper ? 'Damper' : 'Boğaz' });
+    });
+    c += boy;
+  });
+  ps.forEach(function(p){
+    if(p.kat !== 'alt') return;
+    (p.agizlar||[]).forEach(function(a){
+      if(a.yuz === 'ÜST')
+        uyari.push(a.etiket+' ağzı alt katın tavanında ('+p.islev
+          +') — ÜST yüze düşmez, elle eklenmeli');
+    });
+  });
+  if(!list.length) return null;
+
+  const L = Number(state.dims.L)||0, W = Number(state.dims.W)||0;
+  if(L <= 0 || W <= 0) return null;
+  const V = getV(), face = state.faces[2];
+  const esik = Math.max(V.kenar + 10, GERCEK_MIN_KAPAK);
+  // 'Üst Panel' sayılan kapaklarda sınır 1200 mm (Cenk, 29.08.2026)
+  const ustTip = faceMated(state.active, 2) ? 'Normal Panel' : 'Üst Panel';
+  const ustLim = (ustTip === 'Üst Panel') ? GERCEK_UST_MAX : GERCEK_KAPAK_MAX;
+
+  // W ekseni tek BANT taşır: bütün ağızlar aynı derinlikte olmalı. Ölçüldü — aynı modülde
+  // farklı derinlikte iki ÜST ağız yok; çıkarsa yanlış ölçü üretmektense söylenir.
+  let band = 0, farkli = false;
+  list.forEach(function(a){ if(a.h > band) band = a.h; });
+  list.forEach(function(a){ if(a.h < band - 0.5) farkli = true; });
+  if(farkli){
+    uyari.push('ÜST yüzde ağızlar farklı derinlikte — konmadı, elle eklenmeli'); return null;
+  }
+  const icDerin = W - 2*V.kenar;
+  if(band > icDerin + 0.5){
+    uyari.push('ağız '+band+' mm ama ÜST yüzde çerçeveden sonra '+icDerin
+      +' mm kalıyor — konmadı, elle eklenmeli');
+    return null;
+  }
+  // Ağız bandı bir SATIRDIR: ağız dışı sütunlardaki normal kapaklar da o derinliği taşır.
+  // Bandın kendisi saca girmiyorsa sütunu bölmek kurtarmaz (ölçüldü: P-ESF 48000, ağız
+  // 3247 mm derinliğinde) — sessizce sığmayan kapak üretmektense söylenir.
+  if(lim > 0 && band > lim){
+    uyari.push('ağız '+band+' mm derinliğinde — ÜST yüzde saca sığacak kapak kalmıyor,'
+      +' konmadı, elle eklenmeli');
+    return null;
+  }
+
+  // --- SÜTUNLAR (L ekseni) --- ağızlar çizimdeki yerinde; uçta kalan çerçeve payı ağza katılır
+  list.sort(function(a,b){ return a.x - b.x; });
+  const colSeg = [];
+  let imlec = 0, cakisma = false;
+  list.forEach(function(a){
+    if(a.x < imlec - 0.5){ cakisma = true; return; }
+    let sol = a.x - imlec, ham = a.w;
+    if(sol <= esik){ ham += sol; sol = 0; }
+    gercekBolNormal(colSeg, sol, band, ustLim);
+    colSeg.push({ w: ham, hedef: a.w, agiz: a });
+    imlec = a.x + a.w;
+  });
+  if(cakisma){ uyari.push('ÜST yüzde ağızlar üst üste biniyor — konmadı'); return null; }
+  let sag = L - imlec;
+  if(sag < -0.5){ uyari.push('ÜST yüzde ağız modül boyunun dışına taşıyor — konmadı'); return null; }
+  if(sag > 0 && sag <= esik){ colSeg[colSeg.length-1].w += sag; sag = 0; }
+  gercekBolNormal(colSeg, sag, band, ustLim);
+  const N = colSeg.length;
+  const colGap = gercekAraliklar(colSeg.map(function(g){ return g.w; }), V.kenar, V.takviye);
+  const icKullAlong = L - 2*V.kenar - colGap.filter(Boolean).length*V.takviye;
+  if(icKullAlong <= N){ uyari.push(L+' mm ÜST yüze '+N+' bölüm sığmıyor'); return null; }
+  const colSize = gercekDusur(colSeg.map(function(g){ return g.w; }),
+                              colSeg.map(function(g){ return g.agiz ? g.hedef : null; }),
+                              icKullAlong, uyari);
+  if(!colSize) return null;
+
+  // --- SATIRLAR (W ekseni) --- ağız bandı ortada; yanlar çerçeve payı kadarsa banda katılır
+  const yanPay = Math.round((W - band)/2);
+  let bandHam = band, altHam = yanPay, ustHam = W - band - yanPay;
+  if(altHam <= esik){ bandHam += altHam; altHam = 0; }
+  if(ustHam <= esik){ bandHam += ustHam; ustHam = 0; }
+  let enGenis = 0;
+  colSize.forEach(function(cs){ if(cs > enGenis) enGenis = cs; });
+  const rowSeg = [];
+  gercekBolNormal(rowSeg, ustHam, enGenis, ustLim);
+  rowSeg.push({ w: bandHam, hedef: band, agiz: true });
+  gercekBolNormal(rowSeg, altHam, enGenis, ustLim);
+  const M = rowSeg.length;
+  const rowGap = gercekAraliklar(rowSeg.map(function(g){ return g.w; }), V.kenar, V.takviye);
+  const icKullAcross = W - 2*V.kenar - rowGap.filter(Boolean).length*V.takviye;
+  if(icKullAcross <= M){ uyari.push(W+' mm ÜST yüze '+M+' kapak sığmıyor'); return null; }
+  const rowSize = gercekDusur(rowSeg.map(function(g){ return g.w; }),
+                              rowSeg.map(function(g){ return g.agiz ? g.hedef : null; }),
+                              icKullAcross, uyari);
+  if(!rowSize) return null;
+
+  // Ağız dışındaki kapaklar ÜST yüzün kendi kuralını izler: üstünde modül varsa
+  // 'Normal Panel', açıksa 'Üst Panel' (Cenk, 28.08.2026).
+  const kapakTip = ustTip;
+  face.kapaksiz = false;
+  face.orient = 'H';
+  face.columns = colSeg.map(function(cg, ci){
+    return {
+      size: colSize[ci],
+      panels: rowSeg.map(function(rw, ri){
+        const p = { size: rowSize[ri], type: kapakTip, colSpan: 1 };
+        if(rw.agiz && cg.agiz){
+          p.type = cg.agiz.tip;
+          // ÇİZİM YÖNÜ (Cenk, 29.08.2026): boğaz/damperin 'en' ölçüsü SOL/SAĞ yüzde
+          // yatay parçayı sürer, ÜST yüzde DİKEY parçayı — çünkü aynı fiziksel ölçü
+          // burada başka bir eksende duruyor. Takas 26.08'de kurulan 'çizim yönü'
+          // mekanizmasıyla yapılır (elemanCizimOlcusu); yerleşim, tolerans ve göz
+          // ölçüsü DEĞİŞMEZ, yalnız f1'e giden eşleme takas edilir.
+          p.yon = 'dikey';
+        }
+        return p;
+      }),
+      innerGaps: rowGap.slice(),
+      araJoinNext: rowSeg.slice(1).map(function(){ return false; })
+    };
+  });
+  face.colGaps = colGap.slice();
+  face.anaSplitLevels = colSize.slice(1).map(function(){ return []; });
+  face.selectedCells = [];
+  face.selectedBars = [];
+  let damper = 0, bogaz = 0;
+  list.forEach(function(a){ if(a.tip === 'Damper') damper++; else bogaz++; });
+  return { damper: damper, bogaz: bogaz, kapak: N*M, tabloDan: tabloDan,
+           ustPanel: kapakTip === 'Üst Panel' };
+}
+
+// Ağzı olmayan ama komşusuyla KISMEN örtüşen düşey yüz: komşunun kapattığı bölge BOŞ
+// kalır (Cenk, 29.08.2026 — «birbirine denk gelen yüzler boş olmalı, içeride hava akışı
+// var»), üstü saca sığacak en az sayıda 'Normal Panel'e bölünür. Kapak komşunun üst
+// profilinin yüzeyini örtene kadar iner: sınır = örtüşme − kenar profili.
+// Ağzı OLAN yüzler bu kuralı gercekYanYuz içinde uygular.
+function gercekKismiYuz(fi, uyari){
+  const H = Number(state.dims.H)||0;
+  const mate = faceMateHi(state.active, fi);
+  if(!(mate > 0.5) || mate >= H - 0.5) return null;
+  const def = faceDefOf(fi);
+  const Wf = Number(state.dims[def.wKey])||0;
+  if(H <= 0 || Wf <= 0) return null;
+  const V = getV(), face = state.faces[fi];
+  const bosHam = Math.max(0, mate - V.kenar);
+  if(bosHam <= 0.5) return null;
+  const ustHam = H - bosHam;
+  if(ustHam <= V.kenar + 10){
+    uyari.push(faceCodeOf(fi)+' yüzünde komşudan sonra kapak sığmıyor — kapaksız bırakıldı');
+    face.kapaksiz = true;
+    return { bos: 1 };
+  }
+
+  // SATIRLAR: üst (kapaklı, saca göre bölünür) + alt (boş)
+  const rows = [];
+  gercekBolNormal(rows, ustHam, Wf);
+  rows.forEach(function(r){ r.h = r.w; r.bos = false; });
+  rows.push({ h: bosHam, bos: true, hedef: Math.max(1, bosHam - V.kenar) });
+  const M = rows.length;
+  const rowGap = gercekAraliklar(rows.map(function(g){ return g.h; }), V.kenar, V.takviye);
+  // boş alanın yanında takviye olmaz
+  for(let i=0;i<rowGap.length;i++)
+    if(rows[i].bos || rows[i+1].bos) rowGap[i] = false;
+  const icKullAcross = H - 2*V.kenar - rowGap.filter(Boolean).length*V.takviye;
+  if(icKullAcross <= M) return null;
+  const rowSize = gercekDusur(rows.map(function(g){ return g.h; }),
+                              rows.map(function(g){ return g.bos ? g.hedef : null; }),
+                              icKullAcross, uyari);
+  if(!rowSize) return null;
+
+  // SÜTUNLAR: en yüksek kapaklı satıra göre
+  let enYuk = 0;
+  rows.forEach(function(r, i){ if(!r.bos && rowSize[i] > enYuk) enYuk = rowSize[i]; });
+  const colSeg = [];
+  gercekBolNormal(colSeg, Wf, enYuk);
+  const N = colSeg.length;
+  const colGap = gercekAraliklar(colSeg.map(function(g){ return g.w; }), V.kenar, V.takviye);
+  const icKullAlong = Wf - 2*V.kenar - colGap.filter(Boolean).length*V.takviye;
+  if(icKullAlong <= N) return null;
+  const colSize = gercekDusur(colSeg.map(function(g){ return g.w; }),
+                              colSeg.map(function(){ return null; }), icKullAlong, uyari);
+  if(!colSize) return null;
+
+  face.kapaksiz = false;
+  face.orient = 'H';
+  face.columns = colSize.map(function(cs){
+    return {
+      size: cs,
+      panels: rows.map(function(rw, ri){
+        return { size: rowSize[ri], type: rw.bos ? 'Boş Alan' : 'Normal Panel', colSpan: 1 };
+      }),
+      innerGaps: rowGap.slice(),
+      araJoinNext: rows.slice(1).map(function(){ return false; })
+    };
+  });
+  face.colGaps = colGap.slice();
+  face.anaSplitLevels = colSize.slice(1).map(function(){ return []; });
+  face.selectedCells = [];
+  face.selectedBars = [];
+  return { bos: 1 };
+}
+
+// Aktif modülün ARKA yüzünü kurar — modül İKİ KATLIYSA (Cenk, 29.08.2026: «modül 2
+// katlıysa arkadan da 2 katlı olduğu için yatay takviyesi olmalı»). Kat ayırıcı yatay
+// takviye ÖN yüzdekiyle aynı kottadır ve BÜTÜNDÜR. Her kat, saca sığacak en az sayıda
+// 'Normal Panel'e bölünür. Tek katlı modülde null döner — yüz eski otomatikle dolar.
+function gercekArkaYuz(uyari){
+  const md = state.modules[state.active];
+  const bilgi = md && md.dxfBilgi;
+  const altKat = bilgi && Number(bilgi.altKat) || 0;
+  if(!(altKat > 0)) return null;
+  const L = Number(state.dims.L)||0, H = Number(state.dims.H)||0;
+  if(L <= 0 || H <= 0 || altKat >= H) return null;
+  const V = getV(), face = state.faces[1];
+
+  // SATIRLAR (H ekseni, üstten alta): üst kat + alt kat, aralarında kat ayırıcı takviye
+  const ham = [H - altKat, altKat];
+  const rowGap = [true];
+  const icKullAcross = H - 2*V.kenar - V.takviye;
+  if(icKullAcross <= 2){ uyari.push(H+' mm ARKA yüze iki kat sığmıyor'); return null; }
+
+  // SÜTUNLAR (L ekseni): saca sığacak en az sayıda bölüm — en yüksek kat belirler
+  const enYuksek = Math.max(ham[0], ham[1]);
+  const colSeg = [];
+  gercekBolNormal(colSeg, L, enYuksek);
+  const N = colSeg.length;
+  const colGap = gercekAraliklar(colSeg.map(function(g){ return g.w; }), V.kenar, V.takviye);
+  const icKullAlong = L - 2*V.kenar - colGap.filter(Boolean).length*V.takviye;
+  if(icKullAlong <= N){ uyari.push(L+' mm ARKA yüze '+N+' bölüm sığmıyor'); return null; }
+  const colSize = gercekDusur(colSeg.map(function(g){ return g.w; }),
+                              colSeg.map(function(){ return null; }), icKullAlong, uyari);
+  if(!colSize) return null;
+  const rowSize = gercekDusur(ham, [null, null], icKullAcross, uyari);
+  if(!rowSize) return null;
+
+  face.kapaksiz = false;
+  face.orient = 'H';
+  face.columns = colSize.map(function(cs){
+    return {
+      size: cs,
+      panels: rowSize.map(function(rs){ return { size: rs, type: 'Normal Panel', colSpan: 1 }; }),
+      innerGaps: rowGap.slice(),
+      // kat ayırıcı BÜTÜNDÜR
+      araJoinNext: [true]
+    };
+  });
+  face.colGaps = colGap.slice();
+  // kat ayırıcı bütün olduğu için ana takviye o seviyeden kesilir (motorun şartı)
+  face.anaSplitLevels = colSize.slice(1).map(function(){ return [0]; });
+  face.selectedCells = [];
+  face.selectedBars = [];
+  return { kapak: N * rowSize.length };
+}
+
+// Aktif modülün ALT yüzüne soğutma bataryasının tavasını kurar. withModule içinden çağrılır.
+// Dönüş: {tava} ya da null (tava yok → yüz eski otomatikle dolar).
+// Tek satırlıdır: ALT yüz L×W'dir, kat ayrımı yoktur — üst kattaki bataryanın tavası bu
+// yüze DÜŞMEZ, o durumda uyarı verilir ve tava elle eklenir.
+function gercekAltYuz(uyari){
+  const md = state.modules[state.active];
+  const bilgi = md && md.dxfBilgi;
+  if(!bilgi || !bilgi.parcalar || !bilgi.parcalar.length) return null;
+  const ps = bilgi.parcalar.filter(function(p){ return p.kat !== 'üst'; });
+  if(!ps.length) return null;
+  bilgi.parcalar.forEach(function(p){
+    if(p.kat === 'üst' && gercekTavalar(p).length)
+      uyari.push('üst kattaki '+p.islev+' tavası ALT yüze konamaz — elle eklenmeli');
+  });
+  const L = Number(state.dims.L)||0, W = Number(state.dims.W)||0;
+  if(L <= 0 || W <= 0) return null;
+  const V = getV(), face = state.faces[3];
+  const icAcross = W - 2*V.kenar;
+  if(icAcross <= 1) return null;
+  const esik = Math.max(V.kenar + 10, GERCEK_MIN_KAPAK);
+
+  // Tavalar ÇİZİMDEKİ YERİNE oturur (soğutma bataryasınınki bataryanın merkezine).
+  // Bir parçada birden çok tava olabilir — rotorlu eşanjörde iki tane (ölçüldü, 45 modül).
+  //
+  // ARDIŞIK TAVASIZ ALAN BİRİKTİRİLİR (Cenk, 29.08.2026) — ÖN yüzdeki düzeltmenin aynısı.
+  // Eskiden her parçanın kalanı ayrı bölünüyordu ve parça sınırında olmayan bir dikme
+  // çıkıyordu (KS-10 M2 ALT: Tava 600 | 144 | 860 | 687 — oysa tavadan sonrası tek kapak).
+  const segs = [];
+  const esikUc = V.kenar + GERCEK_MIN_KAPAK, esikOrta = GERCEK_MIN_KAPAK;
+  let tavaN = 0, bos = 0;
+  function bosBosalt(){
+    if(bos <= 0.5){ bos = 0; return; }
+    if(segs.length && bos <= esikUc){ segs[segs.length-1].w += bos; bos = 0; return; }
+    gercekBolNormal(segs, bos, icAcross);
+    bos = 0;
+  }
+  ps.forEach(function(p){
+    const boy = Number(p.boy)||0;
+    if(boy <= 0) return;
+    const tv = gercekTavalar(p).slice().sort(function(a,b){ return a.lo - b.lo; });
+    let imlec = 0;
+    tv.forEach(function(t){
+      if(t.lo < imlec - 0.5) return;          // çakışan tava — atlanır
+      let ham = t.w;
+      bos += t.lo - imlec;
+      if(bos <= (segs.length ? esikOrta : esikUc)){ ham += bos; bos = 0; }
+      bosBosalt();
+      segs.push({ w: ham, hedef: t.w, tip: 'Tava', sabit: true });
+      imlec = t.lo + t.w;
+      tavaN++;
+    });
+    bos += boy - imlec;
+  });
+  bosBosalt();
+  if(!tavaN || !segs.length) return null;
+  const t = segs.reduce(function(a,b){ return a+b.w; }, 0);
+  if(Math.abs(t - L) > 1.5){ uyari.push('ALT yüz toplamı '+Math.round(t)+' mm, modül boyu '+L+' mm'); return null; }
+
+  const N = segs.length;
+  const icKullAlong = L - 2*V.kenar - (N-1)*V.takviye;
+  if(icKullAlong <= N){ uyari.push(L+' mm modüle '+N+' bölüm sığmıyor (ALT)'); return null; }
+  const colSize = gercekDusur(segs.map(function(g){ return g.w; }),
+                              segs.map(function(g){ return g.sabit ? g.hedef : null; }),
+                              icKullAlong, uyari);
+  if(!colSize) return null;
+
+  face.kapaksiz = false;
+  face.orient = 'H';
+  face.columns = colSize.map(function(cs, ci){
+    return { size: cs,
+             panels: [{ size: 0, type: segs[ci].tip, colSpan: 1 }],
+             innerGaps: [], araJoinNext: [] };
+  });
+  face.colGaps = colSize.slice(1).map(function(){ return true; });
+  face.anaSplitLevels = colSize.slice(1).map(function(){ return []; });
+  face.selectedCells = [];
+  face.selectedBars = [];
+  return { tava: tavaN };
+}
+
+// Aktif AHU'nun bütün modüllerini gerçek değerlerle kurar.
+// ÖN yüz kural motorundan, ÜST yüz tipi birleşmeden, kalan yüzler 27.08 otomatiğinden gelir.
+function gercekTumAHU(){
+  const sonuc = { modul:0, atlanan:0, kapak:0, acilir:0, camli:0, ust:0, tava:0, mated:0,
+                  damper:0, bogaz:0, disAgiz:0, ustTablo:0, arka:0, kismi:0, uyari:[] };
+  state.modules.forEach(function(m, mi){
+    withModule(mi, function(){
+      const uyari = [];
+      const on = gercekOnYuz(uyari);
+      if(on){
+        sonuc.modul++; sonuc.kapak += on.kapak;
+        sonuc.acilir += on.acilir; sonuc.camli += on.camli;
+      }else{
+        sonuc.atlanan++;
+        state.faces[0].kapaksiz = false;
+        otoUygulaYuz(0, true, GERCEK_KAPAK_MAX);
+      }
+      // ÜST yüz her zaman kapak alır; yalnız TİPİ değişir (Cenk, 28.08.2026).
+      // Çizimden okunan ağız varsa yüz onunla kurulur — ağız dışındaki kapaklar yine
+      // aynı tip kuralını izler (gercekUstYuz içinde).
+      state.faces[2].kapaksiz = false;
+      const ustY = gercekUstYuz(uyari);
+      if(ustY){
+        sonuc.damper += ustY.damper; sonuc.bogaz += ustY.bogaz;
+        sonuc.ustTablo += ustY.tabloDan;
+        if(ustY.ustPanel) sonuc.ust++;
+      }else if(otoUygulaYuz(2, true,
+                 faceMated(mi, 2) ? GERCEK_KAPAK_MAX : GERCEK_UST_MAX)){
+        const tip = faceMated(mi, 2) ? 'Normal Panel' : 'Üst Panel';
+        state.faces[2].columns.forEach(function(c){
+          c.panels.forEach(function(p){ p.type = tip; });
+        });
+        if(tip === 'Üst Panel') sonuc.ust++;
+      }
+      // ALT yüz: soğutma bataryası varsa tava kurulur — birleşme yüzü olsa bile kapaksız
+      // işaretlenmez, tava o modülün altında gerçekten vardır.
+      const tv = gercekAltYuz(uyari);
+      if(tv) sonuc.tava += tv.tava;
+      // SOL/SAĞ: çizimden okunan ağızlar. Ağzı olan yüz, birleşme yüzü olsa bile
+      // kapaksız işaretlenmez — ağız o yüzde gerçekten vardır (tava kuralının aynısı).
+      const yanY = {};
+      [4,5].forEach(function(fi){
+        const y = gercekYanYuz(fi, uyari);
+        if(y){ yanY[fi] = y; sonuc.damper += y.damper; sonuc.bogaz += y.bogaz; }
+      });
+      (m.dxfBilgi && m.dxfBilgi.parcalar ? m.dxfBilgi.parcalar : []).forEach(function(p){
+        (p.agizlar||[]).forEach(function(a){
+          if(a.yuz !== 'SOL' && a.yuz !== 'SAĞ' && a.yuz !== 'ÜST'){
+            sonuc.disAgiz++;
+            uyari.push(a.etiket+' ağzı '+a.yuz+' yüzde — kapsam dışı, elle eklenmeli');
+          }
+        });
+      });
+      // ARKA yüz: iki katlı modülde kat ayırıcı yatay takviye ile kurulur.
+      // Birleşme yüzüyse kapaksız kalır — o karar aşağıdaki döngüde verilir.
+      let arka = null;
+      if(!(otoSac.birlesikAtla && faceMated(mi, 1))){
+        arka = gercekArkaYuz(uyari);
+        if(arka) sonuc.arka++;
+      }
+      [1,3,4,5].forEach(function(fi){
+        if(fi === 1 && arka) return;
+        if(fi === 3 && tv) return;
+        if(yanY[fi]) return;
+        const face = state.faces[fi];
+        if(otoSac.birlesikAtla && faceMated(mi, fi)){
+          if(!face.kapaksiz){ face.kapaksiz = true; sonuc.mated++; }
+          return;
+        }
+        if(face.kapaksiz) return;
+        // Kısmen örtüşen düşey yüzde komşunun kapattığı bölge boş kalır.
+        if((fi === 4 || fi === 5 || fi === 1) && gercekKismiYuz(fi, uyari)){ sonuc.kismi++; return; }
+        otoUygulaYuz(fi, true, GERCEK_KAPAK_MAX);
+      });
+      const on2 = (m.ad ? m.ad : 'Modül '+(mi+1)) + ': ';
+      uyari.forEach(function(u){ sonuc.uyari.push(on2 + u); });
+    });
+  });
+  return sonuc;
+}
+
+function gercekNot(s){
+  const not = document.getElementById('excel_note');
+  if(!not) return;
+  const p = [];
+  p.push(s.modul+' modül gerçek değerlerle kuruldu — '+s.kapak+' kapak, bunların '
+    +s.acilir+' tanesi açılır ('+s.camli+' camlı).');
+  if(s.ust) p.push(s.ust+' modülün üstü açık: ÜST PANEL kuruldu.');
+  if(s.tava) p.push(s.tava+' bölmenin altına TAVA kuruldu (ALT yüz).');
+  if(s.damper || s.bogaz) p.push('Çizimden '+(s.damper+s.bogaz)+' ağız okundu ve SOL/SAĞ/ÜST '
+    +'yüze kondu ('+s.damper+' damper, '+s.bogaz+' boğaz).');
+  if(s.arka) p.push(s.arka+' iki katlı modülün ARKA yüzüne kat ayırıcı yatay takviye kondu.');
+  if(s.kismi) p.push(s.kismi+' yüzde komşu modülün kapattığı bölge BOŞ bırakıldı.');
+  if(s.ustTablo) p.push('⚠ '+s.ustTablo+' ÜST ağzın ölçüsü çizimde yok, teknik tablodan alındı.');
+  if(s.disAgiz) p.push('⚠ '+s.disAgiz+' ağız ALT yüzde — kapsam dışı, elle eklenmeli.');
+  if(s.mated) p.push(s.mated+' birleşme yüzü kapaksız işaretlendi.');
+  if(s.atlanan) p.push('⚠ '+s.atlanan+' modülde DXF bilgisi yok — eski otomatikle dolduruldu.');
+  if(s.uyari.length) p.push('⚠ '+s.uyari.join(' · '));
+  not.textContent = p.join(' ');
+}
+
+function gercekTikla(){
+  const s = gercekTumAHU();
+  renderAll();
+  gercekNot(s);
+}
+
+// ---------- GİZLİ AKTİVASYON ----------
+// Ekranda boştayken (bir kutuya yazmıyorken) 'admincenk' yazılınca imalat paneli açılır
+// ve tema kehribara döner; ikinci kez yazılınca kapanır ve tema geri gelir.
+//
+// KURAL (Cenk, 28.08.2026 — KESİN): panel KOD GİRİLMEDEN GÖRÜNMEZ. Bu yüzden durum
+// HİÇBİR YERE YAZILMAZ, yalnızca oturumda yaşar: sayfa her açılışta kapalı başlar ve
+// 'admincenk' yeniden yazılmadan açılmaz. (Eskiden localStorage'da 'kh_admin' tutuluyordu
+// ve bir kez açıldıktan sonra her açılışta kod yazılmadan açık geliyordu — kural buydu,
+// kusur oydu.) Aynı sebeple tema da yazılmaz: kehribar tema modun işaretidir, yeniden
+// açılışta kalırsa modu ele verir.
+const ADMIN_KEY = 'kh_admin';
+const ADMIN_SOZ = 'admincenk';
+const ADMIN_TEMA = 'kehribar';
+let adminAcik = false, adminTampon = '', adminOncekiTema = '';
+// Eski sürümlerin bıraktığı anahtar temizlenir — yoksa o tarayıcılarda kusur sürerdi.
+try{ localStorage.removeItem(ADMIN_KEY); }catch(e){}
+
+function adminPanelTazele(){
+  const el = document.getElementById('gercek_panel');
+  if(el) el.style.display = adminAcik ? '' : 'none';
+}
+
+function adminGecis(){
+  adminAcik = !adminAcik;
+  const ts = document.getElementById('theme_sel');
+  if(adminAcik){
+    adminOncekiTema = document.body.dataset.theme || '';
+    document.body.dataset.theme = ADMIN_TEMA;
+    if(ts) ts.value = ADMIN_TEMA;
+  }else{
+    document.body.dataset.theme = adminOncekiTema;
+    if(ts) ts.value = adminOncekiTema;
+  }
+  adminPanelTazele();
+  const not = document.getElementById('excel_note');
+  if(not) not.textContent = adminAcik
+    ? 'İmalat modu AÇIK — Gerçek Kapak Yerleşimi paneli kenar çubuğunda.'
+    : 'İmalat modu kapatıldı.';
+}
+
+function adminTus(e){
+  const t = e.target;
+  if(t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
+  if(e.ctrlKey || e.metaKey || e.altKey) return;
+  if(!e.key || e.key.length !== 1) return;
+  adminTampon = (adminTampon + e.key.toLowerCase()).slice(-ADMIN_SOZ.length);
+  if(adminTampon === ADMIN_SOZ){ adminTampon = ''; adminGecis(); }
 }
 
 // Aktif AHU'da açık bir takviye var mı — düğmenin yönünü (ekle / kaldır) belirler.
@@ -1949,6 +3449,7 @@ function renderOtoPanel(){
   document.getElementById('oto_sac_h').value = otoSac.h;
   document.getElementById('oto_sac_pay').value = otoSac.pay;
   document.getElementById('oto_atla_birlesik').checked = !!otoSac.birlesikAtla;
+  adminPanelTazele();
   const btn = document.getElementById('btn_oto_takviye');
   if(btn) btn.textContent = otoTakviyeAcikMi()
     ? '− Aralardaki Takviyeleri Kaldır'
@@ -2128,6 +3629,22 @@ function drawFaceSVG(fi){
       if(!p.covered){
       svg += `<g class=&quot;svg-panel&quot; data-face=&quot;${fi}&quot; data-col=&quot;${ci}&quot; data-panel=&quot;${pi}&quot;>`;
       svg += `<rect class=&quot;panel-rect${isSel?' selected':''}&quot; x=&quot;${px}&quot; y=&quot;${py}&quot; width=&quot;${pw}&quot; height=&quot;${ph}&quot; fill=&quot;${color}&quot; stroke=&quot;#4a5d6e&quot; stroke-width=&quot;1.5&quot; ${dash}/>`;
+      // PANELE MONTE AĞIZ (Cenk, 29.08.2026): boğaz panelin ÜZERİNE monte edilir; panelin
+      // İÇ ve DIŞ sacına aynı ölçüde delik açılır. Delik panelin SOL-ALT köşesine göre
+      // mm cinsindedir (DXF yönü) ve KESİM dikdörtgenine göredir — ekranda açıklık
+      // çizildiği için tolerans/2 kadar geri eklenir.
+      if(p.delik){
+        const dxm = p.delik.x + (Number(V.tolW)||0)/2, dym = p.delik.y + (Number(V.tolH)||0)/2;
+        const dwp = (orient==='H' ? p.delik.w : p.delik.h)*scale;
+        const dhp = (orient==='H' ? p.delik.h : p.delik.w)*scale;
+        const dxp = px + (orient==='H' ? dxm : dym)*scale;
+        const dyp = py + ph - (orient==='H' ? dym + p.delik.h : dxm + p.delik.w)*scale;
+        svg += `<rect x=&quot;${dxp.toFixed(1)}&quot; y=&quot;${dyp.toFixed(1)}&quot; width=&quot;${Math.max(dwp,2).toFixed(1)}&quot; height=&quot;${Math.max(dhp,2).toFixed(1)}&quot; fill=&quot;#e2bfa1&quot; fill-opacity=&quot;0.6&quot; stroke=&quot;#8a5a2b&quot; stroke-width=&quot;2&quot; stroke-dasharray=&quot;7,4&quot;/>`;
+        if(dwp > 62 && dhp > 24){
+          const dl = fitLabelText(p.delik.tip+' '+Math.round(p.delik.w)+'×'+Math.round(p.delik.h), dwp-8, 11, 8, 700);
+          svg += `<text x=&quot;${(dxp+dwp/2).toFixed(1)}&quot; y=&quot;${(dyp+dhp/2).toFixed(1)}&quot; fill=&quot;#3a2a14&quot; font-size=&quot;${dl.size}&quot; font-weight=&quot;700&quot; text-anchor=&quot;middle&quot; dominant-baseline=&quot;middle&quot;>${dl.text}</text>`;
+        }
+      }
       if(p.type==='Camlı Açılır'){
         const gr = Math.max(Math.min(GLASS_R_MM*scale, Math.min(pw,ph)*0.42), 4);
         svg += `<circle cx=&quot;${px+pw/2}&quot; cy=&quot;${py+ph/2}&quot; r=&quot;${gr.toFixed(1)}&quot; fill=&quot;rgba(150,215,235,0.62)&quot; stroke=&quot;#2f8fae&quot; stroke-width=&quot;2.4&quot;/><circle cx=&quot;${px+pw/2}&quot; cy=&quot;${py+ph/2}&quot; r=&quot;${(gr*0.55).toFixed(1)}&quot; fill=&quot;none&quot; stroke=&quot;#eaf7fb&quot; stroke-width=&quot;1&quot; stroke-opacity=&quot;0.8&quot;/>`;
@@ -2175,9 +3692,13 @@ function drawFaceSVG(fi){
       const effDisp = p.eff>0 ? Math.round(p.eff) : Math.round(pMm);
       const colIsAuto = !!p.colAuto || (p.pColSize||0) <= 0;
       const autoSfx = (colIsAuto || p.auto) ? ' (oto)' : '';
-      const sizeTxt = orient==='H'
-        ? `${colDisp}×${effDisp}${autoSfx}`
-        : `${effDisp}×${colDisp}${autoSfx}`;
+      // TAM BOĞAZ: gözün açıklığı büyük olsa da ekranda İMALAT ölçüsü yazar
+      // (kesim listesiyle aynı sayı); açıklık düzenleyicinin bilgi satırında.
+      const sizeTxt = p.elemanOlcu
+        ? `${Math.round(p.elemanOlcu.w)}×${Math.round(p.elemanOlcu.h)}`
+        : (orient==='H'
+          ? `${colDisp}×${effDisp}${autoSfx}`
+          : `${effDisp}×${colDisp}${autoSfx}`);
       const labelFill = p.bos ? '#ffffff' : '#000000';
       const kodTxt = (excelKodModu && !p.eleman) ? kodFor(kodMap, mi, fi, ci, pi) : `${faceCodeOf(fi)}-B${ci+1}K${pi+1}`;
       const padW = Math.max(pw-8, 10);
@@ -2616,8 +4137,12 @@ function editorInfo(r, ci, pi, orient){
       ? `genişlik elle girildi: ${Math.round(p.pColSize)} mm (bölüm ölçülerinden türetilen: ${Math.round(p.spanDerived)} mm — alanı boşaltırsanız ona döner). `
       : `genişlik bölüm ölçülerinden türetilir: ${Math.round(p.pColSize)} mm (elle de girebilirsiniz). `;
   }
-  if(p.sabitW!==null) info += `SABİT w: ${p.sabitW.toFixed(0)} mm. `;
-  if(p.sabitH!==null) info += `SABİT h: ${p.sabitH.toFixed(0)} mm. `;
+  const kOlc = kesimOlcusu(p);
+  if(p.elemanOlcu && p.sabitW!==null && p.sabitH!==null)
+    info += `Bölüm ${p.sabitW.toFixed(0)}×${p.sabitH.toFixed(0)} mm — ağız çizimdeki `
+          + `ölçüsünde kalır, aradaki pay çerçeveye gider. `;
+  if(kOlc.w!==null) info += `SABİT w: ${kOlc.w.toFixed(0)} mm. `;
+  if(kOlc.h!==null) info += `SABİT h: ${kOlc.h.toFixed(0)} mm. `;
   if(p.eleman) info += `Eleman — 0 tolerans: girilen ölçü kesim/sipariş ölçüsüdür. `;
   if(isYonlu(p.type)){
     const c = elemanCizimOlcusu(p);
@@ -2827,9 +4352,10 @@ function getCutRows(r){
       const hAuto = r.orient==='H' ? p.auto : p.colAuto;
       const istW = p.panelW>0 ? Math.round(p.panelW)+(wAuto?' (oto)':'') : null;
       const istH = p.panelH>0 ? Math.round(p.panelH)+(hAuto?' (oto)':'') : null;
-      const sabH = p.sabitH!==null ? Math.round(p.sabitH) : null;
+      const ko = kesimOlcusu(p);
+      const sabH = ko.h!==null ? Math.round(ko.h) : null;
       out.push([fc+'-B'+(ci+1)+'K'+(pi+1), p.type, istW!==null?istW:'—', istH!==null?istH:'—',
-        p.sabitW!==null?Math.round(p.sabitW):'—', sabH!==null?sabH:'—']);
+        ko.w!==null?Math.round(ko.w):'—', sabH!==null?sabH:'—']);
     });
   });
   return out;
@@ -2842,8 +4368,9 @@ function getSabitRows(r){
   r.colResults.forEach((c,ci)=>{
     c.panels.forEach((p,pi)=>{
       if(p.bos || p.covered) return; // Boş Alan ve birleşik kapağın kapladığı hücre kesim listesine girmez
-      const g = p.sabitW!==null ? Math.round(p.sabitW) : 'ÖLÇÜ EKSİK';
-      const y = p.sabitH!==null ? Math.round(p.sabitH) : 'ÖLÇÜ EKSİK';
+      const ko = kesimOlcusu(p);
+      const g = ko.w!==null ? Math.round(ko.w) : 'ÖLÇÜ EKSİK';
+      const y = ko.h!==null ? Math.round(ko.h) : 'ÖLÇÜ EKSİK';
       // Çizim yönü dikeyse tipin yanına yazılır — ölçü sütunları yüzün kendi ekseninde
       // kalır (fiziksel açıklık), takas yalnız çizime gider. Yatayda satır değişmez.
       out.push([fc+'-B'+(ci+1)+'K'+(pi+1), p.type + (p.yon==='dikey' ? ' (dikey)' : ''), g, y]);
@@ -3353,10 +4880,25 @@ function faceLayoutRects(fi){
         ? {u0:alongMm, v0:pc, u1:alongMm+pColMm, v1:pc+pm}
         : {u0:pc, v0:alongMm, u1:pc+pm, v1:alongMm+pColMm};
       rc.fill = TYPE_COLORS[p.type]||'#34495e';
-      if(p.eleman){ rc.eleman = true; rc.elType = p.type; rc.lbl = FACE_CODE[fi]+'-B'+(ci+1)+'K'+(pi+1); }
+      if(p.eleman){ rc.eleman = true; rc.elType = p.type; rc.lbl = FACE_CODE[fi]+'-B'+(ci+1)+'K'+(pi+1);
+        // TAM BOĞAZ: 3B etiketi de İMALAT ölçüsünü yazar (2B ile aynı sayı); alan
+        // yalnız dolu olduğunda eklenir ki deliksiz/tam boğazsız çıktı değişmesin.
+        if(p.elemanOlcu) rc.olcu = Math.round(p.elemanOlcu.w)+'×'+Math.round(p.elemanOlcu.h);
+      }
       // Çizim yönü 3B'de damper kanatlarını döndürür. `bos`/`acilir` gibi YALNIZ dolu
       // olduğunda eklenir — yatay (varsayılan) yüzlerde bu çıktı bayt bayt eskisi gibi kalsın.
       if(p.yon==='dikey') rc.yon = 'dikey';
+      // PANELE MONTE AĞIZ: boğaz panelin ÜZERİNDE durur; 3B onu bu kutudan çizer.
+      // delik.x/y panelin KESİM dikdörtgeninin sol-ALT köşesine göredir (DXF yönü),
+      // buradaki v ekseni ise YUKARIDAN aşağı ilerler — bu yüzden çevrilir. Alan
+      // yalnız dolu olduğunda eklenir (`yon`/`bos` deseni) ki deliksiz yüzlerde bu
+      // çıktı bayt bayt eskisi gibi kalsın.
+      if(p.delik && orient==='H'){
+        const tw = (Number(V.tolW)||0)/2, th = (Number(V.tolH)||0)/2;
+        const du0 = rc.u0 + tw + p.delik.x, dv1 = rc.v1 - th - p.delik.y;
+        rc.delik = { u0: du0, u1: du0 + p.delik.w, v0: dv1 - p.delik.h, v1: dv1,
+                     tip: p.delik.tip, lbl: FACE_CODE[fi]+'-B'+(ci+1)+'K'+(pi+1) };
+      }
       if(p.bos) rc.bos = true;
       if(p.acilir) rc.acilir = true;
       // Birleştirilmiş kapağın kapladığı hücre 3B'de de üretilmez (2B aynası ile aynı kural) —
@@ -4025,6 +5567,8 @@ async function exportExcel(){
 function attachListeners(){
   document.getElementById('btn_excel').addEventListener('click', exportExcel);
   document.getElementById('btn_oto_doldur').addEventListener('click', otoDoldurTikla);
+  document.getElementById('btn_gercek').addEventListener('click', gercekTikla);
+  document.addEventListener('keydown', adminTus);
   document.getElementById('btn_oto_takviye').addEventListener('click', otoTakviyeTikla);
   ['oto_sac_w','oto_sac_h','oto_sac_pay'].forEach(id=>{
     document.getElementById(id).addEventListener('input', e=>{
@@ -4817,19 +6361,23 @@ function parseDxf(text) {
     if (!cur) { curType = null; return; }
     if (cur.sec === 'ENTITIES') {
       if (curType === 'TEXT' || curType === 'MTEXT') {
-        texts.push({ str: fixTR((cur.str || '').trim()), x: cur.x, y: cur.y, h: cur.h || 6 });
+        texts.push({ str: fixTR((cur.str || '').trim()), x: cur.x, y: cur.y, h: cur.h || 6,
+                     layer: cur.layer || '' });
       } else if (curType === 'DIMENSION') dims.push(cur);
       else if (curType === 'LINE') {
         if (cur.x1 != null && cur.x2 != null) {
           geo.push({ xlo: Math.min(cur.x1, cur.x2), xhi: Math.max(cur.x1, cur.x2),
                      ylo: Math.min(cur.y1, cur.y2), yhi: Math.max(cur.y1, cur.y2) });
-          rlines.push([cur.x1, cur.y1, cur.x2, cur.y2]);
+          rlines.push({ layer: cur.layer || '', xlo: Math.min(cur.x1, cur.x2), xhi: Math.max(cur.x1, cur.x2),
+                        ylo: Math.min(cur.y1, cur.y2), yhi: Math.max(cur.y1, cur.y2) });
         }
       } else if (curType === 'LWPOLYLINE' && cur.pts.length) {
         const xs = cur.pts.map(p => p[0]), ys = cur.pts.map(p => p[1]);
         geo.push({ xlo: Math.min.apply(null, xs), xhi: Math.max.apply(null, xs),
                    ylo: Math.min.apply(null, ys), yhi: Math.max.apply(null, ys) });
-        rpolys.push({ pts: cur.pts, closed: cur.closed });
+        rpolys.push({ layer: cur.layer || '', n: cur.pts.length, closed: cur.closed,
+                      xlo: Math.min.apply(null, xs), xhi: Math.max.apply(null, xs),
+                      ylo: Math.min.apply(null, ys), yhi: Math.max.apply(null, ys) });
       }
     }
     cur = null; curType = null;
@@ -4847,6 +6395,7 @@ function parseDxf(text) {
       continue;
     }
     if (!cur) continue;
+    if (c === 8) { cur.layer = fixTR(v); continue; }
     if (curType === 'LINE') {
       if (c === 10) cur.x1 = +v; else if (c === 20) cur.y1 = +v;
       else if (c === 11) cur.x2 = +v; else if (c === 21) cur.y2 = +v;
@@ -4867,6 +6416,495 @@ function parseDxf(text) {
   }
   flush();
   return { texts: texts, dims: dims, geo: geo, rlines: rlines, rpolys: rpolys };
+}
+
+// ---------- BILESEN CIKARIMI (2026-08-28) ----------
+// Her modulun kendi geometrisi kendi katmanindadir: '(M3) - Isıtıcı Batarya_Right_…'.
+// Yan gorunusten uc sey okunur ve hepsi modulun KENDI kasasina gore YEREL mm verilir:
+//   kapak     — ic ice iki dikdortgen (dis cerce + 10 mm icerlek kanat). 601 cizimin
+//               601'inde bulundu ve 601'inde de ayni gorunustedir (servis tarafi).
+//   batarya   — kasanin icinde duran, yuksekligi kasanin %50-%95'i olan en genis
+//               dikdortgen. Cizilen bataryanin KENDI derinligi budur (isitici 110-215,
+//               DX 215-598 mm) — modulun kasa boyu (300-900) ile KARISTIRILMAMALI.
+//   kasa      — modulun yan gorunusteki kutusu; boy bundan da okunabilir ama modul
+//               boyunun asil kaynagi olcu zinciridir, burasi ona dokunmaz.
+const BILESEN_LAY_RE = /^\((M\d+)\) - (.+?)_(Right|Left|Front|Back|Top|Bottom)_/;
+
+// Kapagin imzasi: her kenarda 5..15 mm icerlek ikinci bir dikdortgen (cizim birimi cm).
+function bilesenIcIce(A, B) {
+  return (B.xlo - A.xlo) >= 0.5 && (B.xlo - A.xlo) <= 1.5
+      && (A.xhi - B.xhi) >= 0.5 && (A.xhi - B.xhi) <= 1.5
+      && (B.ylo - A.ylo) >= 0.5 && (B.ylo - A.ylo) <= 1.5
+      && (A.yhi - B.yhi) >= 0.5 && (A.yhi - B.yhi) <= 1.5;
+}
+
+// ACILIR KAPAK ISARETI — cizimde acilir panel KAPI KOLU (30x100) ve MENTESE (50x50)
+// sembolleriyle temsil edilir (Cenk, 29.08.2026). Olculdu, 634 cizim / 1180 modul:
+//   - desen 817 modulde var; KS-10'da TAM 3 modulde (M2 Filtre, M8 Fan, M9 Fan) —
+//     Cenk'in saydigi sayi.
+//   - desen YALNIZ servis tarafinda (Right) var, Left'te hic yok.
+//   - eski kural (batarya HER ZAMAN acilir + kapak dikdortgeni gorulen bolme) 941 acilir
+//     uretiyordu; desen bunun ALT KUMESIDIR ('yalniz desen' = 0), yani yeni kural hicbir
+//     yeni acilir eklemez, 124 yanlis acilirdan kurtarir (48 DX + 42 isitici + 32 filtre).
+function acilirIsareti(rpolys, gor, mod) {
+  let kare = 0, kol = 0;
+  for (let i = 0; i < rpolys.length; i++) {
+    const p = rpolys[i];
+    const m = BILESEN_LAY_RE.exec(p.layer || '');
+    if (!m || m[3] !== gor || m[1] !== mod) continue;
+    const w = (p.xhi - p.xlo) * 10, h = (p.yhi - p.ylo) * 10;
+    if (Math.abs(w - 50) <= 6 && Math.abs(h - 50) <= 6) kare++;
+    else if (Math.abs(w - 30) <= 6 && Math.abs(h - 100) <= 6) kol++;
+  }
+  return kare >= 2 && kol >= 1;
+}
+
+function bilesenCoz(rpolys) {
+  const grup = {};
+  for (let i = 0; i < rpolys.length; i++) {
+    const p = rpolys[i];
+    const m = BILESEN_LAY_RE.exec(p.layer || '');
+    if (!m) continue;
+    if (m[3] !== 'Right' && m[3] !== 'Left') continue;
+    if (p.n < 4 || p.n > 5) continue;
+    const k = m[1] + '|' + m[3];
+    if (!grup[k]) grup[k] = { mid: m[1], tip: m[2], gor: m[3], rects: [] };
+    grup[k].rects.push(p);
+  }
+  const cikti = {};
+  Object.keys(grup).forEach(function (k) {
+    const g = grup[k], rects = g.rects;
+    let kasa = rects[0];
+    for (let i = 1; i < rects.length; i++) {
+      const r = rects[i];
+      if ((r.xhi - r.xlo) * (r.yhi - r.ylo) > (kasa.xhi - kasa.xlo) * (kasa.yhi - kasa.ylo)) kasa = r;
+    }
+    const kapaklar = [];
+    rects.forEach(function (A) {
+      if (A === kasa) return;
+      if ((A.xhi - A.xlo) < 15 || (A.yhi - A.ylo) < 30) return;
+      for (let i = 0; i < rects.length; i++) {
+        if (rects[i] !== A && bilesenIcIce(A, rects[i])) { kapaklar.push(A); return; }
+      }
+    });
+    let blok = null;
+    if (/Batarya/i.test(g.tip)) {
+      const kh = kasa.yhi - kasa.ylo;
+      rects.forEach(function (r) {
+        if (r === kasa) return;
+        if (r.xlo <= kasa.xlo + 0.1 || r.xhi >= kasa.xhi - 0.1) return;
+        const h = r.yhi - r.ylo;
+        if (h < kh * 0.5 || h > kh * 0.95) return;
+        if (!blok || (r.xhi - r.xlo) > (blok.xhi - blok.xlo)) blok = r;
+      });
+    }
+    // TAVA — kasanin ALTINDA duran dikdortgen(ler). Olculdu (634 cizim): Rotorlu
+    // Esanjorde 2 tane, Plakali Esanjor / DX Batarya / Nemlendirici / Karisimda 1 tane.
+    // Isitici bataryada da cizili ama Cenk (29.08.2026) 'o hatali cizilmis, isitici
+    // altinda tava olmaz' dedi — eleme gercekTavalar'da yapilir, cikarim ham kalir.
+    const tavalar = [];
+    rects.forEach(function (r) {
+      if (r === kasa) return;
+      if (r.yhi > kasa.ylo + 0.2) return;
+      if ((r.xhi - r.xlo) < 15) return;
+      tavalar.push(r);
+    });
+    if (!cikti[g.mid]) cikti[g.mid] = { tip: g.tip, yanlar: {} };
+    cikti[g.mid].yanlar[g.gor] = {
+      acilir: acilirIsareti(rpolys, g.gor, g.mid),
+      lo: Math.round(kasa.xlo * 10), hi: Math.round(kasa.xhi * 10),
+      ylo: Math.round(kasa.ylo * 10), yhi: Math.round(kasa.yhi * 10),
+      kapaklar: kapaklar.sort(function (a, b) { return a.xlo - b.xlo; }).map(function (r) {
+        return { lo: Math.round((r.xlo - kasa.xlo) * 10), w: Math.round((r.xhi - r.xlo) * 10),
+                 h: Math.round((r.yhi - r.ylo) * 10) };
+      }),
+      batarya: blok ? { lo: Math.round((blok.xlo - kasa.xlo) * 10),
+                        kalinlik: Math.round((blok.xhi - blok.xlo) * 10) } : null,
+      // ORTUSEN dikdortgenler TEK govdedir (Cenk, 29.08.2026). Olculdu: 45 rotorlu
+      // esanjorun 45'inde tava iki parca cizilmis ve parcalar 20 mm ortusuyor
+      // (50+240 ile 270+240) — ikisi birlikte tek 460 mm'lik tavadir.
+      tavalar: (function () {
+        const ham = tavalar.sort(function (a, b) { return a.xlo - b.xlo; }).map(function (r) {
+          return { lo: Math.round((r.xlo - kasa.xlo) * 10), w: Math.round((r.xhi - r.xlo) * 10) };
+        });
+        const out = [];
+        ham.forEach(function (t) {
+          const son = out[out.length - 1];
+          if (son && t.lo <= son.lo + son.w + 0.5) {
+            const hi = Math.max(son.lo + son.w, t.lo + t.w);
+            son.w = hi - son.lo;
+          } else out.push({ lo: t.lo, w: t.w });
+        });
+        return out;
+      })()
+    };
+  });
+  return cikti;
+}
+
+// ---------- AGIZ (BOGAZ / DAMPER) CIKARIMI (2026-08-28) ----------
+// Cizim agizlari KENDI USTUNDE etiketliyor: her gorunuste ayri bir '#DirectionArrow#'
+// katmani + TAZE / ATIŞ / DÖNÜŞ / EGZOZ yazisi var. Okun YAN (Right) gorunusteki konumu
+// yuzu verir — govdenin solunda SOL, saginda SAG, KATIN tavaninin ustunde UST — x'i de
+// modulu. Front/Back gorunusunun hangi uca baktigini cozmeye GEREK YOK.
+//
+// Agzin OLCUSU ve TIPI teknik tablodan DEGIL geometriden okunur: uc gorunuste modulun yuz
+// konturu + cerceve profilleri cizili, agiz iceride ayri bir dikdortgen, damper olanin
+// icinde kanat cizgileri var. 634 cizim / 1400 ok uzerinde olculdu:
+//   modul + yuz cozulen 1393 · SOL 672'nin 672'sinde olcu VE tip tabloyla birebir ayni
+//   SAG 673'un 371'inin olcusu TABLODA HIC YOK ama geometriden okunuyor
+//   1345 SOL/SAG agzin 1343'u yuz icinde W ekseninde TAM ORTALI
+// Bu yuzden kaynak geometridir.
+//
+// UST agizlar (48 tane) 28.08.2026'da kapsama alindi. Onlar PLAN (Top) gorunusunden
+// okunur ve iki ek kural gerekir (olculdu, 634 cizim):
+//   - eksen TAKASTIR: plan x = L, plan y = W. Teknik tabloyla karsilastirilan 32 agzin
+//     32'sinde tablo 'Genislik' -> W, 'Yukseklik' -> L cikti; duz eslesme 0.
+//   - agiz dikdortgeni 4 NOKTALI; plandaki 5 noktali dikdortgen FILTRE KASETIDIR
+//     (dogru okunan 32 agzin 32'si n=4, yanlis secilen 6 kasetin 6'si n=5).
+//   - W ekseninde 32/32 TAM ORTALI — SOL/SAG kuralinin aynisi.
+// Cizimde dikdortgen bulunamazsa teknik tablo YEDEGE girer (DES ailesinde 12 agiz).
+const AGIZ_ETIKET = { 'TAZE': 'TAZE', 'ATIŞ': 'ATIŞ', 'ATIS': 'ATIŞ', 'DÖNÜŞ': 'DÖNÜŞ',
+                      'DONUS': 'DÖNÜŞ', 'EGZOZ': 'EGZOST', 'EGZOST': 'EGZOST' };
+const AGIZ_OK_RE = /#DirectionArrow#_(\w+?)_/;
+
+function agizBuyut(b, e) {
+  if (e.xlo < b.xlo) b.xlo = e.xlo;
+  if (e.xhi > b.xhi) b.xhi = e.xhi;
+  if (e.ylo < b.ylo) b.ylo = e.ylo;
+  if (e.yhi > b.yhi) b.yhi = e.yhi;
+}
+
+// gorunus|modul -> sinir kutusu
+function agizModulKutulari(rpolys, rlines) {
+  const g = {};
+  function ekle(e) {
+    const m = BILESEN_LAY_RE.exec(e.layer || '');
+    if (!m) return;
+    const k = m[3] + '|' + m[1];
+    if (!g[k]) g[k] = { mod: m[1], islev: m[2], gor: m[3],
+                        xlo: e.xlo, xhi: e.xhi, ylo: e.ylo, yhi: e.yhi };
+    else agizBuyut(g[k], e);
+  }
+  for (let i = 0; i < rpolys.length; i++) ekle(rpolys[i]);
+  for (let i = 0; i < rlines.length; i++) ekle(rlines[i]);
+  return g;
+}
+
+// gorunus -> etiketli ok kumeleri
+function agizOklari(rpolys, rlines, texts) {
+  const ent = {};
+  function ekle(e) {
+    const m = AGIZ_OK_RE.exec(e.layer || '');
+    if (!m) return;
+    if (!ent[m[1]]) ent[m[1]] = [];
+    ent[m[1]].push(e);
+  }
+  for (let i = 0; i < rpolys.length; i++) ekle(rpolys[i]);
+  for (let i = 0; i < rlines.length; i++) ekle(rlines[i]);
+  const out = {};
+  Object.keys(ent).forEach(function (gor) {
+    const ks = [];
+    ent[gor].forEach(function (e) {
+      let hit = null;
+      for (let i = 0; i < ks.length; i++) {
+        const k = ks[i];
+        if (e.xlo <= k.xhi + 12 && e.xhi >= k.xlo - 12
+         && e.ylo <= k.yhi + 12 && e.yhi >= k.ylo - 12) { hit = k; break; }
+      }
+      if (hit) agizBuyut(hit, e);
+      else ks.push({ xlo: e.xlo, xhi: e.xhi, ylo: e.ylo, yhi: e.yhi });
+    });
+    ks.forEach(function (k) {
+      for (let i = 0; i < texts.length; i++) {
+        const t = texts[i];
+        if (!t.layer || t.layer.indexOf('#DirectionArrow#_' + gor + '_') < 0) continue;
+        if (t.x < k.xlo - 30 || t.x > k.xhi + 30) continue;
+        if (t.y < k.ylo - 30 || t.y > k.yhi + 30) continue;
+        const e = AGIZ_ETIKET[String(t.str || '').trim().toUpperCase()];
+        if (e) { k.etiket = e; break; }
+      }
+    });
+    out[gor] = ks.filter(function (k) { return k.etiket; });
+  });
+  return out;
+}
+
+// Okun modulunu ve yuzunu yan gorunusten cozer.
+// KAT BANDI TAM YUKSEKLIK MODULUYLE KURULMAZ: rotor gibi iki kati birden kaplayan modul
+// bantlari tek banda kaynastirir. Bantlari yalniz EN KISA modul yuksekligine yakin olanlar
+// tanimlar, sonra her modul ortustugu HER banda girer.
+function agizYuzCoz(modKut, oklar) {
+  const mods = [];
+  Object.keys(modKut).forEach(function (k) { if (modKut[k].gor === 'Right') mods.push(modKut[k]); });
+  const oks = oklar.Right || [];
+  if (!mods.length || !oks.length) return [];
+  let minH = Infinity;
+  mods.forEach(function (m) { const h = m.yhi - m.ylo; if (h < minH) minH = h; });
+  if (!(minH > 0)) return [];
+  const bant = [];
+  mods.forEach(function (m) {
+    if ((m.yhi - m.ylo) > minH * 1.4) return;
+    let hit = null;
+    for (let i = 0; i < bant.length; i++) {
+      const b = bant[i];
+      if (Math.min(b.yhi, m.yhi) - Math.max(b.ylo, m.ylo) > minH * 0.5) { hit = b; break; }
+    }
+    if (hit) { if (m.ylo < hit.ylo) hit.ylo = m.ylo; if (m.yhi > hit.yhi) hit.yhi = m.yhi; }
+    else bant.push({ ylo: m.ylo, yhi: m.yhi, mods: [] });
+  });
+  if (!bant.length) return [];
+  bant.sort(function (a, b) { return a.ylo - b.ylo; });
+  mods.forEach(function (m) {
+    bant.forEach(function (b) {
+      if (Math.min(b.yhi, m.yhi) - Math.max(b.ylo, m.ylo) > minH * 0.5) b.mods.push(m);
+    });
+  });
+  const out = [];
+  oks.forEach(function (k) {
+    const cx = (k.xlo + k.xhi) / 2, cy = (k.ylo + k.yhi) / 2;
+    let band = null;
+    for (let i = 0; i < bant.length; i++)
+      if (cy >= bant[i].ylo - 2 && cy <= bant[i].yhi + 2) { band = bant[i]; break; }
+    if (!band) {
+      band = bant[0];
+      let en = Math.abs(cy - (bant[0].ylo + bant[0].yhi) / 2);
+      for (let i = 1; i < bant.length; i++) {
+        const d = Math.abs(cy - (bant[i].ylo + bant[i].yhi) / 2);
+        if (d < en) { en = d; band = bant[i]; }
+      }
+    }
+    if (!band.mods.length) return;
+    let xlo = Infinity, xhi = -Infinity;
+    band.mods.forEach(function (m) { if (m.xlo < xlo) xlo = m.xlo; if (m.xhi > xhi) xhi = m.xhi; });
+    let yuz = null, hedef = null;
+    if (k.xhi <= xlo + 6) {
+      yuz = 'SOL';
+      band.mods.forEach(function (m) { if (!hedef || m.xlo < hedef.xlo) hedef = m; });
+    } else if (k.xlo >= xhi - 6) {
+      yuz = 'SAĞ';
+      band.mods.forEach(function (m) { if (!hedef || m.xhi > hedef.xhi) hedef = m; });
+    } else if (cy > band.yhi || cy < band.ylo) {
+      // KATIN tavani/tabani esas alinir, govdenin degil: DES ailesinde plakali esanjor
+      // komsularindan yuksek, global tavan kullanilirsa UST agizlar cozulemiyor.
+      yuz = cy > band.yhi ? 'ÜST' : 'ALT';
+      band.mods.forEach(function (m) { if (cx >= m.xlo - 2 && cx <= m.xhi + 2) hedef = m; });
+    } else return;   // govde icinde kalan ok: sahte ic akis oku (olculdu, 7 tane), atlanir
+    if (!hedef) return;
+    out.push({ etiket: k.etiket, yuz: yuz, mod: hedef.mod, ok: k });
+  });
+  return out;
+}
+
+// Bir gorunusteki bir modulun yuz konturu + icindeki agiz adaylari.
+// Cerceve profili = kenara yapisik ve ince serit (cizim birimi cm; 10 birim = 100 mm).
+function agizAdaylari(rpolys, gor, mod) {
+  const rects = [];
+  for (let i = 0; i < rpolys.length; i++) {
+    const p = rpolys[i];
+    const m = BILESEN_LAY_RE.exec(p.layer || '');
+    if (!m || m[3] !== gor || m[1] !== mod) continue;
+    if ((p.xhi - p.xlo) < 3 || (p.yhi - p.ylo) < 3) continue;
+    rects.push(p);
+  }
+  if (!rects.length) return null;
+  let yuz = rects[0];
+  rects.forEach(function (r) {
+    if ((r.xhi - r.xlo) * (r.yhi - r.ylo) > (yuz.xhi - yuz.xlo) * (yuz.yhi - yuz.ylo)) yuz = r;
+  });
+  const E = 1.0;
+  const aday = [];
+  rects.forEach(function (k) {
+    if (k === yuz) return;
+    if (k.xlo < yuz.xlo - E || k.xhi > yuz.xhi + E) return;
+    if (k.ylo < yuz.ylo - E || k.yhi > yuz.yhi + E) return;
+    const w = k.xhi - k.xlo, h = k.yhi - k.ylo;
+    const yapX = Math.abs(k.xlo - yuz.xlo) < E || Math.abs(k.xhi - yuz.xhi) < E;
+    const yapY = Math.abs(k.ylo - yuz.ylo) < E || Math.abs(k.yhi - yuz.yhi) < E;
+    if ((yapX || yapY) && (w <= 10 || h <= 10)) return;
+    for (let i = 0; i < aday.length; i++) {
+      const a = aday[i];
+      if (Math.abs(a.xlo - k.xlo) < 0.4 && Math.abs(a.xhi - k.xhi) < 0.4
+       && Math.abs(a.ylo - k.ylo) < 0.4 && Math.abs(a.yhi - k.yhi) < 0.4) return;
+    }
+    aday.push(k);
+  });
+  const net = aday.filter(function (a) {
+    return !aday.some(function (b) {
+      return b !== a && b.xlo <= a.xlo + E && b.xhi >= a.xhi - E
+          && b.ylo <= a.ylo + E && b.yhi >= a.yhi - E
+          && (b.xhi - b.xlo) * (b.yhi - b.ylo) > (a.xhi - a.xlo) * (a.yhi - a.ylo) + 1;
+    });
+  });
+  return { yuz: yuz, agizlar: net };
+}
+
+// Dikdortgenin ICINDE kanat cizgisi var mi — damperin isareti, flansta yoktur.
+// KENARA DENK GELEN CIZGI DE KANATTIR (Cenk, 28.08.2026: 'kenarda kanat varsa o kesin
+// damperdir'). Onceki surum dikdortgenin kendi kenarini kanat sanmamak icin onlari
+// eliyordu; olculdu — 634 cizimde eleme HIC tetiklenmiyordu (kanatlar hep iceride) ve
+// kaldirmak tek bir agzin tipini bile degistirmedi. Kural yine de dogru tarafta durur:
+// kenara denk gelen bir kanat artik damper sayilir.
+function agizKanat(rlines, gor, mod, k) {
+  const E = 0.8;
+  let n = 0;
+  for (let i = 0; i < rlines.length; i++) {
+    const e = rlines[i];
+    const m = BILESEN_LAY_RE.exec(e.layer || '');
+    if (!m || m[3] !== gor || m[1] !== mod) continue;
+    const yatay = (e.yhi - e.ylo) < 0.01, dikey = (e.xhi - e.xlo) < 0.01;
+    if (!yatay && !dikey) continue;
+    if (e.xlo < k.xlo - E || e.xhi > k.xhi + E) continue;
+    if (e.ylo < k.ylo - E || e.yhi > k.yhi + E) continue;
+    n++;
+  }
+  return n;
+}
+
+// Teknik tablodaki agiz satirlari — UST agizlar icin YEDEK kaynak. Tablo BIRINCIL DEGILDIR:
+// cogu cizim yalniz 'Taze Hava' satirini tasiyor (371 SAG agzin olcusu tabloda hic yok) ve
+// bayat olabiliyor (P-HSV-WM-12000: tablo 300, cizim 450; kardes cizim 15000 cizimi
+// dogruluyor). Bu yuzden yalniz cizimde dikdortgen bulunamadiginda kullanilir.
+const AGIZ_TABLO_ALAN = [
+  ['TAZE',   /Taze Hava\s*-\s*Taze Hava\s*-\s*/],
+  ['ATIŞ',   /Taze Hava\s*-\s*Atış Havası\s*-\s*/],
+  ['DÖNÜŞ',  /Dönüş Havası\s*-\s*Dönüş Havası\s*-\s*/],
+  ['EGZOST', /Dönüş Havası\s*-\s*Egzost Havası\s*-\s*/]
+];
+
+function agizTabloSayi(v) {
+  const m = String(v || '').replace(/\./g, '').match(/(\d+)/);
+  return m ? +m[1] : 0;
+}
+
+function agizTablo(texts) {
+  const sol = [];
+  for (let i = 0; i < texts.length; i++) if (texts[i].h > 0 && texts[i].h < 8) sol.push(texts[i]);
+  const res = {};
+  AGIZ_TABLO_ALAN.forEach(function (par) {
+    const ad = par[0], re = par[1], rec = {};
+    ['Bağlantı Tipi', 'Genişlik', 'Yükseklik'].forEach(function (alan) {
+      let et = null;
+      for (let i = 0; i < sol.length; i++) {
+        const t = String(sol[i].str || '');
+        if (re.test(t) && t.slice(-alan.length) === alan) { et = sol[i]; break; }
+      }
+      if (!et) return;
+      let en = null;
+      for (let i = 0; i < sol.length; i++) {
+        const t = sol[i];
+        if (Math.abs(t.y - et.y) > 1.5 || t.x <= et.x + 10) continue;
+        if (!en || t.x < en.x) en = t;
+      }
+      if (en) rec[alan] = en.str;
+    });
+    const W = agizTabloSayi(rec['Genişlik']), L = agizTabloSayi(rec['Yükseklik']);
+    if (W > 0 && L > 0) res[ad] = { W: W, L: L, damper: /damper/i.test(rec['Bağlantı Tipi'] || '') };
+  });
+  return res;
+}
+
+// Cizimdeki butun agizlar. Cikti mm cinsinden ve modulun KENDI yuz kutusuna goredir:
+//   { etiket, mod, yuz, w, h, x, y, yuzW, yuzH, damper }
+// x/y yuzun sol-alt kosesinden olculur. w yuzun GENISLIK eksenidir (SOL/SAG'da W, UST'te L),
+// h yukseklik ekseni (SOL/SAG'da H, UST'te W). Olcu teknik tablodan geldiyse tabloDan=true
+// olur ve x null kalir — cagiran o agzi L ekseninde ortalar ve bunu soyler.
+function agizCoz(rpolys, rlines, texts) {
+  const modKut = agizModulKutulari(rpolys, rlines);
+  const oklar = agizOklari(rpolys, rlines, texts);
+  const ham = agizYuzCoz(modKut, oklar);
+  if (!ham.length) return [];
+
+  // Uc gorunuslerden (Front/Back) hangisi SOL hangisi SAG: agzi olmasi BEKLENEN moduller
+  // hangi gorunuste dikdortgen tasiyorsa o eslesme kazanir.
+  const ucGor = [];
+  ['Front', 'Back'].forEach(function (g) {
+    for (const k in modKut) if (modKut[k].gor === g) { ucGor.push(g); return; }
+  });
+  const bulunan = {};
+  ucGor.forEach(function (g) {
+    bulunan[g] = {};
+    for (const k in modKut) {
+      if (modKut[k].gor !== g) continue;
+      const a = agizAdaylari(rpolys, g, modKut[k].mod);
+      if (a && a.agizlar.length) bulunan[g][modKut[k].mod] = a;
+    }
+  });
+  function skor(g, yuzAd) {
+    let s = 0;
+    ham.forEach(function (h) { if (h.yuz === yuzAd && bulunan[g] && bulunan[g][h.mod]) s++; });
+    return s;
+  }
+  const esle = {};
+  if (ucGor.length === 2) {
+    const a = skor('Front', 'SOL') + skor('Back', 'SAĞ');
+    const b = skor('Front', 'SAĞ') + skor('Back', 'SOL');
+    if (a >= b) { esle['SOL'] = 'Front'; esle['SAĞ'] = 'Back'; }
+    else { esle['SOL'] = 'Back'; esle['SAĞ'] = 'Front'; }
+  } else if (ucGor.length === 1) {
+    if (skor(ucGor[0], 'SOL') >= skor(ucGor[0], 'SAĞ')) esle['SOL'] = ucGor[0];
+    else esle['SAĞ'] = ucGor[0];
+  }
+
+  // UST'te ayni modulde birden fazla agiz olabilir (olculdu: yalniz KS-1'de, M1'de iki
+  // tane). Ok ile ayirma YALNIZ o zaman yapilir — tek agizda W-ortali sira daha iyidir.
+  const ustSay = {};
+  ham.forEach(function (h) { if (h.yuz === 'ÜST') ustSay[h.mod] = (ustSay[h.mod] || 0) + 1; });
+  const tablo = agizTablo(texts);
+
+  const out = [];
+  ham.forEach(function (h) {
+    const rec = { etiket: h.etiket, mod: h.mod, yuz: h.yuz,
+                  w: null, h: null, x: null, y: null, yuzW: null, yuzH: null, damper: false };
+    const ust = (h.yuz === 'ÜST');
+    const gor = ust ? 'Top' : (esle[h.yuz] || null);
+    if (gor) {
+      let paket = (!ust && bulunan[gor]) ? bulunan[gor][h.mod] : null;
+      if (!paket) paket = agizAdaylari(rpolys, gor, h.mod);
+      let liste = (paket && paket.agizlar.length) ? paket.agizlar.slice() : [];
+      if (ust && liste.length) {
+        // 5 noktali dikdortgen filtre kasetidir, agiz degil.
+        liste = liste.filter(function (a) { return a.n === 4; });
+        // W ekseninde ortali olan tercih edilir (32/32 kanit).
+        const yW = paket.yuz.yhi - paket.yuz.ylo;
+        liste.sort(function (a, b) {
+          return Math.abs((a.ylo - paket.yuz.ylo) - (yW - (a.yhi - a.ylo)) / 2)
+               - Math.abs((b.ylo - paket.yuz.ylo) - (yW - (b.yhi - b.ylo)) / 2);
+        });
+      }
+      if (liste.length) {
+        // Ayni modulde birden fazla agiz: SOL/SAG'da iki kat (y ekseni), UST'te iki ayri
+        // agiz (L ekseni). Ikisi de YAN gorunusteki okla ayrilir — uc/plan gorunusteki
+        // ilgili eksen, yan gorunustekiyle ayni dunya kotudur.
+        let k = liste[0];
+        if (!ust || ustSay[h.mod] > 1) {
+          const okC = ust ? (h.ok.xlo + h.ok.xhi) / 2 : (h.ok.ylo + h.ok.yhi) / 2;
+          let en = Infinity;
+          liste.forEach(function (a) {
+            const c = ust ? (a.xlo + a.xhi) / 2 : (a.ylo + a.yhi) / 2;
+            const d = Math.abs(c - okC);
+            if (d < en) { en = d; k = a; }
+          });
+        }
+        rec.w = Math.round((k.xhi - k.xlo) * 10);
+        rec.h = Math.round((k.yhi - k.ylo) * 10);
+        rec.x = Math.round((k.xlo - paket.yuz.xlo) * 10);
+        rec.y = Math.round((k.ylo - paket.yuz.ylo) * 10);
+        rec.yuzW = Math.round((paket.yuz.xhi - paket.yuz.xlo) * 10);
+        rec.yuzH = Math.round((paket.yuz.yhi - paket.yuz.ylo) * 10);
+        rec.damper = agizKanat(rlines, gor, h.mod, k) >= 1;
+      }
+    }
+    // Cizimde dikdortgen yoksa UST agzin olcusu TEKNIK TABLODAN alinir (Cenk, 28.08.2026).
+    // Tablo 'Genislik' W eksenine, 'Yukseklik' L eksenine gider; L eksenindeki YER
+    // bilinmedigi icin cagiran agzi ortalar ve uyari dusurur.
+    if (ust && rec.w == null && tablo[h.etiket]) {
+      const t = tablo[h.etiket];
+      rec.w = t.L; rec.h = t.W; rec.damper = t.damper; rec.tabloDan = true;
+    }
+    out.push(rec);
+  });
+  return out;
 }
 
 function mergeIntervals(ivals, gap) {
@@ -4930,6 +6968,9 @@ function analyzeDxf(text, fileName) {
     }
     if (val) kasa[ketiket] = val.str;
   }
+
+  const bilesenler = bilesenCoz(P.rpolys);
+  const agizlar = agizCoz(P.rpolys, P.rlines, P.texts);
 
   const modTypes = {};
   for (let i = 0; i < texts.length; i++) {
@@ -5660,6 +7701,8 @@ function analyzeDxf(text, fileName) {
     deckHeights: deckHeights, totalLen: totalLen,
     hucreler: hucreler,
     modules: modOut,
+    bilesenler: bilesenler,
+    agizlar: agizlar,
     fanlar: fanlar,
     profilAdi: kasa['Profil Adı'] || null,
     icSac: kasa['İç Sac Adı'] || null,
@@ -5797,6 +7840,74 @@ function dxfKunye(r){
 
 // Hucre listesi -> modul kutulari. Konum: x uzunluk ekseni, y kat.
 // Aynalandiginda yalniz x aynalanir (toplamBoy - x - L); kat ve olculer degismez.
+// Bir hucrenin icindeki DXF modullerini L ekseninde SIRALI parcalara cevirir.
+// Mutlak x hizasina GUVENILMEZ: cizimde dort aday yan gorunus var ve hucre zinciri
+// bunlardan hangisinden cozuldugu belli degil (P-PH-52T'de hucre 0..1250'den, modul
+// katmani 3050..4300'den geliyor). Bu yuzden eslesme MODUL ADIYLA yapilir; sira ve
+// kapak konumu modulun kendi katman kutusundan gelir. Katman boyu ile olcu zincirinden
+// gelen boy 918 modulun 918'inde birebir esit olcusdu — iki kaynak catismaz.
+function dxfParcaListesi(r, adlar, aynala){
+  const bl = (r && r.bilesenler) || {};
+  const tipAd = {}, modBoy = {}, modKat = {};
+  (r.modules||[]).forEach(function(m){
+    tipAd[m.name] = m.type || '';
+    modBoy[m.name] = m.boy || 0;
+    modKat[m.name] = m.deck === 'her iki kat' ? 'tam'
+                   : m.deck === 'alt kat' ? 'alt'
+                   : m.deck === 'üst kat' ? 'üst' : 'tek';
+  });
+  const ham = adlar.map(function(nm){
+    const b = bl[nm];
+    const y = b ? (b.yanlar.Right || b.yanlar.Left) : null;
+    return { nm: nm, islev: tipAd[nm] || nm, boy: modBoy[nm] || 0,
+             kat: modKat[nm] || 'tek',
+             sira: y ? y.lo : 0,
+             kapak: (y && y.kapaklar.length) ? y.kapaklar[0] : null,
+             acilir: !!(y && y.acilir),
+             tavalar: (y && y.tavalar) || [],
+             batarya: (y && y.batarya) ? y.batarya : null,
+             agizlar: ((r && r.agizlar) || []).filter(function(a){ return a.mod === nm; }) };
+  }).sort(function(a,b){ return a.sira - b.sira; });
+  if(aynala) ham.reverse();
+  return ham.map(function(p){
+    const o = { islev: p.islev, boy: p.boy, kat: p.kat };
+    // Aynalandiginda kapak modulun icinde de karsi kenara gecer.
+    if(p.kapak) o.kapak = { x: aynala ? Math.max(0, p.boy - p.kapak.lo - p.kapak.w) : p.kapak.lo,
+                            w: p.kapak.w, h: p.kapak.h };
+    if(p.batarya) o.batarya = { lo: aynala ? Math.max(0, p.boy - p.batarya.lo - p.batarya.kalinlik) : p.batarya.lo,
+                                kalinlik: p.batarya.kalinlik };
+    // Açılır kapak işareti — alan YALNIZ doluyken var olur (panel.yon deseni).
+    if(p.acilir) o.acilir = true;
+    // Çizimden okunan tavalar; aynalamada modülün içinde karşı kenara geçer.
+    if(p.tavalar && p.tavalar.length){
+      o.tavalar = p.tavalar.map(function(t){
+        return { lo: aynala ? Math.max(0, p.boy - t.lo - t.w) : t.lo, w: t.w };
+      }).sort(function(a,b){ return a.lo - b.lo; });
+    }
+    // Agizlar: alan YALNIZ doluyken var olur (panel.yon deseni) — yoksa JSON gidis-donusu
+    // sabit nokta olmaz. Aynalandiginda SOL <-> SAG takas edilir (pos.x cevrildigi icin);
+    // W eksenindeki yer ortali oldugu icin (1345 agzin 1343'u) hic degismez.
+    // UST agiz L ekseninde konumlanir — o eksen aynalanmada cevrilir, tipki kapak gibi.
+    if(p.agizlar && p.agizlar.length){
+      const ag = p.agizlar.map(function(a){
+        const yz = !aynala ? a.yuz : (a.yuz === 'SOL' ? 'SAĞ' : a.yuz === 'SAĞ' ? 'SOL' : a.yuz);
+        const q = { etiket: a.etiket, yuz: yz };
+        if(a.w > 0 && a.h > 0){
+          q.w = a.w; q.h = a.h;
+          if(a.yuz === 'ÜST'){
+            if(a.x != null) q.x = aynala ? Math.max(0, p.boy - a.x - a.w) : a.x;
+          }else q.y = a.y;
+        }
+        if(a.damper) q.damper = true;
+        if(a.tabloDan) q.tabloDan = true;
+        return q;
+      });
+      if(ag.length) o.agizlar = ag;
+    }
+    return o;
+  });
+}
+
 function dxfModulListesi(r, aynala){
   const hs = (r && r.hucreler) || [];
   if(!hs.length) return [];
@@ -5814,10 +7925,13 @@ function dxfModulListesi(r, aynala){
       .filter(function(v,i,a){ return v && a.indexOf(v)===i; }).join(' + ');
     const fk = String(h.moduller||'').split(',').map(function(s){ return s.trim(); })
       .map(function(nm){ return (r.fanlar||{})[nm]; }).filter(Boolean)[0];
+    const adlar = String(h.moduller||'').split(',').map(function(s){ return s.trim(); }).filter(Boolean);
     return { L: h.boy, H: h.yukseklik, W: r.genislik||0,
              x: aynala ? toplam - x - h.boy : x,
              y: h.katKod === 'üst' ? altH : 0,
-             kat: h.katKod, ad: ad, fan: fk ? dxfFanCoz(fk) : null };
+             kat: h.katKod, ad: ad, fan: fk ? dxfFanCoz(fk) : null,
+             altKat: h.katKod === 'tam' ? altH : 0,
+             parcalar: dxfParcaListesi(r, adlar, aynala) };
   });
   out.sort(function(a,b){ return a.x - b.x || a.y - b.y; });
   return out;
@@ -5863,6 +7977,10 @@ function dxfAhuKur(r, aynala){
     md.pos = { x: m.x, y: m.y, z: 0 };
     if(m.ad) md.ad = m.ad;            // alan YALNIZ doluyken var olur (panel.yon deseni)
     if(m.fan) md.fan = dxfFanKalici(m.fan);
+    if(m.parcalar && m.parcalar.length){
+      md.dxfBilgi = { parcalar: m.parcalar };
+      if(m.altKat > 0) md.dxfBilgi.altKat = m.altKat;
+    }
     if(i > 0){                         // ilk modul cipa; digerleri silinince bosluk kapansin
       md.attAxis = m.y > 0 ? 'y' : 'x';
       md.attDir = 1;
@@ -6274,6 +8392,14 @@ function exportToDxf() {
               var kod = kodMap[mi + ':' + fi + ':' + ci + ':' + pi];
               var panelObj = { kalinlik: seri, tip: mapped.tip, B: B, K: K,
                 cam: mapped.cam, bogazTip: mapped.bogazTip, kod: kod, adet: 1 };
+              // PANELE MONTE AĞIZ: delik panelin sol-alt köşesine göre YÜZ ekseninde
+              // tutulur; DXF parçası B×K çizildiği için yükseklik büyükse parça 90°
+              // dönmüş demektir — delik de aynı dönüşü alır (rijit hareket, parça aynı).
+              if(p.delik && p.delik.w > 0 && p.delik.h > 0){
+                panelObj.delik = (sh > sw)
+                  ? { w: p.delik.h, h: p.delik.w, x: p.delik.y, y: sw - p.delik.x - p.delik.w }
+                  : { w: p.delik.w, h: p.delik.h, x: p.delik.x, y: p.delik.y };
+              }
               panelObj.grup = isAltUst ? 'ALTUST' : 'ANA';
               if(isAltUst) altUstPanels.push(panelObj);
               else mainPanels.push(panelObj);
@@ -6298,6 +8424,13 @@ function exportToDxf() {
           if (!r || r.kapaksiz) return;
           (r.colResults || []).forEach(function(col) {
             (col.panels || []).forEach(function(p) {
+              // PANELE MONTE AĞIZ: göz değil, panelin deliğidir — boğaz/damper seti yine
+              // üretilmeli, yoksa kanal ağzı hiç imal edilmezdi.
+              if (p.delik && p.delik.w > 0 && p.delik.h > 0) {
+                var dHar = elemanDimMap[p.delik.tip === 'Damper' ? 'Damper' : 'Boğaz'];
+                var dKey = Math.round(p.delik.w) + '|' + Math.round(p.delik.h);
+                dHar[dKey] = (dHar[dKey] || 0) + 1;
+              }
               if (!p.eleman) return;
               var harita = elemanDimMap[p.type];
               if (!harita) return;
@@ -6415,7 +8548,10 @@ document.getElementById('btn_dxf').addEventListener('click', exportToDxf);
 // v4: panel.colSpan + face.anaSplitLevels (eski dosyaların alan göçü syncStructure'da yapılır)
 // v5: module.araKat (ara kat — 7. sanal yüz). Eski v4/v3/v2 dosyalar açılmaya devam eder,
 //     ara katsız modül olarak gelirler (araKatNormalize kurar).
-const PROJECT_VERSION = 9;   // v9 = DXF aktarımından gelen fan/motor bilgisi (module.fan)
+const PROJECT_VERSION = 14;  // v10 = DXF'ten okunan bileşenler (module.dxfBilgi)
+                             // v11 = çizimden okunan ağızlar (dxfBilgi.parcalar[].agizlar)
+                             // v12 = ÜST ağzın L eksenindeki yeri (agizlar[].x) + tabloDan
+                             // v13 = açılır kapak işareti (parcalar[].acilir)
 
 // Yüklenen her modülde araKat alanını kurar. Tembel kurulum (araKatOf) tek başına yeterli
 // olurdu ama o zaman projectData() → JSON → applyProjectData() → projectData() gidiş-dönüşü
@@ -6848,6 +8984,13 @@ function boot(){
       lay.rects.filter(rc=>rc.eleman).forEach(rc=>{
         buildElemanMesh(grp, fi, rc, L,H,W, pos, n, m);
       });
+      // PANELE MONTE AĞIZ (Cenk, 29.08.2026): boğaz kendi gözünü açmaz, panelin
+      // ÜZERİNE monte edilir — 3B'de panelin deliği kadar bir eleman gövdesi çizilir.
+      lay.rects.filter(rc=>rc.delik).forEach(rc=>{
+        const d = rc.delik;
+        buildElemanMesh(grp, fi, {u0:d.u0, v0:d.v0, u1:d.u1, v1:d.v1,
+          eleman:true, elType:d.tip, lbl:d.lbl}, L,H,W, pos, n, m);
+      });
     });
 
     if(modNameCandidates.length) modNameGroups.push(modNameCandidates);
@@ -6965,7 +9108,7 @@ function boot(){
   function addElemanLabel(grp, rc, m, worldPos, n, koseler){
     const lines = [
       {text:`M${m+1}·${rc.lbl} — ${rc.elType}`, cls:'l1'},
-      {text:`${Math.round(rc.u1-rc.u0)}×${Math.round(rc.v1-rc.v0)}`, cls:'l2'}
+      {text: rc.olcu || `${Math.round(rc.u1-rc.u0)}×${Math.round(rc.v1-rc.v0)}`, cls:'l2'}
     ];
     const lbl = addLabel(grp, lines, worldPos, n);
     lbl.userData.mi = m;
@@ -9253,14 +11396,18 @@ function draw50Paslanmaz(dxf, panelList, gapCol, side) {
     var isGlass50P = (cam || 'H') === 'E';
     if (side === 'DIS') {
       switch (tip) {
-        case 'SABIT':  drawDisSabitPas(dxf, curX, 0, B, K, kod, pcOff); w = B + 98; addBigKodLabel(dxf, curX, 0, w, K + 98, kod, false); break;
+        case 'SABIT':  drawDisSabitPas(dxf, curX, 0, B, K, kod, pcOff); w = B + 98; addBigKodLabel(dxf, curX, 0, w, K + 98, kod, false);
+          if (p.delik) drawPanelDelik(dxf, curX, 0, B, K, p.delik, function (wr) { drawDisSabitPas(wr, 0, 0, B, K, kod, pcOff); });
+          break;
         case 'ACILIR': drawDisAcilir(dxf, curX, 0, B, K, cam || 'H', kod); w = B + 98; addBigKodLabel(dxf, curX, 0, w, K + 98, kod, isGlass50P); break;
         case 'BOGAZ':  drawBogazDisPas(dxf, curX, 0, B, K, bt, kod, pcOff); w = B + 98; addBigKodLabel(dxf, curX, 0, w, K + 98, kod, false); break;
         case 'UST':    w = 0; break; // UST disa gitmez
       }
     } else {
       switch (tip) {
-        case 'SABIT':  drawIcSabitPas(dxf, curX, 0, B, K, kod, pcOff); w = B + 31; addBigKodLabel(dxf, curX, 0, w, K + 31, kod, false); break;
+        case 'SABIT':  drawIcSabitPas(dxf, curX, 0, B, K, kod, pcOff); w = B + 31; addBigKodLabel(dxf, curX, 0, w, K + 31, kod, false);
+          if (p.delik) drawPanelDelik(dxf, curX, 0, B, K, p.delik, function (wr) { drawIcSabitPas(wr, 0, 0, B, K, kod, pcOff); });
+          break;
         case 'ACILIR': drawIcAcilir(dxf, curX, 0, B, K, cam || 'H', kod); w = B + 29; addBigKodLabel(dxf, curX, 0, w, K + 29, kod, isGlass50P); break;
         case 'BOGAZ':  drawIcBogazPas(dxf, curX, 0, B, K, bt, kod, pcOff); w = B + 31; addBigKodLabel(dxf, curX, 0, w, K + 31, kod, false); break;
         case 'UST':    drawUst(dxf, curX, 0, B, K, kod); w = B + 31; addBigKodLabel(dxf, curX, 0, w, K + 31, kod, false); break;
@@ -9598,6 +11745,8 @@ function draw60Paslanmaz(dxf, panelList, gapCol, side) {
           // ins = inner sol-alt = curX + 62.5 (outer flansin sagi)
           drawDis60Pas(dxf, curX + 62.5, 62.5, B, K, kod, pcOff);
           addBigKodLabel(dxf, curX + 62.5, 62.5, B, K, kod, false);
+          if (p.delik) drawPanelDelik(dxf, curX + 62.5, 62.5, B, K, p.delik,
+            function (wr) { drawDis60Pas(wr, 0, 0, B, K, kod, pcOff); });
           w = B + 125; break;
         case 'ACILIR':
           drawDisAcilir60(dxf, curX + 62.5, 62.5, B, K, kod, '0');
@@ -9616,6 +11765,8 @@ function draw60Paslanmaz(dxf, panelList, gapCol, side) {
           // ins = inner BI sol-alt = curX + 36 (BI rect outer envelope dis-flansi)
           drawIc60Pas(dxf, curX + 36, 36, B, K, kod, pcOff);
           addBigKodLabel(dxf, curX + 36, 36, B - 41, K - 41, kod, false);
+          if (p.delik) drawPanelDelik(dxf, curX + 36, 36, B, K, p.delik,
+            function (wr) { drawIc60Pas(wr, 0, 0, B, K, kod, pcOff); });
           w = B + 31; break;
         case 'ACILIR':
           // drawIcAcilir60 ins = BI rect sol-alt
@@ -9993,6 +12144,51 @@ function drawBogazDis(dxf, ox, oy, B, K, bogazTip, kod) {
 // -------------------------------------------------------
 // ANA FONKSIYON: 50'lik panel ciz
 // -------------------------------------------------------
+// PANELE MONTE AGIZ (Cenk, 29.08.2026): bogaz panelin uzerine monte edilir; panelin
+// IC ve DIS sacina AYNI olcude delik acilir. delik {w,h,x,y} panelin KESIM
+// dikdortgeninin sol-alt kosesine goredir (mm).
+var DELIK_LAYER = 'BOGAZ_DELIK';
+
+// Parcanin MERKEZI, cizim fonksiyonunun YEREL orijinine gore. Varyantlarin orijin
+// sozlesmesi ayni degil (50 DIS'te sinir kutusunun kosesi, 60'ta kesim kosesi) ve
+// IC sacin olcusu DIS'tan farkli — bu yuzden formul kopyalanmaz, OLCULUR. Bukum
+// paylari her varyantta simetrik oldugu icin yazi disi geometrinin sinir kutusunun
+// merkezi panelin merkezidir; delik merkeze gore konunca IC ve DIS ust uste gelir.
+function panelMerkez(cizFn) {
+  var sc = new DxfWriter();
+  cizFn(sc);
+  var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  function nk(x, y) {
+    if (!isFinite(x) || !isFinite(y)) return;
+    if (x < minX) minX = x;
+    if (x > maxX) maxX = x;
+    if (y < minY) minY = y;
+    if (y > maxY) maxY = y;
+  }
+  sc.entities.forEach(function (e) {
+    if (e.type === 'TEXT') return;               // yazi sinir kutusunu kirletmesin
+    if (e.type === 'LINE') { nk(e.x1, e.y1); nk(e.x2, e.y2); }
+    else if (e.type === 'CIRCLE' || e.type === 'ARC') { nk(e.cx - e.r, e.cy - e.r); nk(e.cx + e.r, e.cy + e.r); }
+    else if (e.type === 'SPLINE' && e.points) e.points.forEach(function (pt) { nk(pt[0], pt[1]); });
+  });
+  if (!isFinite(minX)) return { x: 0, y: 0 };
+  return { x: (minX + maxX) / 2, y: (minY + maxY) / 2 };
+}
+
+// Deligi parcanin uzerine cizer. cizFn parcayi (0,0)'a cizen fonksiyondur.
+function drawPanelDelik(dxf, ox, oy, B, K, delik, cizFn) {
+  if (!delik || !(delik.w > 0) || !(delik.h > 0)) return;
+  var m = panelMerkez(cizFn);
+  var cx = ox + m.x + (delik.x + delik.w / 2 - B / 2);
+  var cy = oy + m.y + (delik.y + delik.h / 2 - K / 2);
+  var x0 = cx - delik.w / 2, y0 = cy - delik.h / 2;
+  var x1 = x0 + delik.w, y1 = y0 + delik.h;
+  dxf.addLine(x0, y0, x1, y0, DELIK_LAYER);
+  dxf.addLine(x1, y0, x1, y1, DELIK_LAYER);
+  dxf.addLine(x1, y1, x0, y1, DELIK_LAYER);
+  dxf.addLine(x0, y1, x0, y0, DELIK_LAYER);
+}
+
 function draw50(dxf, panelList, satirN, gapCol, gapRow) {
   if (satirN === undefined) satirN = 4;
   if (gapCol === undefined) gapCol = 200;
@@ -10015,6 +12211,12 @@ function draw50(dxf, panelList, satirN, gapCol, gapRow) {
         var Wdis = B + 98;
         var pN = drawDisSabit(dxf, curX, curY, B, K, kod);
         drawIcSabit(dxf, curX + Wdis + 400, curY + 33.5, B, K, kod, pN);
+        if (panel.delik) {
+          drawPanelDelik(dxf, curX, curY, B, K, panel.delik,
+            function (w) { drawDisSabit(w, 0, 0, B, K, kod); });
+          drawPanelDelik(dxf, curX + Wdis + 400, curY + 33.5, B, K, panel.delik,
+            function (w) { drawIcSabit(w, 0, 0, B, K, kod, pN); });
+        }
         addBigKodLabel(dxf, curX, curY, Wdis, K + 98, kod, false);
         addBigKodLabel(dxf, curX + Wdis + 400, curY + 33.5, B + 31, K + 31, kod, false);
         pairW = Wdis + 400 + B + 31;
@@ -10523,6 +12725,12 @@ function draw60(dxf, panelList, satirN, gapCol, gapRow) {
       case 'SABIT': {
         drawDis60(dxf, curX, curY, B, K, kod, '0');
         drawIc60(dxf, curX + B + 797, curY + 20.5, B, K, kod, '0');
+        if (panel.delik) {
+          drawPanelDelik(dxf, curX, curY, B, K, panel.delik,
+            function (w) { drawDis60(w, 0, 0, B, K, kod, '0'); });
+          drawPanelDelik(dxf, curX + B + 797, curY + 20.5, B, K, panel.delik,
+            function (w) { drawIc60(w, 0, 0, B, K, kod, '0'); });
+        }
         addBigKodLabel(dxf, curX, curY, B, K, kod, false);
         addBigKodLabel(dxf, curX + B + 797, curY + 20.5, B - 41, K - 41, kod, false);
         pairW = 2 * B + 917;
@@ -10596,7 +12804,8 @@ function generateAndDownloadDxf(panelList, kalinlik, satirN, gapCol, gapRow, cus
         K: p.K,
         cam: p.cam,
         bogazTip: p.bogazTip,
-        kod: p.kod
+        kod: p.kod,
+        delik: p.delik || null      // panele monte ağzın deliği
       });
     }
   }
@@ -11559,7 +13768,7 @@ function buildNestPieces(panelList) {
           id: 'p' + (pid++),
           kod: p.kod, tip: p.tip, side: side,
           kalinlik: p.kalinlik, kalinlikBase: kalinlikBase, isPas: isPas,
-          B: p.B, K: p.K, cam: p.cam, bogazTip: p.bogazTip,
+          B: p.B, K: p.K, cam: p.cam, bogazTip: p.bogazTip, delik: p.delik || null,
           w: fp.w(p.B, p.K), h: fp.h(p.B, p.K),
           percinN: percinN, percinOffsets: percinOffsets
         });
@@ -11861,24 +14070,49 @@ function drawNestPiece(writer, placement) {
   var ox = placement.x + off, oy = placement.y + off;
   var kod = p.kod, bt = p.bogazTip || 'N', cam = p.cam || 'H';
 
+  // PANELE MONTE AGIZ: parca 90 dondurulduyse delik de doner (rijit hareket).
+  // Kesim dikdortgeni [0,B]x[0,K] iken CCW donusum (x,y) -> (K - y, x) verir.
+  var dlk = null;
+  if (p.delik && p.delik.w > 0 && p.delik.h > 0) {
+    dlk = placement.rotated
+      ? { w: p.delik.h, h: p.delik.w, x: p.K - p.delik.y - p.delik.h, y: p.delik.x }
+      : { w: p.delik.w, h: p.delik.h, x: p.delik.x, y: p.delik.y };
+  }
+
   if (!is60) {
     if (p.side === 'DIS') {
-      if (p.tip === 'SABIT') { if (p.isPas) drawDisSabitPas(writer, ox, oy, B, K, kod, p.percinOffsets); else drawDisSabit(writer, ox, oy, B, K, kod); }
+      if (p.tip === 'SABIT') {
+        if (p.isPas) drawDisSabitPas(writer, ox, oy, B, K, kod, p.percinOffsets); else drawDisSabit(writer, ox, oy, B, K, kod);
+        if (dlk) drawPanelDelik(writer, ox, oy, B, K, dlk, function (wr) {
+          if (p.isPas) drawDisSabitPas(wr, 0, 0, B, K, kod, p.percinOffsets); else drawDisSabit(wr, 0, 0, B, K, kod); });
+      }
       else if (p.tip === 'ACILIR') drawDisAcilir(writer, ox, oy, B, K, cam, kod);
       else if (p.tip === 'BOGAZ') { if (p.isPas) drawBogazDisPas(writer, ox, oy, B, K, bt, kod, p.percinOffsets); else drawBogazDis(writer, ox, oy, B, K, bt, kod); }
     } else {
-      if (p.tip === 'SABIT') { if (p.isPas) drawIcSabitPas(writer, ox, oy, B, K, kod, p.percinOffsets); else drawIcSabit(writer, ox, oy, B, K, kod, p.percinN); }
+      if (p.tip === 'SABIT') {
+        if (p.isPas) drawIcSabitPas(writer, ox, oy, B, K, kod, p.percinOffsets); else drawIcSabit(writer, ox, oy, B, K, kod, p.percinN);
+        if (dlk) drawPanelDelik(writer, ox, oy, B, K, dlk, function (wr) {
+          if (p.isPas) drawIcSabitPas(wr, 0, 0, B, K, kod, p.percinOffsets); else drawIcSabit(wr, 0, 0, B, K, kod, p.percinN); });
+      }
       else if (p.tip === 'ACILIR') drawIcAcilir(writer, ox, oy, B, K, cam, kod);
       else if (p.tip === 'BOGAZ') { if (p.isPas) drawIcBogazPas(writer, ox, oy, B, K, bt, kod, p.percinOffsets); else drawIcSabit(writer, ox, oy, B, K, kod, p.percinN); }
       else if (p.tip === 'UST') drawUst(writer, ox, oy, B, K, kod);
     }
   } else {
     if (p.side === 'DIS') {
-      if (p.tip === 'SABIT') { if (p.isPas) drawDis60Pas(writer, ox, oy, B, K, kod, p.percinOffsets); else drawDis60(writer, ox, oy, B, K, kod, '0'); }
+      if (p.tip === 'SABIT') {
+        if (p.isPas) drawDis60Pas(writer, ox, oy, B, K, kod, p.percinOffsets); else drawDis60(writer, ox, oy, B, K, kod, '0');
+        if (dlk) drawPanelDelik(writer, ox, oy, B, K, dlk, function (wr) {
+          if (p.isPas) drawDis60Pas(wr, 0, 0, B, K, kod, p.percinOffsets); else drawDis60(wr, 0, 0, B, K, kod, '0'); });
+      }
       else if (p.tip === 'ACILIR') drawDisAcilir60(writer, ox, oy, B, K, kod, '0');
       else if (p.tip === 'BOGAZ') { if (p.isPas) drawBogazDis60Pas(writer, ox, oy, B, K, bt, kod, p.percinOffsets); else drawBogazDis60(writer, ox, oy, B, K, bt, kod, '0'); }
     } else {
-      if (p.tip === 'SABIT') { if (p.isPas) drawIc60Pas(writer, ox, oy, B, K, kod, p.percinOffsets); else drawIc60(writer, ox, oy, B, K, kod, '0'); }
+      if (p.tip === 'SABIT') {
+        if (p.isPas) drawIc60Pas(writer, ox, oy, B, K, kod, p.percinOffsets); else drawIc60(writer, ox, oy, B, K, kod, '0');
+        if (dlk) drawPanelDelik(writer, ox, oy, B, K, dlk, function (wr) {
+          if (p.isPas) drawIc60Pas(wr, 0, 0, B, K, kod, p.percinOffsets); else drawIc60(wr, 0, 0, B, K, kod, '0'); });
+      }
       else if (p.tip === 'ACILIR') drawIcAcilir60(writer, ox, oy, B, K, kod, '0');
       else if (p.tip === 'BOGAZ') { if (p.isPas) drawIc60BogazPas(writer, ox, oy, B, K, bt, kod, p.percinOffsets); else drawIc60(writer, ox, oy, B, K, kod, '0'); }
       else if (p.tip === 'UST') drawUst60(writer, ox, oy, B, K, kod, '0');
