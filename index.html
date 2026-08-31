@@ -311,6 +311,27 @@ iframe.active{display:block;}
     padding:8px;margin-top:6px;overflow:auto;}
   .dxa-alt{padding:11px 18px;border-top:1px solid var(--border);display:flex;gap:12px;align-items:center;flex-shrink:0;}
   .dxa-alt .dxa-not{font-size:11.5px;color:var(--muted);flex:1;line-height:1.45;}
+  /* ---------- GERÇEK YERLEŞİM — SANTRAL SEÇİMİ ---------- */
+  /* Panel/başlık/alt satır DXF aktarım modalının sınıflarını paylaşır (.dxa-panel /
+     .dxa-head / .dxa-alt) — beş temada da çalışması onlara bağlı. */
+  #gsm_modal{position:fixed;inset:0;z-index:900;display:none;align-items:center;justify-content:center;padding:22px;}
+  #gsm_modal.open{display:flex;}
+  #gsm_backdrop{position:absolute;inset:0;background:rgba(0,0,0,.62);}
+  #gsm_kapat{background:none;border:none;color:var(--muted);font-size:22px;padding:0 2px;cursor:pointer;}
+  #gsm_kapat:hover{color:var(--accent);}
+  #gsm_ust{display:flex;gap:8px;align-items:center;padding:9px 18px;border-bottom:1px solid var(--border);flex-shrink:0;}
+  #gsm_ust button{padding:3px 12px;font-size:12px;width:auto;margin:0;}
+  #gsm_body{padding:8px 18px 14px;overflow:auto;flex:1;}
+  .gsm-satir{display:flex;align-items:flex-start;gap:11px;padding:9px 12px;border:1px solid var(--border);
+    border-radius:var(--r-s);margin-top:7px;cursor:pointer;user-select:none;background:var(--panel2);}
+  .gsm-satir:hover{border-color:var(--accent);}
+  .gsm-satir.sec{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-ring);}
+  .gsm-satir input{width:auto;margin:2px 0 0;flex-shrink:0;}
+  .gsm-ad{font-size:13.5px;font-weight:600;}
+  .gsm-bilgi{font-size:11.5px;color:var(--muted);margin-top:3px;line-height:1.4;}
+  .gsm-bilgi .u{color:var(--warn);}
+  .gsm-rozet{margin-left:auto;font-size:11px;color:var(--muted);border:1px solid var(--border);
+    border-radius:999px;padding:1px 9px;flex-shrink:0;}
   @media (prefers-reduced-motion: reduce){
     *{transition:none!important;animation:none!important;}
   }
@@ -344,6 +365,7 @@ iframe.active{display:block;}
       <input type=&quot;file&quot; id=&quot;dxa_input&quot; accept=&quot;.dxf&quot; multiple style=&quot;display:none;&quot;>
     </label>
     <button class=&quot;add-btn2&quot; id=&quot;btn_excel&quot;>⬇ Excel Çıktısı</button>
+    <button class=&quot;add-btn2&quot; id=&quot;btn_analiz&quot; title=&quot;Malzeme tüketimi: sac plakası, profil boyu, plastik, vida ve perçin&quot;>📊 Analiz</button>
     <button class=&quot;add-btn2&quot; id=&quot;btn_dxf&quot; style=&quot;background:linear-gradient(135deg,#1a9e6a,#27c47e);color:#fff;&quot;>⬇ DXF Üret</button>
     <div id=&quot;issuesBadge&quot; class=&quot;issues-badge&quot; style=&quot;display:none;&quot; title=&quot;Ayrıntılar için tıklayın&quot;>
       <span id=&quot;issuesBadgeText&quot;>⚠ 0 sorunlu yüz</span>
@@ -445,6 +467,15 @@ iframe.active{display:block;}
     <button class=&quot;add-btn2&quot; id=&quot;btn_oto_doldur&quot; style=&quot;width:100%;margin-top:10px;&quot; title=&quot;Aktif AHU'daki her modülün her yüzünü, kapaklar saca sığacak en az sayıda parçaya böler&quot;>⚡ Tüm AHU'yu Otomatik Doldur</button>
     <button class=&quot;add-btn2 ghost&quot; id=&quot;btn_oto_takviye&quot; style=&quot;width:100%;margin-top:6px;white-space:normal;line-height:1.3;&quot; title=&quot;Bölüm ve kapak sayısına dokunmaz — yalnız araları açar/kapatır ve ölçüleri yeniden dağıtır&quot;>+ Aralara Takviye Ekle</button>
     <div class=&quot;note&quot; id=&quot;oto_not_kaba&quot;>Kaba maliyet iskeleti içindir: her yüz, kapağın açılımı (DIŞ sac payı dahil) sac ölçüsüne sığacak <b>en az</b> sayıda parçaya bölünür ve ölçüler tam oturacak şekilde dağıtılır. Kapak tipleri <b>Normal Panel</b> kurulur.</div>
+  </div>
+
+  <div class=&quot;section&quot;>
+    <h2>Malzeme Analizi</h2>
+    <div class=&quot;grid&quot; style=&quot;grid-template-columns:1fr 1fr;&quot;>
+      <div><label>Profil Stok Boyu (mm)</label><input type=&quot;number&quot; id=&quot;analiz_stok_boy&quot; value=&quot;6000&quot;></div>
+      <div><label>Testere Payı (mm)</label><input type=&quot;number&quot; id=&quot;analiz_stok_pay&quot; value=&quot;5&quot;></div>
+    </div>
+    <div class=&quot;note&quot;>Araç çubuğundaki <b>📊 Analiz</b> düğmesi <b>santral başına bir Excel</b> üretir: nesting sonrası <b>kaç plaka sac</b>, kesim planı sonrası <b>kaç boy profil</b>, <b>köşe ve takviye plastiği</b> adedi, kapak deliklerinden <b>kaç vida ve kaç perçin</b>. Yukarıdaki iki değer profil kesim planı içindir; <b>sac ölçüsü</b> DXF Üretme sekmesindeki <b>Sac Nesting</b> ayarından gelir, böylece analiz gerçekten kesilecek dosyayla aynı rakamı verir.</div>
   </div>
 
   <div class=&quot;section&quot; id=&quot;gercek_panel&quot; style=&quot;display:none;&quot;>
@@ -553,6 +584,28 @@ iframe.active{display:block;}
       <div class=&quot;dxa-not&quot;>Her dosya yeni bir AHU olur; mevcut proje korunur. Proje adı ve iş numarası DXF'ten alınmaz.</div>
       <button class=&quot;add-btn2 ghost&quot; id=&quot;dxa_iptal&quot;>İptal</button>
       <button class=&quot;add-btn2&quot; id=&quot;dxa_aktar&quot;>Aktar</button>
+    </div>
+  </div>
+</div>
+<div id=&quot;gsm_modal&quot;>
+  <div id=&quot;gsm_backdrop&quot;></div>
+  <div class=&quot;dxa-panel&quot; style=&quot;width:min(94vw,700px);&quot;>
+    <div class=&quot;dxa-head&quot;>
+      <h2>🔧 Gerçek Değerlerle Kapak Yerleşimi</h2>
+      <div class=&quot;dxa-nav&quot;>
+        <span id=&quot;gsm_sayac&quot;></span>
+        <button id=&quot;gsm_kapat&quot; title=&quot;Kapat&quot;>×</button>
+      </div>
+    </div>
+    <div id=&quot;gsm_ust&quot;>
+      <button class=&quot;add-btn2 ghost&quot; id=&quot;gsm_tumu&quot;>Tümünü Seç</button>
+      <button class=&quot;add-btn2 ghost&quot; id=&quot;gsm_hicbiri&quot;>Hiçbirini Seçme</button>
+    </div>
+    <div id=&quot;gsm_body&quot;></div>
+    <div class=&quot;dxa-alt&quot;>
+      <div class=&quot;dxa-not&quot;>Seçili santrallerin <b>bütün modül ve yüzleri</b> yeniden kurulur — o santraldeki mevcut kapak yerleşimi silinir. İşareti kaldırılan santrale <b>hiç dokunulmaz</b>.</div>
+      <button class=&quot;add-btn2 ghost&quot; id=&quot;gsm_iptal&quot;>İptal</button>
+      <button class=&quot;add-btn2&quot; id=&quot;gsm_kur&quot;>Kur</button>
     </div>
   </div>
 </div>
@@ -3305,7 +3358,8 @@ function gercekNot(s){
   const not = document.getElementById('excel_note');
   if(!not) return;
   const p = [];
-  p.push(s.modul+' modül gerçek değerlerle kuruldu — '+s.kapak+' kapak, bunların '
+  p.push((s.santral>1 ? s.santral+' santralde ' : '')
+    +s.modul+' modül gerçek değerlerle kuruldu — '+s.kapak+' kapak, bunların '
     +s.acilir+' tanesi açılır ('+s.camli+' camlı).');
   if(s.ust) p.push(s.ust+' modülün üstü açık: ÜST PANEL kuruldu.');
   if(s.tava) p.push(s.tava+' bölmenin altına TAVA kuruldu (ALT yüz).');
@@ -3321,11 +3375,121 @@ function gercekNot(s){
   not.textContent = p.join(' ');
 }
 
-function gercekTikla(){
-  const s = gercekTumAHU();
-  renderAll();
-  gercekNot(s);
+// Birden çok santralin sonucunu TEK nota indirir. Sayılar toplanır; uyarılar zaten
+// 'Modül N: …' önekli, birden çok santral varsa başına santral adı da eklenir.
+function gercekSonucBirlestir(liste){
+  const t = {santral: liste.length, modul:0, atlanan:0, kapak:0, acilir:0, camli:0, ust:0,
+             tava:0, mated:0, damper:0, bogaz:0, disAgiz:0, ustTablo:0, arka:0, kismi:0, uyari:[]};
+  liste.forEach(function(s){
+    Object.keys(t).forEach(function(k){
+      if(k === 'uyari' || k === 'santral') return;
+      t[k] += s[k] || 0;
+    });
+    (s.uyari||[]).forEach(function(u){ t.uyari.push(liste.length>1 ? s.ahu+' — '+u : u); });
+  });
+  return t;
 }
+
+// ---------- SANTRAL SEÇİMİ (Cenk, 31.08.2026) ----------
+// Düğme artık doğrudan kurmuyor: önce bütün santralleri listeleyen bir modal açılır ve
+// HEPSİ İŞARETLİ gelir; kullanıcı istemediğinin işaretini kaldırır, kalanlar toplu kurulur.
+// Seçim yalnız o an içindir — ne projeye ne localStorage'a yazılır (bir sonraki açılışta
+// yine hepsi işaretli gelir, çünkü sorulan soru her seferinde 'bu turda hangileri').
+let gsmSecili = [];
+
+// Listede ne yazacağı: kaç modül, kaçında çizimden okunmuş bilgi var. DXF bilgisi
+// olmayan modül gerçek değerlerle KURULAMAZ, eski otomatikle dolar — kullanıcı bunu
+// görüp işaretini kaldırabilsin diye satırda açıkça yazılır.
+function gsmAhuOzet(ai){
+  const ahu = state.ahus[ai];
+  const mods = ahu.modules || [];
+  let dxfli = 0;
+  mods.forEach(function(m){
+    if(m.dxfBilgi && m.dxfBilgi.parcalar && m.dxfBilgi.parcalar.length) dxfli++;
+  });
+  return {ad: ahu.ad || ('AHU-'+(ai+1)), modul: mods.length, dxfli: dxfli,
+          seri: (ahu.varsayimlar && ahu.varsayimlar.seri) || '—',
+          malzeme: ahu.malzeme || '—'};
+}
+
+function gsmCiz(){
+  const body = document.getElementById('gsm_body');
+  if(!body) return;
+  body.innerHTML = state.ahus.map(function(_, ai){
+    const o = gsmAhuOzet(ai);
+    const sec = gsmSecili.indexOf(ai) >= 0;
+    const bilgi = [];
+    bilgi.push(o.modul + ' modül');
+    if(o.modul === 0) bilgi.push('<span class=&quot;u&quot;>modül yok</span>');
+    else if(o.dxfli === 0) bilgi.push('<span class=&quot;u&quot;>çizimden okunmuş bilgi YOK — eski otomatikle dolar</span>');
+    else if(o.dxfli < o.modul) bilgi.push('<span class=&quot;u&quot;>' + o.dxfli + ' modülde çizim bilgisi var, ' + (o.modul-o.dxfli) + ' modülde yok</span>');
+    else bilgi.push('hepsinde çizim bilgisi var');
+    bilgi.push('seri ' + o.seri);
+    bilgi.push(o.malzeme);
+    return '<div class=&quot;gsm-satir' + (sec ? ' sec' : '') + '&quot; data-gsm=&quot;' + ai + '&quot;>'
+      + '<input type=&quot;checkbox&quot; data-gsmchk=&quot;' + ai + '&quot;' + (sec ? ' checked' : '') + '>'
+      + '<div><div class=&quot;gsm-ad&quot; data-gsmad=&quot;' + ai + '&quot;></div>'
+      + '<div class=&quot;gsm-bilgi&quot;>' + bilgi.join(' · ') + '</div></div>'
+      + (ai === state.activeAhu ? '<span class=&quot;gsm-rozet&quot;>açık olan</span>' : '')
+      + '</div>';
+  }).join('');
+  // AHU adı KULLANICI GİRDİSİDİR ve innerHTML'e string olarak gömülmez. srcdoc tüm HTML
+  // varlıklarını çözdüğü için burada bir kaçış fonksiyonu yazmak tuzaklıdır (bkz. §10/11
+  // — kaynağa yazılan '&amp;' çalışma anında '&' olur ve fonksiyon sessizce etkisiz
+  // kalır); ad bu yüzden DOM üzerinden textContent ile yazılır.
+  body.querySelectorAll('.gsm-ad').forEach(function(el){
+    el.textContent = gsmAhuOzet(Number(el.dataset.gsmad)).ad;
+  });
+  const say = document.getElementById('gsm_sayac');
+  if(say) say.textContent = gsmSecili.length + '/' + state.ahus.length + ' seçili';
+  const btn = document.getElementById('gsm_kur');
+  if(btn){
+    btn.disabled = gsmSecili.length === 0;
+    btn.textContent = gsmSecili.length > 1
+      ? (gsmSecili.length + ' Santralde Kur')
+      : 'Kur';
+  }
+}
+
+function gsmAc(){
+  gsmSecili = state.ahus.map(function(_, i){ return i; });   // hepsi işaretli açılır
+  gsmCiz();
+  document.getElementById('gsm_modal').classList.add('open');
+}
+function gsmKapat(){
+  document.getElementById('gsm_modal').classList.remove('open');
+}
+function gsmSec(ai, ac){
+  const i = gsmSecili.indexOf(ai);
+  if(ac && i < 0) gsmSecili.push(ai);
+  else if(!ac && i >= 0) gsmSecili.splice(i, 1);
+  gsmCiz();
+}
+
+// Seçili santrallerin hepsinde gerçek yerleşimi kurar. state.activeAhu geçici olarak
+// değiştirilir ve finally ile GERİ ALINIR — bir istisna ortada yanlış AHU'yu açık
+// bırakmasın (collectFaceIssues/exportExcel'deki tuzağın aynısı).
+function gsmKur(){
+  const secim = gsmSecili.slice().sort(function(a,b){ return a-b; });
+  if(!secim.length) return;
+  gsmKapat();
+  const orig = state.activeAhu;
+  const hepsi = [];
+  try{
+    secim.forEach(function(ai){
+      state.activeAhu = ai;
+      const s = gercekTumAHU();
+      s.ahu = state.ahus[ai].ad || ('AHU-'+(ai+1));
+      hepsi.push(s);
+    });
+  }finally{
+    state.activeAhu = orig;
+  }
+  renderAll();
+  gercekNot(gercekSonucBirlestir(hepsi));
+}
+
+function gercekTikla(){ gsmAc(); }
 
 // ---------- GİZLİ AKTİVASYON ----------
 // Ekranda boştayken (bir kutuya yazmıyorken) 'admincenk' yazılınca imalat paneli açılır
@@ -3450,6 +3614,7 @@ function renderOtoPanel(){
   document.getElementById('oto_sac_pay').value = otoSac.pay;
   document.getElementById('oto_atla_birlesik').checked = !!otoSac.birlesikAtla;
   adminPanelTazele();
+  renderAnalizPanel();
   const btn = document.getElementById('btn_oto_takviye');
   if(btn) btn.textContent = otoTakviyeAcikMi()
     ? '− Aralardaki Takviyeleri Kaldır'
@@ -4511,6 +4676,24 @@ function partialRender(fi){
 }
 
 // ---------- CİHAZ GENELİ TAKVİYE ÖZETİ ----------
+// KÖŞE (KASA) PROFİLİ — modül başına 12 ayrıt: L/H/W eksenlerinin her birinde 4 profil.
+// Boy = eksen ölçüsü − 2×köşe plastiği. Ekran özeti, Excel ÖZET sayfası ve Analiz'in
+// kesim planı bu TEK kaynaktan beslenir; üç yerde ayrı yazılsaydı biri değişince
+// diğerleri sessizce ayrışırdı.
+function koseProfilKalemleri(){
+  const V = getV();
+  const map = new Map();     // boy → adet
+  let eksik = 0;             // ölçüsü girilmemiş eksen sayısı × 4
+  state.modules.forEach(md=>{
+    ['L','H','W'].forEach(k=>{
+      if(md[k]>0){ const boy = md[k]-2*V.kose; map.set(boy,(map.get(boy)||0)+4); }
+      else eksik += 4;
+    });
+  });
+  const kalemler = [...map.entries()].sort((a,b)=>b[0]-a[0]).map(([boy,adet])=>({boy, adet}));
+  return {kalemler, eksik, modulSayisi: state.modules.length};
+}
+
 function collectTakviyeRows(){
   const rows = [];      // {face, tip, yon, kaynak, adet, boy|null}
   const missing = [];
@@ -4634,17 +4817,10 @@ function renderGlobalSummary(){
   const V = getV();
   const frameEl = document.getElementById('gsum_frame');
   if(frameEl){
-    const N = state.modules.length;
-    const pmap = new Map(); // boy → adet (her modülün L/H/W ekseni 4'er profil)
-    let missingDim = 0;
-    state.modules.forEach(md=>{
-      ['L','H','W'].forEach(k=>{
-        if(md[k]>0){ const boy = md[k]-2*V.kose; pmap.set(boy,(pmap.get(boy)||0)+4); }
-        else missingDim += 4;
-      });
-    });
+    const kp = koseProfilKalemleri();
+    const N = kp.modulSayisi, missingDim = kp.eksik;
     let frameRows = '';
-    [...pmap.entries()].sort((a,b)=>b[0]-a[0]).forEach(([boy,adet])=>{
+    kp.kalemler.forEach(({boy,adet})=>{
       frameRows += `<tr><td>Köşe Profili</td><td>${adet}</td><td>${boy.toFixed(0)}</td><td>${(adet*boy/1000).toFixed(2)}</td><td>Eksen ölçüsü − 2×Köşe Plastik</td></tr>`;
     });
     if(missingDim>0) frameRows += `<tr><td>Köşe Profili</td><td>${missingDim}</td><td>⚠</td><td>—</td><td>Modül ölçüleri eksik</td></tr>`;
@@ -5208,6 +5384,166 @@ function pngKoseDamga(dataUrl, satirlar){
   });
 }
 
+// ==================== ORTAK EXCEL BİÇİMİ ====================
+const XL_FONT = {name:'Arial', size:10};
+const XL_THIN = {style:'thin', color:{argb:'FF8899AA'}};
+const XL_BORDER = {top:XL_THIN, left:XL_THIN, bottom:XL_THIN, right:XL_THIN};
+const XL_HEAD_FILL = {type:'pattern', pattern:'solid', fgColor:{argb:'FF2A3B4A'}};
+const XL_HEAD_FONT = {name:'Arial', size:10, bold:true, color:{argb:'FFFFFFFF'}};
+const XL_TITLE_FONT = {name:'Arial', size:12, bold:true, color:{argb:'FF1F6F63'}};
+const XL_DEV_FONT = {name:'Arial', size:9, italic:true, color:{argb:'FF7A8A96'}};
+
+function xlDevFooter(ws){
+  ws.headerFooter = { oddFooter:'&C&8Cenk Altınay', evenFooter:'&C&8Cenk Altınay' };
+}
+function xlTable(ws, startRow, title, headers, rows){
+  let rr = startRow;
+  const t = ws.getCell(rr,1); t.value = title; t.font = XL_TITLE_FONT; rr++;
+  headers.forEach((h,ci)=>{ const c = ws.getCell(rr,ci+1); c.value=h; c.fill=XL_HEAD_FILL; c.font=XL_HEAD_FONT; c.border=XL_BORDER; c.alignment={horizontal:'center'}; });
+  rr++;
+  if(rows.length===0){
+    const c = ws.getCell(rr,1); c.value='—'; c.font=XL_FONT; c.border=XL_BORDER; rr++;
+  } else rows.forEach(row=>{
+    row.forEach((v,ci)=>{ const c=ws.getCell(rr,ci+1); c.value=v; c.font=XL_FONT; c.border=XL_BORDER;
+      c.alignment={horizontal: typeof v==='number' ? 'right':'left'}; });
+    rr++;
+  });
+  return rr+1;
+}
+
+// ==================== ANALİZ — MALZEME TÜKETİMİ ====================
+// Kapak Hesabı Excel'i &quot;ne imal edilecek&quot;i yazar; Analiz Excel'i &quot;ne satın alınacak&quot;ı:
+// kaç plaka sac, kaç boy profil, kaç plastik, kaç vida ve perçin. Beş kalemin üçü
+// (sac plakası, vida, perçin) f1'de bilinir — nesting ve bütün draw* ailesi oradadır —
+// bu yüzden hesap İKİ UÇTAN toplanır ve Excel burada üretilir (ExcelJS yalnız f0'da).
+
+// Profil stok boyu ve testere payı (Cenk, 31.08.2026). Sac ölçüsü gibi PROJEYE değil
+// localStorage'a yazılır — imalathanenin sabiti, projenin özelliği değil.
+const ANALIZ_STOK_VARSAYILAN = {boy: 6000, pay: 5};
+
+function analizStokOku(){
+  try{
+    const j = JSON.parse(localStorage.getItem('kh_analiz') || '{}');
+    return {boy: Number(j.boy)>0 ? Number(j.boy) : ANALIZ_STOK_VARSAYILAN.boy,
+            pay: Number(j.pay)>=0 ? Number(j.pay) : ANALIZ_STOK_VARSAYILAN.pay};
+  }catch(e){ return {boy: ANALIZ_STOK_VARSAYILAN.boy, pay: ANALIZ_STOK_VARSAYILAN.pay}; }
+}
+function analizStokYaz(boy, pay){
+  try{ localStorage.setItem('kh_analiz', JSON.stringify({boy:Number(boy)||0, pay:Number(pay)||0})); }catch(e){}
+}
+// Kenar çubuğundaki iki kutunun tek durum kaynağı (otoSac deseninin aynısı).
+const analizStok = analizStokOku();
+function renderAnalizPanel(){
+  const b = document.getElementById('analiz_stok_boy');
+  if(!b) return;
+  b.value = analizStok.boy;
+  document.getElementById('analiz_stok_pay').value = analizStok.pay;
+}
+
+// 1D KESİM PLANI — First-Fit Decreasing. Parçalar uzundan kısaya sıralanır, her biri
+// sığdığı İLK boya girer. 1D kesim NP-zordur; FFD optimalin en çok 11/9 katını kullanır,
+// sonucu tekrarlanabilirdir ve elde kesim yapan operatörün sezgisiyle aynı yönde çalışır.
+// Testere payı HER PARÇADA gider (parçanın ucu da düzeltilir), yani sığma ölçütü
+// Σ(parça + pay) ≤ stok boyu.
+function profilKesimPlani(kalemler, stokBoy, pay){
+  const parcalar = [];
+  (kalemler||[]).forEach(k=>{ for(let i=0;i<(k.adet||0);i++) parcalar.push(k.boy); });
+  parcalar.sort((a,b)=>b-a);
+  const boylar = [];            // {kullanilan, parcalar[]}
+  const sigmayan = [];          // tek boydan çıkmayacak kadar uzun parçalar
+  let net = 0;
+  parcalar.forEach(p=>{
+    if(p + pay > stokBoy + 1e-9){ sigmayan.push(p); return; }
+    net += p;
+    let yer = null;
+    for(let i=0;i<boylar.length;i++){
+      if(boylar[i].kullanilan + p + pay <= stokBoy + 1e-9){ yer = boylar[i]; break; }
+    }
+    if(!yer){ yer = {kullanilan:0, parcalar:[]}; boylar.push(yer); }
+    yer.kullanilan += p + pay;
+    yer.parcalar.push(p);
+  });
+  const stokToplam = boylar.length * stokBoy;
+  return {
+    boyAdedi: boylar.length, boylar, sigmayan,
+    parcaAdedi: parcalar.length - sigmayan.length,
+    netMm: net, stokMm: stokToplam,
+    firePercent: stokToplam>0 ? Math.max(0, (1 - net/stokToplam)*100) : 0
+  };
+}
+
+// Aktif AHU'nun profil kalemleri, AİLE bazında. Aileler ayrı stoktan kesilir: kasa
+// (köşe) profili, takviye profili ve ara katın kare profili farklı KESİTLERDİR — tek
+// kesim planına giremezler. Ara kat kendi içinde de profile göre ayrılır (30×30 / 30×60).
+function analizProfilAileleri(){
+  const V = getV();
+  const aileler = [];
+  const kp = koseProfilKalemleri();
+  if(kp.kalemler.length || kp.eksik)
+    aileler.push({ad:'Köşe (Kasa) Profili — Seri '+V.seri, kalemler:kp.kalemler, eksik:kp.eksik});
+
+  const {rows} = collectTakviyeRows();
+  const takRows = rows.filter(x=>!x.arakat);
+  const tg = groupTakviyeSiparis(takRows);
+  if(tg.groups.length || tg.skipped)
+    aileler.push({ad:'Takviye Profili — Seri '+V.seri,
+      kalemler: tg.groups.map(g=>({boy:g.boy, adet:g.adet})), eksik: tg.skipped});
+
+  const akRows = rows.filter(x=>x.arakat);
+  if(akRows.length){
+    const ag = groupAraKatSiparis(akRows);
+    [...new Set(ag.groups.map(g=>g.profil))].forEach(pr=>{
+      aileler.push({ad:'Ara Kat Profili — '+pr,
+        kalemler: ag.groups.filter(g=>g.profil===pr).map(g=>({boy:g.boy, adet:g.adet})), eksik:0});
+    });
+    if(ag.skipped) aileler.push({ad:'Ara Kat Profili — ölçüsü eksik', kalemler:[], eksik:ag.skipped});
+  }
+  return aileler;
+}
+
+// PLASTİKLER. Köşe plastiği: modül başına 8 (3 yönlü birleşim, kutunun 8 köşesi) —
+// ekran özeti ve Excel ÖZET sayfasıyla aynı kural. Takviye plastiği: her takviye
+// parçasının İKİ ucunda birer tane; kural motorun kendisinden okunur — takviye boyu
+// zaten '− 2×takviyePlastik' ile kısaltılıyor (takviyeRecords). Profilde takviye
+// plastiği yoksa (V.takviyePlastik = 0) adet de yazılmaz.
+// ARA KAT dışarıdadır: kare profil KAYNAK birleşimdir, plastik kullanmaz — getVAraKat
+// hem kose'yi hem takviyePlastik'i 0 döndürür.
+function analizPlastikler(){
+  const V = getV();
+  const {rows} = collectTakviyeRows();
+  let takParca = 0;
+  rows.forEach(x=>{ if(!x.arakat) takParca += x.adet; });
+  return {
+    kose: 8 * state.modules.length,
+    modulSayisi: state.modules.length,
+    takviyeParca: takParca,
+    takviye: V.takviyePlastik>0 ? takParca*2 : 0,
+    takviyePlastikVar: V.takviyePlastik>0
+  };
+}
+
+// f1'den sac plakası + delik sayımı ister. Köprü kabuk sayfadan geçer (f0 ile f1
+// birbirini doğrudan göremez); her istek kendi id'siyle eşlenir, böylece AHU'lar
+// sırayla sorulabilir. f1 yanıt vermezse zaman aşımı ile düşer — sessizce beklemez.
+let analizIstekSayaci = 0;
+function analizIste(payload, zamanAsimiMs){
+  return new Promise((resolve, reject)=>{
+    if(window.parent === window){ reject(new Error('DXF sekmesi yok (uygulama tek başına açılmış)')); return; }
+    const id = 'az' + (++analizIstekSayaci);
+    const sure = setTimeout(()=>{ temizle(); reject(new Error('DXF sekmesi yanıt vermedi (zaman aşımı)')); },
+      zamanAsimiMs || 30000);
+    function temizle(){ clearTimeout(sure); window.removeEventListener('message', dinle); }
+    function dinle(e){
+      if(!e.data || e.data.type !== 'analizSonuc' || e.data.id !== id) return;
+      temizle();
+      if(e.data.hata) reject(new Error(e.data.hata));
+      else resolve(e.data.sonuc);
+    }
+    window.addEventListener('message', dinle);
+    window.parent.postMessage({type:'analizIste', id:id, payload:payload}, '*');
+  });
+}
+
 async function exportExcel(){
   const note = document.getElementById('excel_note');
   const issues = collectFaceIssues();
@@ -5246,35 +5582,11 @@ async function exportExcel(){
     wb.lastModifiedBy = 'Cenk Altınay';
     wb.created = new Date();
 
-    const FONT = {name:'Arial', size:10};
-    const thin = {style:'thin', color:{argb:'FF8899AA'}};
-    const border = {top:thin,left:thin,bottom:thin,right:thin};
-    const headFill = {type:'pattern', pattern:'solid', fgColor:{argb:'FF2A3B4A'}};
-    const headFont = {name:'Arial', size:10, bold:true, color:{argb:'FFFFFFFF'}};
-    const titleFont = {name:'Arial', size:12, bold:true, color:{argb:'FF1F6F63'}};
-    const devFont = {name:'Arial', size:9, italic:true, color:{argb:'FF7A8A96'}};
-
-    function setDevFooter(ws){
-      ws.headerFooter = {
-        oddFooter: '&C&8Cenk Altınay',
-        evenFooter: '&C&8Cenk Altınay'
-      };
-    }
-
-    function addTable(ws, startRow, title, headers, rows){
-      let rr = startRow;
-      const t = ws.getCell(rr,1); t.value = title; t.font = titleFont; rr++;
-      headers.forEach((h,ci)=>{ const c = ws.getCell(rr,ci+1); c.value=h; c.fill=headFill; c.font=headFont; c.border=border; c.alignment={horizontal:'center'}; });
-      rr++;
-      if(rows.length===0){
-        const c = ws.getCell(rr,1); c.value='—'; c.font=FONT; c.border=border; rr++;
-      } else rows.forEach(row=>{
-        row.forEach((v,ci)=>{ const c=ws.getCell(rr,ci+1); c.value=v; c.font=FONT; c.border=border;
-          c.alignment={horizontal: typeof v==='number' ? 'right':'left'}; });
-        rr++;
-      });
-      return rr+1;
-    }
+    // Biçim sabitleri ve tablo yazıcısı ORTAK (XL_* / xlTable) — Kapak Hesabı Excel'i
+    // ile Analiz Excel'i aynı klasöre yan yana düşüyor, farklı görünmeleri için sebep yok.
+    const FONT = XL_FONT, border = XL_BORDER, headFill = XL_HEAD_FILL;
+    const headFont = XL_HEAD_FONT, titleFont = XL_TITLE_FONT, devFont = XL_DEV_FONT;
+    const setDevFooter = xlDevFooter, addTable = xlTable;
 
     // ---- ÖZET SAYFASI ----
     const wsO = wb.addWorksheet('ÖZET');
@@ -5295,16 +5607,9 @@ async function exportExcel(){
       ['Modüller (L×H×W @ x,y,z)', state.modules.map((md,i)=>`M${i+1}: ${md.L||'?'}×${md.H||'?'}×${md.W||'?'} @(${md.pos.x},${md.pos.y},${md.pos.z})`).join(' | ')]
     ]);
 
-    const NM = state.modules.length;
-    const pmapX = new Map();
-    let missX = 0;
-    state.modules.forEach(md=>{
-      ['L','H','W'].forEach(k=>{
-        if(md[k]>0){ const boy = md[k]-2*V.kose; pmapX.set(boy,(pmapX.get(boy)||0)+4); }
-        else missX += 4;
-      });
-    });
-    const frameRows = [...pmapX.entries()].sort((a,b)=>b[0]-a[0]).map(([boy,adet])=>['Köşe Profili', Math.round(boy), adet]);
+    const kpX = koseProfilKalemleri();
+    const NM = kpX.modulSayisi, missX = kpX.eksik;
+    const frameRows = kpX.kalemler.map(({boy,adet})=>['Köşe Profili', Math.round(boy), adet]);
     if(missX>0) frameRows.push(['Köşe Profili', 'ÖLÇÜ EKSİK', missX]);
     frameRows.push(['Köşe Plastiği (3 yönlü)', '—', 8*NM]);
     rr = addTable(wsO, rr, 'CİHAZ İSKELETİ — MODÜL BAŞINA 12 AYRIT', ['Eleman','Boy (mm)','Adet'], frameRows);
@@ -5568,6 +5873,26 @@ function attachListeners(){
   document.getElementById('btn_excel').addEventListener('click', exportExcel);
   document.getElementById('btn_oto_doldur').addEventListener('click', otoDoldurTikla);
   document.getElementById('btn_gercek').addEventListener('click', gercekTikla);
+  document.getElementById('gsm_kapat').addEventListener('click', gsmKapat);
+  document.getElementById('gsm_iptal').addEventListener('click', gsmKapat);
+  document.getElementById('gsm_backdrop').addEventListener('click', gsmKapat);
+  document.getElementById('gsm_kur').addEventListener('click', gsmKur);
+  document.getElementById('gsm_tumu').addEventListener('click', function(){
+    gsmSecili = state.ahus.map(function(_, i){ return i; }); gsmCiz();
+  });
+  document.getElementById('gsm_hicbiri').addEventListener('click', function(){
+    gsmSecili = []; gsmCiz();
+  });
+  // Satırın her yeri tıklanabilir; kutunun kendisi zaten durumu çevirdiği için
+  // oradan gelen tıklama iki kez işlenmemeli.
+  document.getElementById('gsm_body').addEventListener('click', function(e){
+    const kutu = e.target.closest('input[data-gsmchk]');
+    if(kutu){ gsmSec(Number(kutu.dataset.gsmchk), kutu.checked); return; }
+    const satir = e.target.closest('.gsm-satir');
+    if(!satir) return;
+    const ai = Number(satir.dataset.gsm);
+    gsmSec(ai, gsmSecili.indexOf(ai) < 0);
+  });
   document.addEventListener('keydown', adminTus);
   document.getElementById('btn_oto_takviye').addEventListener('click', otoTakviyeTikla);
   ['oto_sac_w','oto_sac_h','oto_sac_pay'].forEach(id=>{
@@ -5578,6 +5903,15 @@ function attachListeners(){
   });
   document.getElementById('oto_atla_birlesik').addEventListener('change', e=>{
     otoSac.birlesikAtla = e.target.checked; otoSacYaz();
+  });
+  // Profil stok boyu / testere payı — projeye değil localStorage'a yazılır (sac ölçüsüyle
+  // aynı karar: imalathanenin sabiti, projenin özelliği değil).
+  ['analiz_stok_boy','analiz_stok_pay'].forEach(id=>{
+    document.getElementById(id).addEventListener('input', e=>{
+      const v = Math.max(0, Number(e.target.value)||0);
+      if(id==='analiz_stok_boy') analizStok.boy = v; else analizStok.pay = v;
+      analizStokYaz(analizStok.boy, analizStok.pay);
+    });
   });
   document.getElementById('issuesBadge').addEventListener('click', e=>{
     const panel = document.getElementById('issuesPanel');
@@ -5612,6 +5946,7 @@ function attachListeners(){
   });
   document.addEventListener('keydown', e=>{
     if(e.key === 'Escape' && document.getElementById('dxa_modal').classList.contains('open')) dxaModalKapat();
+    if(e.key === 'Escape' && document.getElementById('gsm_modal').classList.contains('open')) gsmKapat();
   });
   document.getElementById('btn_load_proj').addEventListener('change', e=>{
     loadProject(e.target.files[0]);
@@ -8313,10 +8648,17 @@ function kodFor(map, mi, fi, ci, pi){
   return k || (faceCodeOf(fi) + '-B' + (ci + 1) + 'K' + (pi + 1));
 }
 
-function exportToDxf() {
+// `toplayici` bir DİZİ ise yükler f1'e postlanmaz, çağırana AHU AHU teslim edilir —
+// Analiz Excel'i böylece DXF ile TEK kaynaktan beslenir ve ikinci bir panel/eleman
+// tarayıcısı yazılmaz. Düğmenin click olayı fonksiyona MouseEvent geçirdiği için
+// bayrak Array.isArray ile doğrulanır; başka her değer eski davranışı verir.
+function exportToDxf(toplayici) {
+  var topla = Array.isArray(toplayici) ? toplayici : null;
+  var _bas = topla ? 'Analiz yapılamadı' : 'DXF üretilemedi';
+  var _bas2 = topla ? 'Analiz yapılamıyor' : 'DXF üretilemiyor';
   var dxfIssues = collectFaceIssues();
   if(dxfIssues.length>0){
-    alert('DXF üretilemedi — önce şu sorunları düzeltin:\n\n'
+    alert(_bas + ' — önce şu sorunları düzeltin:\n\n'
       + dxfIssues.map(function(i){ return '• '+i.ahu+' — '+i.mod+' '+i.face+': '+i.text; }).join('\n'));
     return;
   }
@@ -8333,11 +8675,14 @@ function exportToDxf() {
     // eski (bayat ölçülü) kayıtlar duruyor, yenileri üstüne ekleniyor ve durum çubuğu
     // yalnız yeni gelenleri sayıyordu — DXF'e iki kat parça giriyordu.
     if(reset) obj.reset = true;
+    // ANALİZ MODU: yük f1'e postlanmaz, çağırana teslim edilir. AHU indeksi
+    // state.activeAhu'dan okunur — aşağıdaki döngü onu her AHU'da set ediyor.
     if(bogazList && bogazList.length > 0) obj.bogazList = bogazList;
     if(tavaList && tavaList.length > 0) obj.tavaList = tavaList;
     if(damperList && damperList.length > 0) obj.damperList = damperList;
     if(arakatList && arakatList.length > 0) obj.arakatList = arakatList;
     if(esanjorList && esanjorList.length > 0) obj.esanjorList = esanjorList;
+    if(topla){ topla.push({ahuIndex: state.activeAhu, ahuAd: projeLabel, seri: seri, payload: obj}); return; }
     if(window.parent !== window){
       window.parent.postMessage({ type: 'dxfExport', payload: obj }, '*');
     }
@@ -8349,7 +8694,7 @@ function exportToDxf() {
     if(!ahu.malzeme) eksikMalzeme.push(ahu.ad || ('AHU-'+(ai+1)));
   });
   if(eksikMalzeme.length > 0){
-    alert('DXF üretilemiyor — aşağıdaki AHU\'lar için İç Sac tipi seçilmedi:\n• ' + eksikMalzeme.join('\n• ') + '\n\nProje Bilgisi bölümünden Galvaniz veya Paslanmaz seçin.');
+    alert(_bas2 + ' — aşağıdaki AHU\'lar için İç Sac tipi seçilmedi:\n• ' + eksikMalzeme.join('\n• ') + '\n\nProje Bilgisi bölümünden Galvaniz veya Paslanmaz seçin.');
     return;
   }
 
@@ -8359,7 +8704,7 @@ function exportToDxf() {
     if(!ahu.varsayimlar || !ahu.varsayimlar.seri) eksikProfil.push(ahu.ad || ('AHU-'+(ai+1)));
   });
   if(eksikProfil.length > 0){
-    alert('DXF üretilemiyor — aşağıdaki AHU\'lar için Profil Serisi seçilmedi:\n• ' + eksikProfil.join('\n• ') + '\n\nProje Bilgisi bölümünden bir profil serisi seçin.');
+    alert(_bas2 + ' — aşağıdaki AHU\'lar için Profil Serisi seçilmedi:\n• ' + eksikProfil.join('\n• ') + '\n\nProje Bilgisi bölümünden bir profil serisi seçin.');
     return;
   }
 
@@ -8538,11 +8883,176 @@ function exportToDxf() {
   state.activeAhu = origActiveAhu;
 
   if(totalFound === 0){
-    alert('DXF üretilecek panel, boğaz, tava, damper veya ara kat bulunamadı.\nLütfen modül ölçülerini (W/H/L) girin ve yüzlere kapak/eleman ekleyin.\n\nNot: Boş Alan tipi DXFʼye aktarılmaz.');
+    alert((topla ? 'Analiz edilecek' : 'DXF üretilecek') + ' panel, boğaz, tava, damper veya ara kat bulunamadı.\nLütfen modül ölçülerini (W/H/L) girin ve yüzlere kapak/eleman ekleyin.\n\nNot: Boş Alan tipi DXFʼye aktarılmaz.');
   }
 }
 
-document.getElementById('btn_dxf').addEventListener('click', exportToDxf);
+document.getElementById('btn_dxf').addEventListener('click', function(){ exportToDxf(); });
+
+// ==================== ANALİZ EXCEL ÇIKTISI ====================
+// SANTRAL BAZLI (Cenk, 31.08.2026): her AHU kendi dosyasını alır ve sac plakası sayısı
+// yalnız o santralin parçalarından çıkar — rakam santrale atfedilebilir olsun diye.
+// Kapı Kapak Hesabı Excel'iyle aynıdır (collectFaceIssues); yükler exportToDxf'in
+// toplayıcısından gelir, yani DXF'e giden neyse analiz de onu sayar.
+async function exportAnalizExcel(){
+  const note = document.getElementById('excel_note');
+  const issues = collectFaceIssues();
+  if(issues.length>0){
+    alert('Analiz alınamadı — önce şu sorunları düzeltin:\n\n'
+      + issues.map(i=>'• '+i.ahu+' — '+i.mod+' '+i.face+': '+i.text).join('\n'));
+    return;
+  }
+  if(typeof ExcelJS==='undefined'){
+    note.textContent = '⚠ ExcelJS kütüphanesi yüklenemedi — internet bağlantısı gereklidir (cdnjs).';
+    return;
+  }
+  const yukler = [];
+  exportToDxf(yukler);                 // kendi kapılarını da uygular; boşsa uyarısını kendi verir
+  if(!yukler.length) return;
+
+  const stok = {boy: analizStok.boy, pay: analizStok.pay};
+  const origActiveAhu = state.activeAhu;
+  const sanitizeF = s => s.replace(/[\\/:*?&quot;<>|]/g,'').replace(/\s+/g,'_');
+  let indirilen = 0;
+  try{
+    for(let i=0;i<yukler.length;i++){
+      const y = yukler[i];
+      const ahuAd = state.ahus[y.ahuIndex] ? (state.ahus[y.ahuIndex].ad || ('AHU-'+(y.ahuIndex+1))) : y.ahuAd;
+      note.textContent = (yukler.length>1 ? '['+(i+1)+'/'+yukler.length+'] ' : '')
+        + 'Analiz hesaplanıyor… ' + ahuAd;
+
+      // f1: sac serme + kapak deliği. Bekleme burada — hesap DXF sekmesinde yapılıyor.
+      const f1 = await analizIste(y.payload);
+
+      state.activeAhu = y.ahuIndex;
+      const V = getV();
+      const profilAileleri = analizProfilAileleri();
+      const plastik = analizPlastikler();
+      const planlar = profilAileleri.map(a=>({
+        aile: a, plan: profilKesimPlani(a.kalemler, stok.boy, stok.pay)
+      }));
+      const toplamBoy = planlar.reduce((t,p)=>t+p.plan.boyAdedi, 0);
+
+      const wb = new ExcelJS.Workbook();
+      wb.creator = 'Cenk Altınay';
+      wb.lastModifiedBy = 'Cenk Altınay';
+      wb.created = new Date();
+
+      // ---- ÖZET ----
+      const wsO = wb.addWorksheet('ÖZET');
+      wsO.columns = [{width:38},{width:20},{width:16},{width:16},{width:16}];
+      xlDevFooter(wsO);
+      wsO.getCell(1,1).value = 'Cenk Altınay';
+      wsO.getCell(1,1).font = XL_DEV_FONT;
+      let rr = xlTable(wsO, 2, 'ANALİZ — MALZEME TÜKETİMİ', ['Alan','Değer'], [
+        ['İş Numarası', state.proje.isNo || '—'],
+        ['Santral Adı', ahuAd],
+        ['Profil Serisi', V.seri],
+        ['İç Sac', state.ahus[y.ahuIndex] ? (state.ahus[y.ahuIndex].malzeme || '—') : '—'],
+        ['Modül Sayısı', state.modules.length],
+        ['Sac Plakası (mm)', f1.sacW + ' × ' + f1.sacH],
+        ['Profil Stok Boyu (mm)', stok.boy],
+        ['Testere Payı (mm)', stok.pay]
+      ]);
+      rr = xlTable(wsO, rr, 'TOPLAMLAR', ['Kalem','Adet','Birim','Not'], [
+        ['Sac plakası', f1.toplamPlaka, 'plaka', 'fire %'+f1.fire.toFixed(1)+' · '+f1.toplamKg.toFixed(1)+' kg'],
+        ['Profil', toplamBoy, 'boy', stok.boy+' mm boydan, '+planlar.length+' ayrı kesitte'],
+        ['Köşe plastiği (3 yönlü)', plastik.kose, 'adet', 'modül başına 8'],
+        ['Takviye plastiği', plastik.takviye, 'adet',
+          plastik.takviyePlastikVar ? plastik.takviyeParca+' takviye × 2 uç' : 'bu profilde kullanılmıyor'],
+        ['Vida', f1.delik.vida, 'adet', 'kapak panelleri — dış sac'],
+        ['Perçin', f1.delik.percin, 'adet', 'kapak panelleri — iç/dış aynı delik, bir kez']
+      ]);
+
+      // ---- SAC ----
+      const wsS = wb.addWorksheet('SAC');
+      wsS.columns = [{width:34},{width:12},{width:12},{width:10},{width:12},{width:12},{width:12}];
+      xlDevFooter(wsS);
+      let rs = xlTable(wsS, 1, 'SAC PLAKASI — NESTING SONUCU ('+f1.sacW+'×'+f1.sacH+' mm, parça boşluğu '+f1.gap+' mm)',
+        ['Grup','Kalınlık (mm)','Malzeme','Plaka','Parça','Ağırlık (kg)','Fire (%)'],
+        f1.gruplar.map(g=>[g.etiket, g.gaugeMm, g.malzeme, g.plaka, g.parca,
+          Number(g.kg.toFixed(1)), Number(g.fire.toFixed(1))]));
+      rs = xlTable(wsS, rs, 'TOPLAM', ['Kalem','Değer'], [
+        ['Plaka sayısı', f1.toplamPlaka],
+        ['Ağırlık (kg)', Number(f1.toplamKg.toFixed(1))],
+        ['Fire (%)', Number(f1.fire.toFixed(1))]
+      ]);
+      wsS.getCell(rs,1).value = 'Gruplama SAC KALINLIĞINA (+ malzemeye) göredir, kategoriye değil: aynı '
+        + 'kalınlıktaki panel, boğaz, damper, tava ve ara kat parçaları aynı plakaya yerleşir. '
+        + 'Paslanmaz cihazda yalnız İÇ sac paslanmazdır, DIŞ sac galvanizdir.';
+      wsS.getCell(rs,1).font = XL_DEV_FONT;
+
+      // ---- PROFİL ----
+      const wsP = wb.addWorksheet('PROFİL');
+      wsP.columns = [{width:38},{width:14},{width:12},{width:14},{width:14},{width:12}];
+      xlDevFooter(wsP);
+      let rp = xlTable(wsP, 1, 'PROFİL KESİM PLANI — '+stok.boy+' mm STOK BOYU (testere payı '+stok.pay+' mm)',
+        ['Profil Ailesi','Parça Adedi','Net (m)','Kullanılan Boy','Stok (m)','Fire (%)'],
+        planlar.map(x=>[x.aile.ad, x.plan.parcaAdedi, Number((x.plan.netMm/1000).toFixed(2)),
+          x.plan.boyAdedi, Number((x.plan.stokMm/1000).toFixed(2)), Number(x.plan.firePercent.toFixed(1))]));
+      rp = xlTable(wsP, rp, 'TOPLAM PROFİL', ['Kalem','Değer'], [['Kullanılan boy sayısı', toplamBoy]]);
+
+      // Aile başına parça dökümü ve boyların içine ne girdiği — atölye bu tabloyla keser.
+      planlar.forEach(x=>{
+        rp = xlTable(wsP, rp, x.aile.ad + ' — PARÇA DÖKÜMÜ', ['Boy (mm)','Adet','Toplam (m)'],
+          x.aile.kalemler.map(k=>[Math.round(k.boy), k.adet, Number((k.boy*k.adet/1000).toFixed(2))])
+            .concat(x.aile.eksik ? [['ÖLÇÜ EKSİK', x.aile.eksik, '—']] : []));
+        rp = xlTable(wsP, rp, x.aile.ad + ' — BOY BOY KESİM', ['Boy No','Parçalar (mm)','Kullanılan (mm)','Artık (mm)'],
+          x.plan.boylar.map((b,bi)=>[bi+1, b.parcalar.map(v=>Math.round(v)).join(' + '),
+            Math.round(b.kullanilan), Math.round(stok.boy - b.kullanilan)])
+            .concat(x.plan.sigmayan.length
+              ? [['⚠ SIĞMAYAN', x.plan.sigmayan.map(v=>Math.round(v)).join(' , '), 'stok boyundan uzun', '—']]
+              : []));
+      });
+
+      // ---- SARF ----
+      const wsF = wb.addWorksheet('SARF');
+      wsF.columns = [{width:34},{width:14},{width:14},{width:40}];
+      xlDevFooter(wsF);
+      let rf = xlTable(wsF, 1, 'PLASTİK', ['Kalem','Adet','Birim','Kaynak'], [
+        ['Köşe plastiği (3 yönlü)', plastik.kose, 'adet', state.modules.length+' modül × 8 köşe'],
+        ['Takviye plastiği', plastik.takviye, 'adet',
+          plastik.takviyePlastikVar
+            ? plastik.takviyeParca+' takviye parçası × 2 uç (profil payı '+V.takviyePlastik+' mm)'
+            : 'profilde takviye plastiği tanımlı değil']
+      ]);
+      const tipAd = {SABIT:'Sabit kapak', ACILIR:'Açılır kapak', BOGAZ:'Boğazlı kapak', UST:'Üst panel'};
+      const dTipler = f1.delik.tipler || {};
+      rf = xlTable(wsF, rf, 'VİDA VE PERÇİN — KAPAK PANELLERİ', ['Panel Tipi','Vida','Perçin'],
+        Object.keys(dTipler).sort().map(t=>[tipAd[t]||t, dTipler[t].vida, dTipler[t].percin])
+          .concat([['TOPLAM', f1.delik.vida, f1.delik.percin]]));
+      wsF.getCell(rf,1).value = 'Perçin İÇ sacdan, vida DIŞ sacdan sayılır. Perçin iki sacı birbirine '
+        + 'bağlar ve her iki sacda AYNI deliğe atılır (ölçüldü: iç ve dış perçin sayısı her varyantta '
+        + 'eşit), bu yüzden iki kez sayılmaz. Vida dış sacdan profile takılır; paslanmaz iç sacındaki '
+        + 'slot aynı vidanın geçiş yeridir. Sayı, gerçekten kesilen DXF parçasının üzerinden ölçülür.';
+      wsF.getCell(rf,1).font = XL_DEV_FONT;
+
+      const buf = await wb.xlsx.writeBuffer();
+      const blob = new Blob([buf], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      const parts = [];
+      if(state.proje.isNo) parts.push(sanitizeF(state.proje.isNo));
+      if(ahuAd) parts.push(sanitizeF(ahuAd));
+      parts.push('ANALIZ');
+      a.download = parts.join('_')+'.xlsx';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(()=>URL.revokeObjectURL(a.href), 5000);
+      indirilen++;
+    }
+    note.textContent = indirilen>1
+      ? '✓ '+indirilen+' santral için analiz dosyaları indirildi.'
+      : '✓ Analiz dosyası indirildi (ÖZET + SAC + PROFİL + SARF).';
+  }catch(err){
+    note.textContent = '⚠ Analiz hatası: ' + (err && err.message ? err.message : err);
+  }finally{
+    state.activeAhu = origActiveAhu;
+  }
+}
+
+document.getElementById('btn_analiz').addEventListener('click', exportAnalizExcel);
 
 // ---------- PROJE KAYDET / YÜKLE ----------
 // v4: panel.colSpan + face.anaSplitLevels (eski dosyaların alan göçü syncStructure'da yapılır)
@@ -15460,6 +15970,107 @@ renderEsanjorTable();
   }
 })();
 
+// ---------- ANALİZ MOTORU (f0'ın Analiz Excel'i için) ----------
+// f0 kendi Excel'ini üretir ama sac plakası sayısı ile kapaktaki delik adedi YALNIZ
+// burada bilinir (nesting ve bütün draw* ailesi f1'dedir). Bu yüzden f0 'analizIste'
+// yollar, burası hesaplayıp 'analizSonuc' geri döner — ikinci bir nesting/çizim
+// kopyası yazılmadı.
+//
+// DELİK SAYIMI ÖLÇÜLÜR, FORMÜLLE VERİLMEZ: parça atılabilir bir sayaç writer'a
+// çizilir ve delikler YARIÇAPA göre ayrılır (olcuAyakIzi'nin deseni). Katman adı
+// ölçüt DEĞİLDİR — 60 serisi galvaniz çizimleri katman vermiyor, hepsi '0'a düşüyor
+// (ölçüldü: dogrulama/_delik-yaricap.js).
+//   r 2.3 daire -> perçin        r 8.1 daire -> vida
+//   r 5.0 yay   -> paslanmaz iç sacın vida slotu (1 vida = 2 yay)
+//   r 1.0 yay   -> büküm köşesi, delik DEĞİL
+var ANALIZ_R_PERCIN = 2.3, ANALIZ_R_VIDA = 8.1, ANALIZ_R_SLOT = 5, ANALIZ_R_TOL = 0.05;
+
+function AnalizSayacW() { this.percin = 0; this.vida = 0; this.slotYay = 0; }
+AnalizSayacW.prototype.addLine = function () {};
+AnalizSayacW.prototype.addText = function () {};
+AnalizSayacW.prototype.addSpline = function () {};
+AnalizSayacW.prototype.addCircle = function (cx, cy, r) {
+  if (Math.abs(r - ANALIZ_R_PERCIN) < ANALIZ_R_TOL) this.percin++;
+  else if (Math.abs(r - ANALIZ_R_VIDA) < ANALIZ_R_TOL) this.vida++;
+};
+AnalizSayacW.prototype.addArc = function (cx, cy, r) {
+  if (Math.abs(r - ANALIZ_R_SLOT) < ANALIZ_R_TOL) this.slotYay++;
+};
+
+// PERÇİN İÇ sacdan, VİDA DIŞ sacdan sayılır (Cenk, 31.08.2026: &quot;iç dış eşleşip aynı
+// deliğe perçin atılıyor&quot;). Perçin iki sacı birbirine bağlar ve iki sacda AYNI deliğe
+// atılır — ölçüldü, iç ile dış perçin sayısı her varyantta eşit, iki kez sayılmaz.
+// Vida ise dış sacdan profile takılır; paslanmaz iç sacındaki slot aynı vidanın geçiş
+// yeridir, ayrı bir vida değildir (ölçüldü: 50P dış 12 vida = iç 24 yay / 2). Üst
+// panelde dış sac hiç yoktur, orada vida da yoktur.
+function analizPanelDelik(panelList) {
+  var toplam = { percin: 0, vida: 0 }, tipler = {};
+  var slotVida = 0;   // tutarlılık kontrolü: paslanmaz iç slot sayısı dış vidayla eşleşmeli
+  buildNestPieces(panelList || []).forEach(function (p) {
+    var sw = new AnalizSayacW();
+    drawNestPiece(sw, { piece: p, x: 0, y: 0, w: p.w, h: p.h, rotated: false });
+    var percin = (p.side === 'IC') ? sw.percin : 0;
+    var vida = (p.side === 'DIS') ? sw.vida : 0;
+    if (p.side === 'IC') slotVida += sw.slotYay / 2;
+    if (!percin && !vida) return;
+    var t = p.tip || 'DİĞER';
+    if (!tipler[t]) tipler[t] = { percin: 0, vida: 0 };
+    tipler[t].percin += percin; tipler[t].vida += vida;
+    toplam.percin += percin; toplam.vida += vida;
+  });
+  return { percin: toplam.percin, vida: toplam.vida, slotVida: slotVida, tipler: tipler };
+}
+
+// Analiz, kullanıcının kendi listelerine ve nesting modalının durumuna DOKUNMAZ:
+// altı liste ile nestState yedeklenir, payload kurulur, hesap yapılır ve finally
+// içinde hepsi aynen geri yüklenir. Render çağrılmaz, DOM'a yazılmaz.
+function analizHesapla(payload) {
+  payload = payload || {};
+  var yedek = {
+    panels: panels.slice(), bogazList: bogazList.slice(), tavaList: tavaList.slice(),
+    damperList: damperList.slice(), arakatList: arakatList.slice(), esanjorList: esanjorList.slice()
+  };
+  var nestYedek = nestState;
+  var listeler = { panels: panels, bogazList: bogazList, tavaList: tavaList,
+                   damperList: damperList, arakatList: arakatList, esanjorList: esanjorList };
+  try {
+    Object.keys(listeler).forEach(function (k) {
+      listeler[k].length = 0;
+      (payload[k] || []).forEach(function (x) { listeler[k].push(x); });
+    });
+    var st = nestComputeAll();
+    var gruplar = st.groups.map(function (g) {
+      return {
+        etiket: g.label, malzeme: g.malzeme, gaugeMm: g.report.gaugeMm,
+        plaka: g.report.sheetCount, sacW: g.report.sheetW, sacH: g.report.sheetH,
+        kg: g.report.totalKg, kgPlaka: g.report.kgPerSheet,
+        fire: g.report.firePercent, parca: g.pieces.length
+      };
+    });
+    return {
+      gruplar: gruplar, sacW: st.sheetW, sacH: st.sheetH, gap: st.gap,
+      toplamPlaka: st.aggregate.totalSheetCount, toplamKg: st.aggregate.totalKg,
+      fire: st.aggregate.firePercent,
+      delik: analizPanelDelik(payload.panels || [])
+    };
+  } finally {
+    Object.keys(listeler).forEach(function (k) {
+      listeler[k].length = 0;
+      yedek[k].forEach(function (x) { listeler[k].push(x); });
+    });
+    nestState = nestYedek;
+  }
+}
+
+window.addEventListener('message', function (e) {
+  if (!e.data || e.data.type !== 'analizIste') return;
+  var sonuc = null, hata = null;
+  try { sonuc = analizHesapla(e.data.payload); } catch (ex) { hata = ex && ex.message ? ex.message : String(ex); }
+  if (window.parent !== window) {
+    window.parent.postMessage({ type: 'analizSonuc', id: e.data.id, sonuc: sonuc, hata: hata }, '*');
+  }
+});
+
 // postMessage üzerinden (AHU Studio wrapper içinden)
 window.addEventListener('message', function(e) {
   if (!e.data || e.data.type !== 'dxfInject') return;
@@ -15554,7 +16165,9 @@ const YOL_HARITASI = [
   {n:14, t:'Rotor sacı', durum:'plan', d:''},
   {n:15, t:'Karbon filtre sacı', durum:'plan', d:''},
   {n:16, t:'Otomatik kapak yerleşimi (kaba maliyet)', durum:'tamam', tarih:'27.08.2026',
-   d:'Tek tuşla aktif AHU\'nun bütün yüzleri, kapaklar sac ölçüsüne sığacak en az sayıda parçaya bölünür; ikinci tuş kapak aralarındaki takviyeleri açıp kapatır ve ölçüleri yeniden dağıtır.'}
+   d:'Tek tuşla aktif AHU\'nun bütün yüzleri, kapaklar sac ölçüsüne sığacak en az sayıda parçaya bölünür; ikinci tuş kapak aralarındaki takviyeleri açıp kapatır ve ölçüleri yeniden dağıtır.'},
+  {n:17, t:'Malzeme analizi (santral bazlı Excel)', durum:'tamam', tarih:'31.08.2026',
+   d:'Ne satın alınacağı: nesting sonrası kaç mm sacdan kaç plaka, kesim planı sonrası kaç boy profil, kaç köşe ve kaç takviye plastiği, kapak deliklerinden kaç vida ve kaç perçin.'}
 ];
 const ROZET = {plan:['rz-plan','PLANLANDI'], suruyor:['rz-suruyor','SÜRÜYOR'], tamam:['rz-tamam','TAMAM']};
 function yolKacar(){
@@ -15585,6 +16198,15 @@ window.addEventListener('message',e=>{
   if(e.data&&e.data.type==='dxfExport'){
     show(1);
     setTimeout(()=>document.getElementById('f1').contentWindow.postMessage({type:'dxfInject',payload:e.data.payload},'*'),300);
+  }
+  // ANALİZ — f0 hesabı ister, f1 yanıtlar. Köprü burada İKİ YÖNLÜDÜR ve dxfExport'tan
+  // farklı olarak SEKME DEĞİŞTİRMEZ: kullanıcı Kapak Hesabı'nda kalır, hesap arka planda
+  // yapılır. Yük olduğu gibi iletilir (id ile eşlenir, birden çok AHU sırayla sorulur).
+  if(e.data&&e.data.type==='analizIste'){
+    document.getElementById('f1').contentWindow.postMessage(e.data,'*');
+  }
+  if(e.data&&e.data.type==='analizSonuc'){
+    document.getElementById('f0').contentWindow.postMessage(e.data,'*');
   }
 });
 </script>
