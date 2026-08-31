@@ -5472,6 +5472,18 @@ function profilKesimPlani(kalemler, stokBoy, pay){
   };
 }
 
+// Türkçe ek: 50'lik / 60'lık (ünlü uyumu). Özel profil serisi tanımlanabildiği için
+// genel bir kural yazmak yerine bilinen ikisi tabloda durur, gerisi 'Seri N' olur.
+const SERI_EK = {'50': '50\'lik', '60': '60\'lık'};
+function seriAdi(seri){ return SERI_EK[String(seri)] || ('Seri ' + seri); }
+
+// Sac kaleminin satın alma adı: '0,8 mm Galvaniz', '1 mm Paslanmaz'. Ondalık ayraç
+// Türkçe virgüldür — dosyanın geri kalanı gibi.
+function sacKalemAdi(g){
+  return String(g.gaugeMm).replace('.', ',') + ' mm '
+    + (String(g.malzeme).indexOf('PAS') === 0 ? 'Paslanmaz' : 'Galvaniz');
+}
+
 // Aktif AHU'nun profil kalemleri, AİLE bazında. Aileler ayrı stoktan kesilir: kasa
 // (köşe) profili, takviye profili ve ara katın kare profili farklı KESİTLERDİR — tek
 // kesim planına giremezler. Ara kat kendi içinde de profile göre ayrılır (30×30 / 30×60).
@@ -5480,13 +5492,13 @@ function analizProfilAileleri(){
   const aileler = [];
   const kp = koseProfilKalemleri();
   if(kp.kalemler.length || kp.eksik)
-    aileler.push({ad:'Köşe (Kasa) Profili — Seri '+V.seri, kalemler:kp.kalemler, eksik:kp.eksik});
+    aileler.push({ad:seriAdi(V.seri)+' Köşe (Kasa) Profili', kalemler:kp.kalemler, eksik:kp.eksik});
 
   const {rows} = collectTakviyeRows();
   const takRows = rows.filter(x=>!x.arakat);
   const tg = groupTakviyeSiparis(takRows);
   if(tg.groups.length || tg.skipped)
-    aileler.push({ad:'Takviye Profili — Seri '+V.seri,
+    aileler.push({ad:seriAdi(V.seri)+' Takviye Profili',
       kalemler: tg.groups.map(g=>({boy:g.boy, adet:g.adet})), eksik: tg.skipped});
 
   const akRows = rows.filter(x=>x.arakat);
@@ -8952,17 +8964,41 @@ async function exportAnalizExcel(){
         ['Modül Sayısı', state.modules.length],
         ['Sac Plakası (mm)', f1.sacW + ' × ' + f1.sacH],
         ['Profil Stok Boyu (mm)', stok.boy],
-        ['Testere Payı (mm)', stok.pay]
+        ['Testere Payı (mm)', stok.pay],
+        ['Toplam Sac Plakası', f1.toplamPlaka],
+        ['Toplam Profil Boyu', toplamBoy],
+        ['Toplam Sac Ağırlığı (kg)', Number(f1.toplamKg.toFixed(1))]
       ]);
-      rr = xlTable(wsO, rr, 'TOPLAMLAR', ['Kalem','Adet','Birim','Not'], [
-        ['Sac plakası', f1.toplamPlaka, 'plaka', 'fire %'+f1.fire.toFixed(1)+' · '+f1.toplamKg.toFixed(1)+' kg'],
-        ['Profil', toplamBoy, 'boy', stok.boy+' mm boydan, '+planlar.length+' ayrı kesitte'],
-        ['Köşe plastiği (3 yönlü)', plastik.kose, 'adet', 'modül başına 8'],
-        ['Takviye plastiği', plastik.takviye, 'adet',
-          plastik.takviyePlastikVar ? plastik.takviyeParca+' takviye × 2 uç' : 'bu profilde kullanılmıyor'],
-        ['Vida', f1.delik.vida, 'adet', 'kapak panelleri — dış sac'],
-        ['Perçin', f1.delik.percin, 'adet', 'kapak panelleri — iç/dış aynı delik, bir kez']
-      ]);
+      // SATIN ALMA KALEMLERİ — Cenk'in 31.08.2026'da verdiği liste. Tek bir 'toplam
+      // profil' / 'toplam sac' satırı yerine HER KALEM AYRI: sipariş bu tablodan verilir,
+      // ve farklı kesitten profil ile farklı kalınlıktan sac tek kalemde toplanamaz.
+      const kalemler = [];
+      // 1-2) Profil aileleri — her biri kendi stok boyundan kesilir
+      planlar.forEach(function(x){
+        kalemler.push([x.aile.ad, x.plan.boyAdedi, 'boy',
+          x.plan.parcaAdedi+' parça · '+(x.plan.netMm/1000).toFixed(1)+' m net · fire %'
+            + x.plan.firePercent.toFixed(1)
+            + (x.aile.eksik ? ' · ⚠ '+x.aile.eksik+' parça ölçüsü eksik' : '')]);
+      });
+      // 3,5,6,7) Sac plakaları — kalınlık + malzeme bazında, kalından inceye
+      f1.gruplar.forEach(function(g){
+        const icerik = String(g.etiket).split(' — ')[1] || '';
+        kalemler.push([sacKalemAdi(g), g.plaka, 'plaka',
+          f1.sacW+'×'+f1.sacH+' mm · '+g.kg.toFixed(1)+' kg · fire %'+g.fire.toFixed(1)
+            + (icerik ? ' · '+icerik : '')]);
+      });
+      // 4) İzolasyon — kapağın kesim ölçüsünden, kalınlık profil serisini izler
+      (f1.izolasyon||[]).forEach(function(iz){
+        kalemler.push(['İzolasyon (Kayayünü '+iz.kalinlikMm+' mm)', Number(iz.m2.toFixed(2)), 'm²',
+          'kapakların kesim ölçüsünden (B×K)']);
+      });
+      // Sarf
+      kalemler.push(['Köşe plastiği (3 yönlü)', plastik.kose, 'adet', state.modules.length+' modül × 8 köşe']);
+      kalemler.push(['Takviye plastiği', plastik.takviye, 'adet',
+        plastik.takviyePlastikVar ? plastik.takviyeParca+' takviye × 2 uç' : 'bu profilde kullanılmıyor']);
+      kalemler.push(['Vida', f1.delik.vida, 'adet', 'kapak panelleri — dış sac']);
+      kalemler.push(['Perçin', f1.delik.percin, 'adet', 'kapak panelleri — iç/dış aynı delik, bir kez']);
+      rr = xlTable(wsO, rr, 'SATIN ALMA KALEMLERİ', ['Kalem','Miktar','Birim','Not'], kalemler);
 
       // ---- SAC ----
       const wsS = wb.addWorksheet('SAC');
@@ -13396,7 +13432,8 @@ function removePanel(index) {
 // Kalinlik kodunu okunabilir etikete cevirir ('50P' -> &quot;50'lik Pas.&quot;)
 // Cizim modulu aileleri kalinlik kodu olarak kendi adlarini kullanir (50/60 gibi bir
 // profil serisi degiller) — nesting gruplamasi ve sac kalinligi haritasi bu kodla anilir.
-var AILE_ETIKET = { 'BOGAZ': 'Boğaz', 'DAMPER': 'Damper', 'TAVA': 'Tava', 'ARAKAT': 'Ara Kat' };
+var AILE_ETIKET = { 'BOGAZ': 'Boğaz', 'DAMPER': 'Damper', 'TAVA': 'Tava', 'ARAKAT': 'Ara Kat',
+                    'ESANJOR': 'Eşanjör', 'ESANJOR15': 'Eşanjör 1,5' };
 function kalinlikLabel(k) {
   k = String(k || '');
   if (AILE_ETIKET[k]) return AILE_ETIKET[k];
@@ -14130,11 +14167,16 @@ var SAC_GAUGE_DEFAULT = 0.8;
 // CIZIM ayrimidir (profil serisi + paslanmaz varyanti); ic ve dis sac dahil hepsi
 // 0.8 mm'dir. Bu yuzden nesting tarafinda dordu birden tek 'PANEL' kodundan beslenir —
 // dort ayri giris birakmak, ayni fiziksel saci dort yerden farkli girmeye davet ederdi.
+// Cenk, 31.08.2026: DAMPER 1.5 mm galvaniz, TAVA 1 mm PASLANMAZ sacdan yapılır
+// (tavanın malzemesi cihazın iç sacından bağımsızdır — bkz. nestMalzemeOf).
+// EŞANJÖR bu turda nesting'e girdi: işaretli ölçüler (ESANJOR_15MM) 1.5 mm sacdan,
+// geri kalanı ve düz parçalar eşanjörün kendi kalınlığından.
 var SAC_GAUGE_VARSAYILAN = {
-  'PANEL': 0.8, 'BOGAZ': 1.0, 'DAMPER': 1.0, 'TAVA': 1.0, 'ARAKAT': 0.8
+  'PANEL': 0.8, 'BOGAZ': 1.0, 'DAMPER': 1.5, 'TAVA': 1.0, 'ARAKAT': 0.8,
+  'ESANJOR': 1.0, 'ESANJOR15': 1.5
 };
 // Nesting'e giren tum kalinlik kodlari — modal girisleri ve yukleme/baglama burayi gezer.
-var SAC_GAUGE_KODLAR = ['PANEL', 'BOGAZ', 'DAMPER', 'TAVA', 'ARAKAT'];
+var SAC_GAUGE_KODLAR = ['PANEL', 'BOGAZ', 'DAMPER', 'TAVA', 'ARAKAT', 'ESANJOR', 'ESANJOR15'];
 
 // Bir parcanin KALINLIK kodu. Cizim modulu parcalari kendi aile kodunu tasir; kapak
 // panelleri (kalinlik '50'/'60'/'50P'/'60P') tek 'PANEL' koduna duser.
@@ -14383,6 +14425,25 @@ function buildModulNestPieces() {
     }
   });
 
+  // EŞANJÖR — kayıt başına 4 eşanjör sacı (O1..O4) + 4 düz parça. İşaretli ölçüler
+  // 1.5 mm sacdan çıkar (DXF'te de ayrı dosyaya gider), geri kalanı ve düz parçalar
+  // eşanjörün kendi kalınlığından. Ayak izi burada da ÖLÇÜLÜR — tek doğruluk kaynağı
+  // çizim kodudur. Modül başına en fazla bir eşanjör vardır, kayıtta adet yoktur.
+  esanjorList.forEach(function (e) {
+    var Os = [e.O1, e.O2, e.O3, e.O4];
+    var bayrak = [!!e.o1_15, !!e.o2_15, !!e.o3_15, !!e.o4_15];
+    Os.forEach(function (O, i) {
+      if (!(Number(O) > 0)) return;
+      pieces.push(nestParca(pid++, 'ESANJOR', bayrak[i] ? 'ESANJOR15' : 'ESANJOR',
+        'EŞANJÖR O' + (i + 1) + ' ' + O,
+        function (w) { drawEsanjorSac(w, 0, 0, e.kalinlik, e.CI, O, e.kod); }));
+    });
+    for (var j = 0; j < 4; j++) {
+      pieces.push(nestParca(pid++, 'ESANJOR', 'ESANJOR', 'EŞANJÖR DÜZ ' + e.CI,
+        function (w) { drawEsanjorDuz(w, 0, 0, e.kalinlik, e.CI, e.kod); }));
+    }
+  });
+
   return pieces;
 }
 
@@ -14399,6 +14460,10 @@ function buildModulNestPieces() {
 // olduğu gibi durur, drawNestPiece hâlâ paslanmaz çizim yolunu (drawDisSabitPas vb.)
 // kullanır ve DXF dosya üretimi/adlandırması hiç etkilenmez.
 function nestMalzemeOf(pc) {
+  // TAVA paslanmaz 1 mm sacdan yapılır (Cenk, 31.08.2026) — cihazın iç sacı galvaniz
+  // olsa bile. Bu YALNIZCA nesting gruplamasıdır: parçanın çizimi, DXF'i ve dosya adı
+  // değişmez, yalnız hangi plakaya yerleşeceği ve yoğunluğu (7.93) değişir.
+  if (pc.aile === 'TAVA') return 'PAS';
   if (!pc.isPas) return 'GALV';
   return pc.side === 'DIS' ? 'GALV' : 'PAS';
 }
@@ -16021,6 +16086,29 @@ function analizPanelDelik(panelList) {
   return { percin: toplam.percin, vida: toplam.vida, slotVida: slotVida, tipler: tipler };
 }
 
+// İZOLASYON — kapak arası kayayünü. Alan kapağın KESİM ölçüsünden (B×K) toplanır,
+// iç sacın açılımından değil: kayayünü levhası büküm paylarının içine girmez
+// (Cenk, 31.08.2026). Kalınlık PROFİL SERİSİNİ izler — 50'lik cihazda 50 mm, 60'lık
+// cihazda 60 mm; panelin kendi kalınlığı zaten odur.
+//
+// Yalnız KAPAK panelleri sayılır. Boğaz/damper/tava tek sac parçalardır, ara katın
+// profili de 30 mm'dir — hiçbirinin arasına 50 mm kayayünü girmez.
+function analizIzolasyon(panelList) {
+  var mm2 = {};   // kalınlık (mm) → alan (mm²)
+  (panelList || []).forEach(function (p) {
+    var seri = String(p.kalinlik).replace('P', '');
+    var kal = Number(seri);
+    if (!(kal > 0)) return;
+    var B = Number(p.B) || 0, K = Number(p.K) || 0;
+    if (!(B > 0 && K > 0)) return;
+    var adet = Math.max(1, Number(p.adet) || 1);
+    mm2[kal] = (mm2[kal] || 0) + B * K * adet;
+  });
+  return Object.keys(mm2).sort(function (a, b) { return a - b; }).map(function (k) {
+    return { kalinlikMm: Number(k), m2: mm2[k] / 1000000 };
+  });
+}
+
 // Analiz, kullanıcının kendi listelerine ve nesting modalının durumuna DOKUNMAZ:
 // altı liste ile nestState yedeklenir, payload kurulur, hesap yapılır ve finally
 // içinde hepsi aynen geri yüklenir. Render çağrılmaz, DOM'a yazılmaz.
@@ -16051,7 +16139,8 @@ function analizHesapla(payload) {
       gruplar: gruplar, sacW: st.sheetW, sacH: st.sheetH, gap: st.gap,
       toplamPlaka: st.aggregate.totalSheetCount, toplamKg: st.aggregate.totalKg,
       fire: st.aggregate.firePercent,
-      delik: analizPanelDelik(payload.panels || [])
+      delik: analizPanelDelik(payload.panels || []),
+      izolasyon: analizIzolasyon(payload.panels || [])
     };
   } finally {
     Object.keys(listeler).forEach(function (k) {
@@ -16099,6 +16188,8 @@ setTimeout(function() {
         <div><label>Damper (mm)</label><input type=&quot;number&quot; step=&quot;0.1&quot; min=&quot;0.1&quot; id=&quot;nest-gauge-DAMPER&quot;></div>
         <div><label>Tava (mm)</label><input type=&quot;number&quot; step=&quot;0.1&quot; min=&quot;0.1&quot; id=&quot;nest-gauge-TAVA&quot;></div>
         <div><label>Ara Kat (mm)</label><input type=&quot;number&quot; step=&quot;0.1&quot; min=&quot;0.1&quot; id=&quot;nest-gauge-ARAKAT&quot;></div>
+        <div><label>Eşanjör (mm)</label><input type=&quot;number&quot; step=&quot;0.1&quot; min=&quot;0.1&quot; id=&quot;nest-gauge-ESANJOR&quot;></div>
+        <div><label>Eşanjör — 1,5 mm işaretli (mm)</label><input type=&quot;number&quot; step=&quot;0.1&quot; min=&quot;0.1&quot; id=&quot;nest-gauge-ESANJOR15&quot;></div>
         <div><label>Sac Genişliği (mm)</label><input type=&quot;number&quot; id=&quot;nest-sheet-w&quot; value=&quot;1500&quot;></div>
         <div><label>Sac Yüksekliği (mm)</label><input type=&quot;number&quot; id=&quot;nest-sheet-h&quot; value=&quot;3000&quot;></div>
         <div><label>Parça Boşluğu (mm)</label><input type=&quot;number&quot; step=&quot;0.5&quot; id=&quot;nest-gap&quot; value=&quot;3&quot;></div>
