@@ -384,6 +384,10 @@ iframe.active{display:block;}
       <div><label>İş Numarası</label><input type=&quot;text&quot; id=&quot;prj_isno&quot; placeholder=&quot;örn. 2026-041&quot;></div>
       <div><label>Santral Adı</label><input type=&quot;text&quot; id=&quot;prj_ad&quot; placeholder=&quot;örn. AHU-3 Mutfak&quot;></div>
     </div>
+    <div class=&quot;grid&quot; style=&quot;grid-template-columns:110px 1fr;margin-top:8px;align-items:end;&quot;>
+      <div><label>Üretim Adedi</label><input type=&quot;number&quot; id=&quot;prj_adet&quot; min=&quot;1&quot; max=&quot;999&quot; step=&quot;1&quot; value=&quot;1&quot;></div>
+      <div class=&quot;note&quot; id=&quot;prj_adet_not&quot; style=&quot;margin:0;&quot;></div>
+    </div>
     <div class=&quot;grid&quot; style=&quot;grid-template-columns:1fr 1fr;margin-top:8px;&quot;>
       <div>
         <label>İç Sac <span style=&quot;color:var(--bad);font-size:12px;&quot;>* zorunlu</span></label>
@@ -816,6 +820,29 @@ function araKatOf(m){
 function newModule(){ return { L:0, H:0, W:0, pos:{x:0,y:0,z:0}, faces: newFaceSet(), araKat: newAraKat(), esanjor: newEsanjor() }; }
 function newAhu(n){ return { ad:'AHU-'+(n||1), malzeme:'', active:0, modules:[newModule()], varsayimlar:{seri:'', tolW:3, tolH:3} }; }
 
+// ---------- ÜRETİM ADEDİ (2026-08-31) ----------
+// Aynı santralden birden fazla cihaz üretilebilir (Cenk, 31.08.2026). Adet SANTRAL
+// bazındadır — bütün AHU o kadar kez üretilir, modül bazında bir sayı yoktur.
+//
+// Alan YALNIZ 1'den büyükken var olur (panel.yon deseni): tek cihazlık projede JSON
+// bugünküyle birebir aynı kalır ve projectData() -> JSON -> applyProjectData() gidiş
+// dönüşü sabit nokta olmaya devam eder.
+const ADET_MAX = 999;
+function ahuAdet(a){
+  const n = Math.round(Number(a && a.adet));
+  return (n > 1 && n <= ADET_MAX) ? n : (n > ADET_MAX ? ADET_MAX : 1);
+}
+function aktifAdet(){ return ahuAdet(state.ahus[state.activeAhu]); }
+function ahuAdetYaz(a, v){
+  if(!a) return 1;
+  const n = ahuAdet({ adet: v });
+  if(n > 1) a.adet = n; else delete a.adet;
+  return n;
+}
+// applyProjectData sonunda çağrılır: geçersiz/1 değerler DÜŞER, yoksa gidiş-dönüş
+// sabit nokta olmazdı (araKatNormalize / esanjorNormalize ile aynı gerekçe).
+function adetNormalize(){ state.ahus.forEach(a=>ahuAdetYaz(a, a.adet)); }
+
 const GLASS_R_MM = 75; // gözetleme camı: sabit Ø150 mm (katalog değeri)
 
 const state = {
@@ -1195,8 +1222,8 @@ const FACE_CODE = ['ÖN','AR','ÜS','AL','SO','SA'];
 // Profil deposu: 50 ve 60 gömülü; özel profiller eklenebilir ve tarayıcıda kalıcıdır.
 // takviyePlastik = 0 → takviye plastiği kullanılmaz (boy düşümü ve görsel başlıklar kalkar).
 const PROFILES = {
-  '50': { kenar:50, takviye:40, kose:70.5, takviyePlastik:22, acilirEk:1, builtin:true },
-  '60': { kenar:60, takviye:60, kose:80, takviyePlastik:20, acilirEk:1, builtin:true }
+  '50': { kenar:50, takviye:40, kose:70.5, takviyePlastik:22, acilirEk:2, builtin:true },
+  '60': { kenar:60, takviye:60, kose:80, takviyePlastik:20, acilirEk:2, builtin:true }
 };
 try{
   const cp = JSON.parse(localStorage.getItem('kh_profiles')||'{}');
@@ -1205,10 +1232,21 @@ try{
     else PROFILES[k] = {...v, builtin:false};         // özel profil: tamamen geri yüklenir
   });
 }catch(_){}
+// 01.09.2026 — açılır ek payı 1 → 2 mm (Cenk). kh_profiles GÖMÜLÜ profilin üzerine de
+// yazdığı için eski varsayılanı (1) dirilterek bu değişikliği görünmez kılıyordu; bir kez
+// düzeltilir. Özel profiller elle girilmiş değerdir, onlara dokunulmaz.
+try{
+  if(localStorage.getItem('kh_acilirek2')!=='1'){
+    let acDegisti = false;
+    Object.values(PROFILES).forEach(p=>{ if(p.builtin && p.acilirEk===1){ p.acilirEk = 2; acDegisti = true; } });
+    if(acDegisti) saveCustomProfiles();
+    localStorage.setItem('kh_acilirek2','1');
+  }
+}catch(_){}
 function saveCustomProfiles(){
   try{
     const cp = {};
-    Object.entries(PROFILES).forEach(([k,v])=>{ cp[k] = {kenar:v.kenar, takviye:v.takviye, kose:v.kose, takviyePlastik:v.takviyePlastik, acilirEk: v.acilirEk!=null?v.acilirEk:1}; });
+    Object.entries(PROFILES).forEach(([k,v])=>{ cp[k] = {kenar:v.kenar, takviye:v.takviye, kose:v.kose, takviyePlastik:v.takviyePlastik, acilirEk: v.acilirEk!=null?v.acilirEk:2}; });
     localStorage.setItem('kh_profiles', JSON.stringify(cp));
   }catch(_){}
 }
@@ -1222,7 +1260,7 @@ function getV(){
     takviye: p.takviye,
     kose: p.kose,
     takviyePlastik: p.takviyePlastik,
-    acilirEk: p.acilirEk!=null ? p.acilirEk : 1,
+    acilirEk: p.acilirEk!=null ? p.acilirEk : 2,
     tolW: state.varsayimlar.tolW,
     tolH: state.varsayimlar.tolH
   };
@@ -2121,7 +2159,7 @@ function gercekBolNormal(segs, w, across, limit){
 // Kapak segmenti ham genişliğinin YANINDA bir de 'hedef' taşır: düşüm hedefi bozmaz,
 // yani 500 mm kapak 500 mm kalır. Çizimde kapak çerçeveye dayalı başladığı için
 // (x = kenar) uçta kalan kenar payı kapağa katılır — o pay kapak değil çerçevedir.
-function gercekSatirSegment(parcalar, across, V, uyari, secici, limit){
+function gercekSatirSegment(parcalar, across, V, uyari, secici, limit, kapakSec){
   const segs = [];
   // Uçtaki segmentten çerçeve payı da düşer, ortadakinden düşmez — eşik ona göre.
   const esikUc = V.kenar + GERCEK_MIN_KAPAK, esikOrta = GERCEK_MIN_KAPAK;
@@ -2142,9 +2180,45 @@ function gercekSatirSegment(parcalar, across, V, uyari, secici, limit){
     const boy = Number(p.boy)||0;
     if(boy <= 0) return;
     const k = sec(p);
+    // BIR PARCADA BIRDEN COK KAPAK olabilir (Cenk, 31.08.2026 — KLM-01 M1'de iki acilir,
+    // DES M1'lerde uc). 'kapakSec' bu SATIRA dusen kapaklari verir; her biri kendi
+    // merkezinde ayri bir sabit bolum olur. Batarya kurali tek kapaklidir, oraya girmez.
+    let odak = null;
+    if(kapakSec && k && k.w > 0 && !p.batarya){
+      const kl = kapakSec(p);
+      if(kl && kl.length > 1){
+        odak = kl.map(function(d){ return (Number(d.x)||0) + (Number(d.w)||0)/2; })
+                 .sort(function(a,b){ return a-b; });
+        if(odak.length * k.w > boy + 0.5){
+          uyari.push(p.islev + ' bölmesinde ' + odak.length + ' kapak var ama ' + boy
+            + ' mm yetmiyor — ilki kondu');
+          odak = null;
+        }
+      }
+    }
+    if(odak){
+      let imlec = 0;
+      odak.forEach(function(mz, i){
+        let lo = Math.round(mz - k.w/2);
+        if(lo < imlec) lo = imlec;
+        const kalanKapak = (odak.length - 1 - i) * k.w;
+        if(lo > boy - k.w - kalanKapak) lo = boy - k.w - kalanKapak;
+        let ham = k.w;
+        bos += lo - imlec;
+        if(bos <= (segs.length ? esikOrta : esikUc)){ ham += bos; bos = 0; }
+        bosBosalt();
+        segs.push({ w: ham, hedef: k.w, tip: k.tip, sabit: true });
+        imlec = lo + k.w;
+      });
+      bos = boy - imlec;
+      if(bos > 0 && bos <= esik){ segs[segs.length-1].w += bos; bos = 0; }
+      return;
+    }
     if(k && k.w > 0 && k.w <= boy){
       let merkez;
       if(p.batarya) merkez = (Number(p.batarya.lo)||0) + (Number(p.batarya.kalinlik)||0)/2;
+      else if(kapakSec && (kapakSec(p)||[]).length)
+        merkez = (Number(kapakSec(p)[0].x)||0) + (Number(kapakSec(p)[0].w)||0)/2;
       else if(p.kapak) merkez = (Number(p.kapak.x)||0) + (Number(p.kapak.w)||0)/2;
       else merkez = boy/2;
       let lo = Math.round(merkez - k.w/2);
@@ -2193,7 +2267,9 @@ function gercekSinirBirlestir(satirlar, tak){
   const kume = [];
   ham.forEach(function(h){
     const son = kume[kume.length-1];
-    if(son && Math.abs(h.x - son.x) < tak && !son.katlar[h.ri]){
+    // '<=' bilinçli: iki satırın sınırı TAM bir profil genişliği kadar ayrıysa bunlar
+    // aynı dikmenin iki kenarıdır (KLM-01 M1: 450 ile 500, arada 50'lik profil).
+    if(son && Math.abs(h.x - son.x) <= tak + 0.5 && !son.katlar[h.ri]){
       if(h.sabit && !son.sabit) son.x = h.x;
       son.sabit = son.sabit || h.sabit;
       son.katlar[h.ri] = true;
@@ -2211,6 +2287,23 @@ function gercekSinirBirlestir(satirlar, tak){
   return { sinir: kume.map(function(kk){ return kk.x; }), harita: harita };
 }
 
+// KAT AYIRICININ YERİ — kuralın TEK kopyası (Cenk, 31.08.2026):
+//   «komşudaki üst köşe profilinin İÇ YÜZÜ ile kat ayırıcı yatay takviyenin ALT YÜZÜ
+//    aynı hizada olsun» — böylece iki katlı modülün ALT KAT kapağı, yanındaki alt kat
+//    modülün kapağıyla BİREBİR aynı çıkar.
+// Komşunun üst köşe profilinin iç yüzü altKat - kenar'dadır; alt satırın açıklığı da
+// oradan çerçevenin üst yüzüne kadardır:  altKat - 2*kenar.
+// ÖLÇÜLDÜ: bu kural uygulanmadan önce havuzdaki 47 iki katlı modülün 47'sinde de alt kat
+// kapağı komşusundan (kenar - takviye/2) kadar sapıyordu; ÖN ile ARKA da 14 modülde
+// birbirini tutmuyordu (ARKA satırları orantıyla bölüyordu, ÖN kat çizgisine ortalıyordu).
+// 'kull' = iki satırın PAYLAŞTIĞI açıklık (iç açıklık - kat ayırıcı takviyesi).
+function gercekAltSatir(altKat, V, kull){
+  let a = Math.round(altKat - 2*V.kenar);
+  if(a < 1) a = 1;
+  if(a > kull-1) a = kull-1;
+  return a;
+}
+
 // Ham bölüm genişliklerinden hedef toplama iner. KAPAK bölümü hedefine sabitlenir
 // (500 mm kapak 500 mm kalır); çerçeve ve takviye payı kapak dışı bölümlerden
 // ham genişlikleriyle orantılı alınır. Kapak dışı alan yetmezse kapaklar da kısalır ve
@@ -2223,6 +2316,19 @@ function gercekDusur(ham, hedefler, toplamHedef, uyari){
   let serbest = hedefler.map(function(h){ return h == null; });
   let havuz = ham.reduce(function(a,b,i){ return a + (serbest[i] ? b : 0); }, 0);
   let kalanD = D - sabitDus;
+  // BÜTÜN bölümler sabit ve hedeflerin toplamı sığıyorsa cevap HEDEFLERİN TA KENDİSİDİR;
+  // artan pay baştan birer birer dağıtılır. Eskiden bu durumda 'kapak dışı alan yetersiz'
+  // denip bütün kapaklar orantıyla kısalıyordu — KLM-01 M1'de 950 mm'lik bölmede iki
+  // 400'lük açılır var (hedef 800, kullanılabilir 810) ve ikisi de 380/422'ye düşüyordu.
+  if(havuz <= 0 && hedefler.every(function(h){ return h != null; })){
+    const hT = hedefler.reduce(function(a,b){ return a+b; }, 0);
+    if(hT <= toplamHedef + 0.5){
+      const out = hedefler.map(function(h){ return Math.max(1, Math.round(h)); });
+      let f2 = Math.round(toplamHedef) - out.reduce(function(a,b){ return a+b; }, 0);
+      for(let i=0; f2 > 0 && out.length; i = (i+1) % out.length){ out[i]++; f2--; }
+      return out;
+    }
+  }
   if(kalanD < 0 || havuz < kalanD + serbest.filter(Boolean).length){
     uyari.push('kapak dışı alan yetersiz — kapak ölçüleri de kısaldı');
     serbest = ham.map(function(){ return true; });
@@ -2268,25 +2374,73 @@ function gercekOnYuz(uyari){
   if(icAcross <= 1) return null;
 
   // Tam yükseklik hücresinde parçalar seri değil, ALT ve ÜST katta ayrı dizilir.
-  const ikiKat = ps.some(function(p){ return p.kat==='alt'; })
-              && ps.some(function(p){ return p.kat==='üst'; });
+  const katliParca = ps.some(function(p){ return p.kat==='alt'; })
+                  && ps.some(function(p){ return p.kat==='üst'; });
+  // TAŞAN GÖVDE (Cenk, 31.08.2026): tek katlı çizimde komşularından yüksek duran modül
+  // (DES ailesindeki plakalı eşanjör) de ASLINDA iki katlıdır — ölçü zinciri onu tek hücre
+  // gösterir ama gövdesi kat yüksekliğini aşar. Parçaları 'tek' kaldığı için kat filtresi
+  // iş görmez: her iki satır da parçaların TAMAMINI görür ('tam' gibi).
+  const altKatH = Number(bilgi.altKat)||0;
+  const tasan = !katliParca && altKatH > 0 && altKatH < H;
+  const ikiKat = katliParca || tasan;
   const satirlar = [];
   if(ikiKat){
     const icColAcross = icAcross - V.takviye;
     if(icColAcross <= 2) return null;
-    let a = Math.round((Number(bilgi.altKat)||0) - V.kenar - V.takviye/2);
-    if(a < 1) a = 1;
-    if(a > icColAcross-1) a = icColAcross-1;
+    const a = gercekAltSatir(altKatH, V, icColAcross);
     // panels[] dizisi yüzün ÜSTÜNDEN ALTINA doğrudur — ÜST kat önce gelmeli.
     // (Cenk, 29.08.2026: çizimde fan üst katta ama camlı açılır 3B'de alt sırada çıkıyordu.)
-    satirlar.push({ yuk: icColAcross-a, parcalar: ps.filter(function(p){ return p.kat==='üst'||p.kat==='tam'; }) });
-    satirlar.push({ yuk: a, parcalar: ps.filter(function(p){ return p.kat==='alt'||p.kat==='tam'; }) });
+    satirlar.push({ yuk: icColAcross-a, parcalar: tasan ? ps : ps.filter(function(p){ return p.kat==='üst'||p.kat==='tam'; }), tasan: tasan });
+    satirlar.push({ yuk: a, parcalar: tasan ? ps : ps.filter(function(p){ return p.kat==='alt'||p.kat==='tam'; }), tasan: tasan });
   }else{
     satirlar.push({ yuk: icAcross, parcalar: ps });
   }
 
+  // KAPAK HANGİ SATIRA DÜŞÜYOR? Çizimdeki kapağın tabandan yüksekliği (`alt`) bunu kesin
+  // söyler — KLM-01 M1'de iki açılır ÇAPRAZ duruyor (üst kat solda, alt kat sağda), ikisi
+  // de kol+menteşe taşıyor. `alt` yoksa (eski proje dosyası) kapağın YÜKSEKLİĞİ satırın
+  // açıklığına eşittir kuralına düşülür; DES ailesinin 6 çiziminde birebir ölçüldü.
+  function satirKapaklari(ri){
+    return function(p){
+      const kl = (p.kapaklar && p.kapaklar.length) ? p.kapaklar : (p.kapak ? [p.kapak] : []);
+      if(!kl.length || !ikiKat) return kl;
+      // Parçanın KENDİ katı belliyse kapaklarının hepsi bu satıra aittir. 'alt' alanı
+      // parçanın kendi kasasının tabanından ölçülüdür, modülün değil — üst kattaki bir
+      // fanın kapağı da kendi kasasında 60 mm'dedir. Yalnız İKİ KATI BİRDEN kaplayan
+      // parçada ('tam', ya da taşan gövdede 'tek') o ölçü modül tabanından sayılır.
+      if(p.kat === 'alt' || p.kat === 'üst') return kl;
+      const ust = (ri === 0);
+      if(kl.every(function(d){ return d.alt != null; }))
+        return kl.filter(function(d){
+          const mz = (Number(d.alt)||0) + (Number(d.h)||0)/2;
+          return ust ? (mz > altKatH) : (mz <= altKatH);
+        });
+      return kl.filter(function(d){
+        const hh = Number(d.h)||0;
+        if(!(hh > 0)) return true;
+        return Math.abs(hh - satirlar[ri].yuk) <= Math.abs(hh - satirlar[1-ri].yuk);
+      });
+    };
+  }
+  function satirSecici(ri){
+    const f = satirKapaklari(ri);
+    return function(p){
+      const kl = (p.kapaklar && p.kapaklar.length) ? p.kapaklar : (p.kapak ? [p.kapak] : []);
+      const benim = f(p);
+      if(ikiKat && kl.length && !p.batarya && !benim.length) return null;  // kapağı bu satırda değil
+      const k = gercekKapak(p);
+      if(!k || p.batarya || kl.length < 2 || !benim.length) return k;
+      // Standart 500'lük açılır BÖLÜM bu bölmeye sığmıyorsa (aynı bölmede birden çok
+      // açılır) çizimdeki kapak genişliği esas alınır — KLM-01 M1: 950 mm'lik bölmede
+      // iki açılır var, çizimde ikisi de 400 ve aralarında 50'lik dikme.
+      if(kl.length * k.w <= (Number(p.boy)||0) + 0.5) return k;
+      const w = Number(benim[0].w)||0;
+      return w > 0 ? { w: w, tip: k.tip } : k;
+    };
+  }
   for(let i=0;i<satirlar.length;i++){
-    satirlar[i].segs = gercekSatirSegment(satirlar[i].parcalar, satirlar[i].yuk, V, uyari);
+    satirlar[i].segs = gercekSatirSegment(satirlar[i].parcalar, satirlar[i].yuk, V, uyari,
+                                          satirSecici(i), null, satirKapaklari(i));
     if(!satirlar[i].segs.length) return null;
     const t = satirlar[i].segs.reduce(function(a,b){ return a+b.w; }, 0);
     if(Math.abs(t - L) > 1.5){ uyari.push('kat toplamı '+Math.round(t)+' mm, modül boyu '+L+' mm'); return null; }
@@ -2294,7 +2448,12 @@ function gercekOnYuz(uyari){
 
   let sinir, harita;
   if(ikiKat){
-    const b = gercekSinirBirlestir(satirlar, V.takviye);
+    // Eşik ÇİZİLEN profil kalınlığıdır, imalattaki takviye değil. Çizim bütün ara
+    // profilleri kenar profili genişliğinde çizer (50'likte 50, 60'lıkta 60); iki satırın
+    // sınırları o profilin İKİ KENARIDIR, yani aralarındaki fark profilin genişliği kadar
+    // olur. `V.takviye` (50'likte 40) ile ölçünce aynı dikme iki ayrı sınır sanılıyordu —
+    // KLM-01 M1'de araya 38 mm'lik sahte bir sütun giriyordu (Cenk, 31.08.2026).
+    const b = gercekSinirBirlestir(satirlar, Math.max(V.takviye, V.kenar));
     sinir = b.sinir; harita = b.harita;
   }else{
     sinir = gercekSinirlar(satirlar[0].segs);
@@ -2912,7 +3071,13 @@ function gercekUstYuz(uyari){
   const bilgi = md && md.dxfBilgi;
   if(!bilgi || !bilgi.parcalar || !bilgi.parcalar.length) return null;
   const ps = bilgi.parcalar;
-  const zUst = ps.filter(function(p){ return p.kat !== 'alt'; });
+  // Modulun BUTUN parcalari alt kattaysa modulun kendisi alt kattir ve o catI onun
+  // catisidir — agzi buraya duser (Cenk, 31.08.2026: KLM-01'de ATIS ağzı M2'nin
+  // catisinda, ustunde modul olmayan uc kisminda). Gercek iki katli modulde (alt + ust
+  // parca bir arada) cati ust katindir, alt kattaki agiz oraya dusmez ve uyari cikar.
+  let zUst = ps.filter(function(p){ return p.kat !== 'alt'; });
+  const hepsiAlt = !zUst.length;
+  if(hepsiAlt) zUst = ps;
   const lim = gercekEnGenisBolum();
   const list = [];
   let c = 0, tabloDan = 0;
@@ -2943,13 +3108,13 @@ function gercekUstYuz(uyari){
         uyari.push(a.etiket+' ağzının ölçüsü teknik tablodan alındı (çizimde ağız'
           +' dikdörtgeni yok) — '+p.islev+' bölmesinin ortasına kondu');
       }
-      list.push({ etiket: a.etiket, w: a.w, h: a.h, x: c + x,
+      list.push({ etiket: a.etiket, w: a.w, h: a.h, x: c + x, on: (a.on == null ? null : Number(a.on)||0),
                   tip: a.damper ? 'Damper' : 'Boğaz' });
     });
     c += boy;
   });
   ps.forEach(function(p){
-    if(p.kat !== 'alt') return;
+    if(hepsiAlt || p.kat !== 'alt') return;
     (p.agizlar||[]).forEach(function(a){
       if(a.yuz === 'ÜST')
         uyari.push(a.etiket+' ağzı alt katın tavanında ('+p.islev
@@ -3016,8 +3181,23 @@ function gercekUstYuz(uyari){
   if(!colSize) return null;
 
   // --- SATIRLAR (W ekseni) --- ağız bandı ortada; yanlar çerçeve payı kadarsa banda katılır
-  const yanPay = Math.round((W - band)/2);
-  let bandHam = band, altHam = yanPay, ustHam = W - band - yanPay;
+  // Ağzın W eksenindeki YERİ ÇİZİMDEN gelir (Cenk, 31.08.2026: «çizimden anlaşılıyor
+  // hangi yüze dayalı olduğu, her zaman arka yüze dayalı olmak zorunda değil»).
+  // ÜST yüzün v ekseninde v=0 ARKA, v=W ÖN'dür (faceUVtoXYZ fi=2 → z=v, ÖN yüz z=W),
+  // yani rowSeg'in İLK bloğu ARKA, SON bloğu ÖN tarafındadır. 'on' = ağzın ÖN kenarına
+  // uzaklığı. Bilgi yoksa eskisi gibi ortalanır — havuzdaki 32 ÜST ağzın 32'si zaten
+  // ortalıydı, kenara dayalı olanı KLM-01'in dönüş boğazı ortaya çıkardı.
+  let onPay = null;
+  list.forEach(function(a){ if(a.on != null && onPay === null) onPay = a.on; });
+  let onFarkli = false;
+  list.forEach(function(a){ if(a.on != null && onPay != null && Math.abs(a.on - onPay) > 0.5) onFarkli = true; });
+  if(onFarkli){
+    uyari.push('ÜST yüzde ağızlar farklı derinlikte duruyor — ilki esas alındı');
+  }
+  if(onPay === null) onPay = Math.round((W - band)/2);
+  if(onPay < 0) onPay = 0;
+  if(onPay > W - band) onPay = W - band;
+  let bandHam = band, altHam = onPay, ustHam = W - band - onPay;
   if(altHam <= esik){ bandHam += altHam; altHam = 0; }
   if(ustHam <= esik){ bandHam += ustHam; ustHam = 0; }
   let enGenis = 0;
@@ -3092,9 +3272,19 @@ function gercekKismiYuz(fi, uyari){
     return { bos: 1 };
   }
 
+  // ÖNCE SÜTUN, SONRA SATIR (gercekYanYuz'ün sırası). Satırı yüzün TAM GENİŞLİĞİNE göre
+  // bölmek geniş santralde kurtarmaz: genişlik saca girmiyorsa hiçbir satır bölmesi onu
+  // sığdıramaz, arama üst sınıra (OTO_MAX_BOLME) dayanır ve şerit üretir.
+  // ÖLÇÜLDÜ: W=3070 olan V-AHU-05'te bu yüzden 40 satır × 39 mm çıkıyordu; havuzdaki
+  // 100 mm altı 1062 kapağın 1040'ı bu yoldan geliyordu.
+  const onCol = [];
+  gercekBolNormal(onCol, Wf, ustHam);
+  let onEnGenis = 0;
+  onCol.forEach(function(c){ if(c.w > onEnGenis) onEnGenis = c.w; });
+
   // SATIRLAR: üst (kapaklı, saca göre bölünür) + alt (boş)
   const rows = [];
-  gercekBolNormal(rows, ustHam, Wf);
+  gercekBolNormal(rows, ustHam, onEnGenis || Wf);
   rows.forEach(function(r){ r.h = r.w; r.bos = false; });
   rows.push({ h: bosHam, bos: true, hedef: Math.max(1, bosHam - V.kenar) });
   const M = rows.length;
@@ -3171,8 +3361,11 @@ function gercekArkaYuz(uyari){
   const colSize = gercekDusur(colSeg.map(function(g){ return g.w; }),
                               colSeg.map(function(){ return null; }), icKullAlong, uyari);
   if(!colSize) return null;
-  const rowSize = gercekDusur(ham, [null, null], icKullAcross, uyari);
-  if(!rowSize) return null;
+  // Satırlar ORANTIYLA bölünmez: kat ayırıcının yeri ÖN yüzle aynı çapaya bağlıdır
+  // (bkz. gercekAltSatir). Orantı, ÖN ile ARKA'nın kat ayırıcısını 14 modülde
+  // birbirinden ayırıyordu — aynı modülün iki yüzünde takviye farklı kotta olamaz.
+  const altSatir = gercekAltSatir(altKat, V, icKullAcross);
+  const rowSize = [icKullAcross - altSatir, altSatir];   // ÜSTTEN ALTA
 
   face.kapaksiz = false;
   face.orient = 'H';
@@ -4906,7 +5099,10 @@ function renderGlobalSummary(){
     `<tr><td>${g.boy}</td><td>${g.adet}</td><td>${g.metre.toFixed(2)}</td></tr>`
   ).join('') || '<tr><td colspan=&quot;3&quot;>—</td></tr>';
 
-  let noteTxt = 'Boylar otomatik türetilir: Ana Takviye = dik eksen − 2×Kenar − 2×Takviye Plastik (boydan boya); kesilmişse her segment kendi bant yüksekliğinden. Ara Takviye = o satırdaki gerçek kaplama − 2×Takviye Plastik; birleşik (zincir) barlarda kapsadığı tüm bölümler + aradaki ana takviyeler tek parça sayılır. Sipariş listesinde ana/ara ve yatay/dikey ayrımı yapılmaz — kesit aynıdır, aynı boydakiler tek kalemde toplanır.';
+  const _kat = aktifAdet();
+  let noteTxt = (_kat > 1 ? 'Bu santralden ' + _kat + ' cihaz üretilecek — aşağıdaki listeler BİR cihaz içindir; '
+    + 'toplam (×' + _kat + ') Excel çıktısında ayrı sütunda, satın alma miktarları Analiz dosyasındadır. ' : '')
+    + 'Boylar otomatik türetilir: Ana Takviye = dik eksen − 2×Kenar − 2×Takviye Plastik (boydan boya); kesilmişse her segment kendi bant yüksekliğinden. Ara Takviye = o satırdaki gerçek kaplama − 2×Takviye Plastik; birleşik (zincir) barlarda kapsadığı tüm bölümler + aradaki ana takviyeler tek parça sayılır. Sipariş listesinde ana/ara ve yatay/dikey ayrımı yapılmaz — kesit aynıdır, aynı boydakiler tek kalemde toplanır.';
   if(skipped>0) noteTxt = '⚠ '+skipped+' adet takviye eksik ölçü nedeniyle sipariş listesine dahil edilemedi. '+noteTxt;
   if(missing.length>0) noteTxt += ' Eksikler: '+[...new Set(missing)].join('; ')+'.';
   note.textContent = noteTxt;
@@ -4921,6 +5117,14 @@ function renderAhuTabs(){
   if(adEl) adEl.value = state.ahus[state.activeAhu].ad || '';
   const icSacEl = document.getElementById('prj_icsac');
   if(icSacEl) icSacEl.value = state.ahus[state.activeAhu].malzeme || '';
+  // Üretim adedi de aktif AHU'ya aittir (santral bazında) — ad/iç sac ile aynı kural.
+  const adetEl = document.getElementById('prj_adet');
+  const kat = aktifAdet();
+  if(adetEl && document.activeElement !== adetEl) adetEl.value = kat;
+  const adetNot = document.getElementById('prj_adet_not');
+  if(adetNot) adetNot.textContent = kat > 1
+    ? 'Bu santralden ' + kat + ' cihaz üretilecek — DXF, sac serme ve analiz ' + kat + ' katı sayar.'
+    : 'Aynı santralden kaç cihaz üretilecek. DXF ve analiz bu sayıyla çarpılır.';
   state.ahus.forEach((ahu, i)=>{
     const tab = document.createElement('div');
     tab.className = 'tab'+(i===state.activeAhu?' active':'');
@@ -4931,6 +5135,13 @@ function renderAhuTabs(){
     nameSpan.dataset.ahuname = i;
     nameSpan.title = 'Çift tıkla: yeniden adlandır';
     tab.appendChild(nameSpan);
+    if(ahuAdet(ahu) > 1){
+      const kt = document.createElement('span');
+      kt.style.cssText = 'color:var(--warn);font-weight:700;flex-shrink:0;';
+      kt.title = ahuAdet(ahu) + ' adet üretilecek';
+      kt.textContent = '×' + ahuAdet(ahu);
+      tab.appendChild(kt);
+    }
     if(state.ahus.length > 1){
       const del = document.createElement('span');
       del.dataset.ahudel = i;
@@ -5487,28 +5698,34 @@ function sacKalemAdi(g){
 // Aktif AHU'nun profil kalemleri, AİLE bazında. Aileler ayrı stoktan kesilir: kasa
 // (köşe) profili, takviye profili ve ara katın kare profili farklı KESİTLERDİR — tek
 // kesim planına giremezler. Ara kat kendi içinde de profile göre ayrılır (30×30 / 30×60).
+// ÜRETİM ADEDİ analiz sınırında uygulanır: alttaki üreticiler (koseProfilKalemleri,
+// groupTakviyeSiparis, groupAraKatSiparis) BİR cihazın listesini verir — ekran özeti ve
+// Kapak Hesabı Excel'i onu öyle gösterir. Satın alma ise toplamı ister, o yüzden burada
+// her kalemin adedi santralin üretim adediyle çarpılır (Cenk, 31.08.2026).
 function analizProfilAileleri(){
   const V = getV();
+  const kat = aktifAdet();
+  const carp = ar => ar.map(k=>({boy:k.boy, adet:k.adet*kat}));
   const aileler = [];
   const kp = koseProfilKalemleri();
   if(kp.kalemler.length || kp.eksik)
-    aileler.push({ad:seriAdi(V.seri)+' Köşe (Kasa) Profili', kalemler:kp.kalemler, eksik:kp.eksik});
+    aileler.push({ad:seriAdi(V.seri)+' Köşe (Kasa) Profili', kalemler:carp(kp.kalemler), eksik:kp.eksik*kat});
 
   const {rows} = collectTakviyeRows();
   const takRows = rows.filter(x=>!x.arakat);
   const tg = groupTakviyeSiparis(takRows);
   if(tg.groups.length || tg.skipped)
     aileler.push({ad:seriAdi(V.seri)+' Takviye Profili',
-      kalemler: tg.groups.map(g=>({boy:g.boy, adet:g.adet})), eksik: tg.skipped});
+      kalemler: carp(tg.groups.map(g=>({boy:g.boy, adet:g.adet}))), eksik: tg.skipped*kat});
 
   const akRows = rows.filter(x=>x.arakat);
   if(akRows.length){
     const ag = groupAraKatSiparis(akRows);
     [...new Set(ag.groups.map(g=>g.profil))].forEach(pr=>{
       aileler.push({ad:'Ara Kat Profili — '+pr,
-        kalemler: ag.groups.filter(g=>g.profil===pr).map(g=>({boy:g.boy, adet:g.adet})), eksik:0});
+        kalemler: carp(ag.groups.filter(g=>g.profil===pr).map(g=>({boy:g.boy, adet:g.adet}))), eksik:0});
     });
-    if(ag.skipped) aileler.push({ad:'Ara Kat Profili — ölçüsü eksik', kalemler:[], eksik:ag.skipped});
+    if(ag.skipped) aileler.push({ad:'Ara Kat Profili — ölçüsü eksik', kalemler:[], eksik:ag.skipped*kat});
   }
   return aileler;
 }
@@ -5522,12 +5739,15 @@ function analizProfilAileleri(){
 // hem kose'yi hem takviyePlastik'i 0 döndürür.
 function analizPlastikler(){
   const V = getV();
+  const kat = aktifAdet();
   const {rows} = collectTakviyeRows();
   let takParca = 0;
   rows.forEach(x=>{ if(!x.arakat) takParca += x.adet; });
+  takParca *= kat;   // satın alma toplamı — bkz. analizProfilAileleri
   return {
-    kose: 8 * state.modules.length,
+    kose: 8 * state.modules.length * kat,
     modulSayisi: state.modules.length,
+    adet: kat,
     takviyeParca: takParca,
     takviye: V.takviyePlastik>0 ? takParca*2 : 0,
     takviyePlastikVar: V.takviyePlastik>0
@@ -5600,6 +5820,28 @@ async function exportExcel(){
     const headFont = XL_HEAD_FONT, titleFont = XL_TITLE_FONT, devFont = XL_DEV_FONT;
     const setDevFooter = xlDevFooter, addTable = xlTable;
 
+    // ÜRETİM ADEDİ — Cenk (31.08.2026): 'bir tanesinde şu kadar, toplamda şu kadar'.
+    // Motorun ürettiği sayılar BİR cihazındır; adet 1'den büyükse yanına TOPLAM sütunu
+    // eklenir. Sütun YALNIZ kat>1 iken eklenir, yani tek cihazlık projede tablolar
+    // bugünküyle birebir aynı kalır.
+    const kat = ahuAdet(state.ahus[_ai]);
+    // idx: çarpılacak sütunlar · birim: kat>1 iken o sütunların yeni başlığı · ad: eklenen başlıklar
+    const katTablo = (bas, rows, idx, birim, ad) => {
+      if(kat <= 1) return {bas, rows};
+      const yeni = bas.slice();
+      idx.forEach((i,j)=>{ if(birim[j]) yeni[i] = birim[j]; });
+      return {
+        bas: yeni.concat(idx.map((_,j)=>(ad[j]||'Toplam')+' — '+kat+' cihaz')),
+        rows: rows.map(r=>r.concat(idx.map(i=>
+          typeof r[i] === 'number' ? Number((r[i]*kat).toFixed(2)) : '—')))
+      };
+    };
+    // Sayısal sütunu olmayan tabloda (her satır bir kapak) sabit adet sütunu eklenir
+    const katSabit = (bas, rows, ad) => kat <= 1 ? {bas, rows} : {
+      bas: bas.concat([(ad||'Adet')+' — '+kat+' cihaz']),
+      rows: rows.map(r=>r.concat([kat]))
+    };
+
     // ---- ÖZET SAYFASI ----
     const wsO = wb.addWorksheet('ÖZET');
     wsO.columns = [{width:30},{width:22},{width:16},{width:16},{width:16}];
@@ -5615,6 +5857,7 @@ async function exportExcel(){
       ['Takviye Kalınlık (mm)', V.takviye],
       ['İş Numarası', state.proje.isNo || '—'],
       ['Santral Adı', _ahuLabel || '—'],
+      ['Üretim Adedi', kat + (kat > 1 ? ' cihaz — kesim listelerinde 1 cihaz + toplam' : ' cihaz')],
       ['Modül Sayısı', state.modules.length],
       ['Modüller (L×H×W @ x,y,z)', state.modules.map((md,i)=>`M${i+1}: ${md.L||'?'}×${md.H||'?'}×${md.W||'?'} @(${md.pos.x},${md.pos.y},${md.pos.z})`).join(' | ')]
     ]);
@@ -5624,7 +5867,10 @@ async function exportExcel(){
     const frameRows = kpX.kalemler.map(({boy,adet})=>['Köşe Profili', Math.round(boy), adet]);
     if(missX>0) frameRows.push(['Köşe Profili', 'ÖLÇÜ EKSİK', missX]);
     frameRows.push(['Köşe Plastiği (3 yönlü)', '—', 8*NM]);
-    rr = addTable(wsO, rr, 'CİHAZ İSKELETİ — MODÜL BAŞINA 12 AYRIT', ['Eleman','Boy (mm)','Adet'], frameRows);
+    {
+      const t = katTablo(['Eleman','Boy (mm)','Adet'], frameRows, [2], ['Adet — 1 cihaz'], ['Toplam Adet']);
+      rr = addTable(wsO, rr, 'CİHAZ İSKELETİ — MODÜL BAŞINA 12 AYRIT', t.bas, t.rows);
+    }
 
     // Kapak ölçüleri — tüm modüller ve yüzler, yalnızca SABİT değerler
     const allKapakRows = [];
@@ -5640,7 +5886,10 @@ async function exportExcel(){
         }
       });
     });
-    rr = addTable(wsO, rr, 'KAPAK KESİM LİSTESİ — TÜM MODÜLLER', ['Modül/Yüz','Kapak','Tip','Genişlik (mm)','Yükseklik (mm)'], allKapakRows);
+    {
+      const t = katSabit(['Modül/Yüz','Kapak','Tip','Genişlik (mm)','Yükseklik (mm)'], allKapakRows, 'Adet');
+      rr = addTable(wsO, rr, 'KAPAK KESİM LİSTESİ — TÜM MODÜLLER', t.bas, t.rows);
+    }
 
     // Ara kat profilleri 50/60 takviyeden AYRI aile — aşağıdaki tablolara karışmaz.
     const {rows: tumTakRows} = collectTakviyeRows();
@@ -5657,23 +5906,37 @@ async function exportExcel(){
     });
     const takDetRows = [...takDetMap.values()].sort((a,b)=>a.yon.localeCompare(b.yon)||a.tip.localeCompare(b.tip)||b.boy-a.boy);
     takMissing.forEach(x=>takDetRows.push({yon:x.yon, tip:x.tip, boy:'ÖLÇÜ EKSİK', adet:x.adet}));
-    rr = addTable(wsO, rr, 'TAKVİYE LİSTESİ — GRUPLU', ['Yön + Tip','Boy (mm)','Toplam Adet'],
-      takDetRows.map(x=>[x.yon+' '+x.tip, x.boy, x.adet]));
+    {
+      const t = katTablo(['Yön + Tip','Boy (mm)','Toplam Adet'],
+        takDetRows.map(x=>[x.yon+' '+x.tip, x.boy, x.adet]), [2], ['Adet — 1 cihaz'], ['Toplam Adet']);
+      rr = addTable(wsO, rr, 'TAKVİYE LİSTESİ — GRUPLU', t.bas, t.rows);
+    }
 
     // Ekrandaki &quot;Toplu Sipariş Listesi&quot; ile TEK kaynaktan (groupTakviyeSiparis) beslenir
     const {groups} = groupTakviyeSiparis(takRows);
-    rr = addTable(wsO, rr, 'TOPLU SİPARİŞ LİSTESİ (BOYA GÖRE GRUPLU)', ['Boy (mm)','Toplam Adet','Toplam Uzunluk (m)'],
-      groups.map(g=>[g.boy, g.adet, g.metre]));
+    {
+      const t = katTablo(['Boy (mm)','Toplam Adet','Toplam Uzunluk (m)'],
+        groups.map(g=>[g.boy, g.adet, g.metre]), [1,2],
+        ['Adet — 1 cihaz','Uzunluk (m) — 1 cihaz'], ['Toplam Adet','Toplam Uzunluk (m)']);
+      rr = addTable(wsO, rr, 'TOPLU SİPARİŞ LİSTESİ (BOYA GÖRE GRUPLU)', t.bas, t.rows);
+    }
 
     // ARA KAT PROFİLLERİ — kare profil (30×30 / 30×60), kaynak birleşim; 50/60 takviyeyle
     // aynı kaleme girmez, bu yüzden kendi tablosunda ve kendi gruplamasıyla durur.
     if(arakatRows.length){
-      rr = addTable(wsO, rr, 'ARA KAT PROFİLLERİ — DETAY', ['Modül','Parça','Profil','Konum / Kaynak','Adet','Boy (mm)'],
-        arakatRows.map(x=>[x.face, x.yon+' '+x.tip, x.profil||'—', x.kaynak, x.adet,
-          x.boy!==null?Math.round(x.boy):'ÖLÇÜ EKSİK']));
+      {
+        const t = katTablo(['Modül','Parça','Profil','Konum / Kaynak','Adet','Boy (mm)'],
+          arakatRows.map(x=>[x.face, x.yon+' '+x.tip, x.profil||'—', x.kaynak, x.adet,
+            x.boy!==null?Math.round(x.boy):'ÖLÇÜ EKSİK']), [4], ['Adet — 1 cihaz'], ['Toplam Adet']);
+        rr = addTable(wsO, rr, 'ARA KAT PROFİLLERİ — DETAY', t.bas, t.rows);
+      }
       const ag = groupAraKatSiparis(arakatRows);
-      rr = addTable(wsO, rr, 'ARA KAT PROFİLLERİ — SİPARİŞ (PROFİL + BOY)', ['Profil','Boy (mm)','Toplam Adet','Toplam Uzunluk (m)'],
-        ag.groups.map(g=>[g.profil, g.boy, g.adet, g.metre]));
+      {
+        const t = katTablo(['Profil','Boy (mm)','Toplam Adet','Toplam Uzunluk (m)'],
+          ag.groups.map(g=>[g.profil, g.boy, g.adet, g.metre]), [2,3],
+          ['Adet — 1 cihaz','Uzunluk (m) — 1 cihaz'], ['Toplam Adet','Toplam Uzunluk (m)']);
+        rr = addTable(wsO, rr, 'ARA KAT PROFİLLERİ — SİPARİŞ (PROFİL + BOY)', t.bas, t.rows);
+      }
     }
 
     // Kapak toplamları (tip bazında, Boş Alan hariç) — Boğaz/Damper ayrı tabloda
@@ -5693,10 +5956,16 @@ async function exportExcel(){
         if(araKatOf(md).aktif) say2(computeFace(ARAKAT_FI));
       });
     });
-    rr = addTable(wsO, rr, 'KAPAK TOPLAMLARI (TİP BAZINDA)', ['Panel Tipi','Toplam Adet'],
-      [...kapakMap.entries()].map(([t,a])=>[t,a]));
-    rr = addTable(wsO, rr, 'BOĞAZ VE DAMPERLER', ['Tip','Toplam Adet'],
-      [...bogazDamperMap.entries()].map(([t,a])=>[t,a]));
+    {
+      const t = katTablo(['Panel Tipi','Toplam Adet'],
+        [...kapakMap.entries()].map(([tp,a])=>[tp,a]), [1], ['Adet — 1 cihaz'], ['Toplam Adet']);
+      rr = addTable(wsO, rr, 'KAPAK TOPLAMLARI (TİP BAZINDA)', t.bas, t.rows);
+    }
+    {
+      const t = katTablo(['Tip','Toplam Adet'],
+        [...bogazDamperMap.entries()].map(([tp,a])=>[tp,a]), [1], ['Adet — 1 cihaz'], ['Toplam Adet']);
+      rr = addTable(wsO, rr, 'BOĞAZ VE DAMPERLER', t.bas, t.rows);
+    }
 
     // Resimler tablolardan sayfa kırımı ile ayrılır; her resim yeni sayfada başlar
     if (!wsO.rowBreaks) wsO.rowBreaks = [];
@@ -5955,6 +6224,7 @@ function attachListeners(){
     if(!p) return;
     if(e.target.id === 'dxa_ayna'){ p.ayna = e.target.checked; p.aynaOto = false; dxaCiz(); }
     if(e.target.id === 'dxa_sec'){ p.sec = e.target.checked; dxaCiz(); }
+    if(e.target.id === 'dxa_adet'){ p.adet = ahuAdet({adet: e.target.value}); p.adetOto = false; dxaCiz(); }
   });
   document.addEventListener('keydown', e=>{
     if(e.key === 'Escape' && document.getElementById('dxa_modal').classList.contains('open')) dxaModalKapat();
@@ -6016,6 +6286,18 @@ function attachListeners(){
     state.ahus[state.activeAhu].ad = e.target.value;
     renderAhuTabs();
   });
+  // Üretim adedi: yazarken kutu yeniden doldurulmasın diye renderAhuTabs kutuya dokunmaz
+  // (document.activeElement kontrolü); 'change' anında normalize edilip geri yazılır.
+  document.getElementById('prj_adet').addEventListener('input', e=>{
+    ahuAdetYaz(state.ahus[state.activeAhu], e.target.value);
+    renderAhuTabs();
+    renderGlobalSummary();
+  });
+  document.getElementById('prj_adet').addEventListener('change', e=>{
+    e.target.value = ahuAdetYaz(state.ahus[state.activeAhu], e.target.value);
+    renderAhuTabs();
+    renderGlobalSummary();
+  });
   document.getElementById('prj_icsac').addEventListener('change', e=>{
     state.ahus[state.activeAhu].malzeme = e.target.value;
   });
@@ -6031,7 +6313,7 @@ function attachListeners(){
       document.getElementById('pe_takviye').value = PROFILES[cur].takviye;
       document.getElementById('pe_kose').value = PROFILES[cur].kose;
       document.getElementById('pe_tp').value = PROFILES[cur].takviyePlastik;
-      document.getElementById('pe_acilirek').value = PROFILES[cur].acilirEk!=null ? PROFILES[cur].acilirEk : 1;
+      document.getElementById('pe_acilirek').value = PROFILES[cur].acilirEk!=null ? PROFILES[cur].acilirEk : 2;
     }
     document.getElementById('pe_sil').style.display = isCustom ? 'inline-block' : 'none';
     pe.style.display = pe.style.display==='none' ? 'block' : 'none';
@@ -6861,9 +7143,12 @@ function bilesenCoz(rpolys) {
       acilir: acilirIsareti(rpolys, g.gor, g.mid),
       lo: Math.round(kasa.xlo * 10), hi: Math.round(kasa.xhi * 10),
       ylo: Math.round(kasa.ylo * 10), yhi: Math.round(kasa.yhi * 10),
+      // 'alt' = kapagin kasanin TABANINDAN yuksekligi. Iki katli modulde hangi kapagin
+      // hangi kata ait oldugu bununla bilinir (Cenk, 31.08.2026 — KLM-01 M1'de iki acilir
+      // kapak var, biri ust katta biri alt katta ve CAPRAZ duruyorlar).
       kapaklar: kapaklar.sort(function (a, b) { return a.xlo - b.xlo; }).map(function (r) {
         return { lo: Math.round((r.xlo - kasa.xlo) * 10), w: Math.round((r.xhi - r.xlo) * 10),
-                 h: Math.round((r.yhi - r.ylo) * 10) };
+                 h: Math.round((r.yhi - r.ylo) * 10), alt: Math.round((r.ylo - kasa.ylo) * 10) };
       }),
       batarya: blok ? { lo: Math.round((blok.xlo - kasa.xlo) * 10),
                         kalinlik: Math.round((blok.xhi - blok.xlo) * 10) } : null,
@@ -6981,7 +7266,7 @@ function agizOklari(rpolys, rlines, texts) {
 // KAT BANDI TAM YUKSEKLIK MODULUYLE KURULMAZ: rotor gibi iki kati birden kaplayan modul
 // bantlari tek banda kaynastirir. Bantlari yalniz EN KISA modul yuksekligine yakin olanlar
 // tanimlar, sonra her modul ortustugu HER banda girer.
-function agizYuzCoz(modKut, oklar) {
+function agizYuzCoz(modKut, oklar, catiOf) {
   const mods = [];
   Object.keys(modKut).forEach(function (k) { if (modKut[k].gor === 'Right') mods.push(modKut[k]); });
   const oks = oklar.Right || [];
@@ -7022,6 +7307,25 @@ function agizYuzCoz(modKut, oklar) {
       }
     }
     if (!band.mods.length) return;
+    // CATI BACASI ONCELIKLIDIR (Cenk, 31.08.2026 — KLM-01 'atış boğazını hiç görmedin').
+    // Ok bir modulun catisinin UZERINDE ve o modulun tam o x'inde bir baca varsa agiz
+    // UST'tedir. Kat bandinin x araligina bakip 'govdenin saginda' demek yanlis: KLM-01'de
+    // ATIS oku M4'un catisi uzerinde ama ust kat bandi orada bitiyor, agiz SAG/M6'ya
+    // atiliyor ve olculemeyip hic konmuyordu. Baca sarti dar tutuldu — gercek bir kanal
+    // parcasi gormeden bu dal calismaz.
+    if (catiOf) {
+      let bacaHedef = null;
+      for (let i = 0; i < mods.length && !bacaHedef; i++) {
+        const m = mods[i];
+        if (cx < m.xlo - 2 || cx > m.xhi + 2) continue;
+        const ci = catiOf(m.mod);
+        if (!ci || !ci.kasa || !ci.bacalar.length) continue;
+        if (cy <= ci.kasa.yhi + 0.2) continue;             // catinin UZERINDE olmali
+        for (let j = 0; j < ci.bacalar.length; j++)
+          if (cx >= ci.bacalar[j].xlo - 2 && cx <= ci.bacalar[j].xhi + 2) { bacaHedef = m; break; }
+      }
+      if (bacaHedef) { out.push({ etiket: k.etiket, yuz: 'ÜST', mod: bacaHedef.mod, ok: k }); return; }
+    }
     let xlo = Infinity, xhi = -Infinity;
     band.mods.forEach(function (m) { if (m.xlo < xlo) xlo = m.xlo; if (m.xhi > xhi) xhi = m.xhi; });
     let yuz = null, hedef = null;
@@ -7084,6 +7388,99 @@ function agizAdaylari(rpolys, gor, mod) {
     });
   });
   return { yuz: yuz, agizlar: net };
+}
+
+// CATI BACASI (2026-08-31) — UST agzin L eksenindeki YERI ve BOYU.
+// Yan gorunuste kasanin USTUNE tasan dikdortgen, cati agzinin kanal parcasidir; plandaki
+// agiz dikdortgeniyle birebir tutar. OLCULDU (KLM-01): M1 300@50, M4 300@750, M6 450@50 —
+// ucu de plandaki dikdortgenlerle ayni; eski havuzda 42 UST agzin 42'sinde de mevcut
+// okuma bu bacayla tutuyor. Bacaya bakmak iki kusuru birden kapatir:
+//   * iki katli modulun plani IKI KEZ cizilir; hangi plandaki dikdortgenin agiz oldugunu
+//     yalniz baca soyler (KLM-01 M1'de kod esanjor govdesini 660x630 agiz saniyordu),
+//   * kat bandinin x araligi disinda kalan ok 'govdenin saginda' sanilip SAG'a atiliyordu
+//     (KLM-01 ATIS oku M4'un catisi uzerinde; agiz hic konmuyordu).
+// Donus: { kasa, bacalar: [{xlo, xhi, lo, w}] } — lo/w mm, kasanin solundan.
+function agizCatiBilgi(rpolys, mod) {
+  const rects = [];
+  for (let i = 0; i < rpolys.length; i++) {
+    const p = rpolys[i];
+    const m = BILESEN_LAY_RE.exec(p.layer || '');
+    if (!m || m[3] !== 'Right' || m[1] !== mod) continue;
+    rects.push(p);
+  }
+  if (!rects.length) return { kasa: null, bacalar: [] };
+  let kasa = rects[0];
+  rects.forEach(function (r) {
+    if ((r.xhi - r.xlo) * (r.yhi - r.ylo) > (kasa.xhi - kasa.xlo) * (kasa.yhi - kasa.ylo)) kasa = r;
+  });
+  const out = [];
+  rects.forEach(function (r) {
+    if (r === kasa) return;
+    if (Math.abs(r.ylo - kasa.yhi) > 0.5) return;          // TAM catinin uzerinde baslamali
+    const w = r.xhi - r.xlo, h = r.yhi - r.ylo;
+    if (w < 10 || h < 2 || h > 40) return;                 // >=100 mm genis, 20..400 mm derin
+    if (r.xlo < kasa.xlo - 5 || r.xhi > kasa.xhi + 5) return;
+    for (let i = 0; i < out.length; i++)
+      if (Math.abs(out[i].xlo - r.xlo) < 0.5 && Math.abs(out[i].xhi - r.xhi) < 0.5) return;
+    out.push({ xlo: r.xlo, xhi: r.xhi,
+               lo: Math.round((r.xlo - kasa.xlo) * 10), w: Math.round(w * 10) });
+  });
+  out.sort(function (a, b) { return a.xlo - b.xlo; });
+  return { kasa: kasa, bacalar: out };
+}
+
+// Bir gorunuste modulun BUTUN yuz konturlari (iki katli modulun plani IKI KEZ cizilir).
+// agizAdaylari tek konturu — en buyugunu — alir; burasi ayni boydaki her konturu ayri
+// paket olarak dondurur.
+function agizPaketleri(rpolys, gor, mod) {
+  const rects = [];
+  for (let i = 0; i < rpolys.length; i++) {
+    const p = rpolys[i];
+    const m = BILESEN_LAY_RE.exec(p.layer || '');
+    if (!m || m[3] !== gor || m[1] !== mod) continue;
+    if ((p.xhi - p.xlo) < 3 || (p.yhi - p.ylo) < 3) continue;
+    rects.push(p);
+  }
+  if (!rects.length) return [];
+  let enB = 0;
+  rects.forEach(function (r) {
+    const a = (r.xhi - r.xlo) * (r.yhi - r.ylo);
+    if (a > enB) enB = a;
+  });
+  const konturlar = [];
+  rects.forEach(function (r) {
+    if ((r.xhi - r.xlo) * (r.yhi - r.ylo) < enB * 0.99) return;
+    for (let i = 0; i < konturlar.length; i++)
+      if (Math.abs(konturlar[i].xlo - r.xlo) < 0.5 && Math.abs(konturlar[i].ylo - r.ylo) < 0.5) return;
+    konturlar.push(r);
+  });
+  const E = 1.0;
+  return konturlar.map(function (yuz) {
+    const aday = [];
+    rects.forEach(function (k) {
+      if (k === yuz) return;
+      if (k.xlo < yuz.xlo - E || k.xhi > yuz.xhi + E) return;
+      if (k.ylo < yuz.ylo - E || k.yhi > yuz.yhi + E) return;
+      const w = k.xhi - k.xlo, h = k.yhi - k.ylo;
+      const yapX = Math.abs(k.xlo - yuz.xlo) < E || Math.abs(k.xhi - yuz.xhi) < E;
+      const yapY = Math.abs(k.ylo - yuz.ylo) < E || Math.abs(k.yhi - yuz.yhi) < E;
+      if ((yapX || yapY) && (w <= 10 || h <= 10)) return;
+      for (let i = 0; i < aday.length; i++) {
+        const a = aday[i];
+        if (Math.abs(a.xlo - k.xlo) < 0.4 && Math.abs(a.xhi - k.xhi) < 0.4
+         && Math.abs(a.ylo - k.ylo) < 0.4 && Math.abs(a.yhi - k.yhi) < 0.4) return;
+      }
+      aday.push(k);
+    });
+    const net = aday.filter(function (a) {
+      return !aday.some(function (b) {
+        return b !== a && b.xlo <= a.xlo + E && b.xhi >= a.xhi - E
+            && b.ylo <= a.ylo + E && b.yhi >= a.yhi - E
+            && (b.xhi - b.xlo) * (b.yhi - b.ylo) > (a.xhi - a.xlo) * (a.yhi - a.ylo) + 1;
+      });
+    });
+    return { yuz: yuz, agizlar: net };
+  });
 }
 
 // Dikdortgenin ICINDE kanat cizgisi var mi — damperin isareti, flansta yoktur.
@@ -7159,7 +7556,12 @@ function agizTablo(texts) {
 function agizCoz(rpolys, rlines, texts) {
   const modKut = agizModulKutulari(rpolys, rlines);
   const oklar = agizOklari(rpolys, rlines, texts);
-  const ham = agizYuzCoz(modKut, oklar);
+  const catiBellek = {};
+  const catiOf = function (m) {
+    if (!(m in catiBellek)) catiBellek[m] = agizCatiBilgi(rpolys, m);
+    return catiBellek[m];
+  };
+  const ham = agizYuzCoz(modKut, oklar, catiOf);
   if (!ham.length) return [];
 
   // Uc gorunuslerden (Front/Back) hangisi SOL hangisi SAG: agzi olmasi BEKLENEN moduller
@@ -7209,15 +7611,50 @@ function agizCoz(rpolys, rlines, texts) {
       let paket = (!ust && bulunan[gor]) ? bulunan[gor][h.mod] : null;
       if (!paket) paket = agizAdaylari(rpolys, gor, h.mod);
       let liste = (paket && paket.agizlar.length) ? paket.agizlar.slice() : [];
-      if (ust && liste.length) {
+      if (ust) {
+        // Iki katli modulun plani IKI KEZ cizilir; agiz dikdortgeni oteki konturda
+        // olabilir (KLM-01 M1). Butun konturlarin adaylari toplanir.
+        const paketler = agizPaketleri(rpolys, gor, h.mod);
         // 5 noktali dikdortgen filtre kasetidir, agiz degil.
-        liste = liste.filter(function (a) { return a.n === 4; });
-        // W ekseninde ortali olan tercih edilir (32/32 kanit).
-        const yW = paket.yuz.yhi - paket.yuz.ylo;
-        liste.sort(function (a, b) {
-          return Math.abs((a.ylo - paket.yuz.ylo) - (yW - (a.yhi - a.ylo)) / 2)
-               - Math.abs((b.ylo - paket.yuz.ylo) - (yW - (b.yhi - b.ylo)) / 2);
+        const hepsi = [];
+        paketler.forEach(function (pk) {
+          pk.agizlar.forEach(function (a) { if (a.n === 4) hepsi.push({ k: a, pk: pk }); });
         });
+        // CATI BACASI kesin ayractir: L eksenindeki boy ve yer birebir tutmali.
+        const ci = catiOf(h.mod);
+        const bacali = [];
+        if (ci && ci.kasa && ci.bacalar.length) {
+          hepsi.forEach(function (e) {
+            const aw = Math.round((e.k.xhi - e.k.xlo) * 10);
+            const ax = Math.round((e.k.xlo - e.pk.yuz.xlo) * 10);
+            for (let j = 0; j < ci.bacalar.length; j++) {
+              const b = ci.bacalar[j];
+              if (Math.abs(b.w - aw) <= 5 && Math.abs(b.lo - ax) <= 5) { bacali.push(e); return; }
+            }
+          });
+        }
+        let secili = null;
+        if (bacali.length === 1) secili = bacali[0];
+        else if (bacali.length > 1) {
+          // Ayni modulde birden cok UST agiz (olculdu: KS-1 M1) — okun L eksenindeki
+          // yeriyle ayrilir. Baca eslesmesi adaylari daraltir, okun kendisi secer.
+          const okC = (h.ok.xlo + h.ok.xhi) / 2;
+          let en = Infinity;
+          bacali.forEach(function (e) {
+            const c = (e.k.xlo + e.k.xhi) / 2, d = Math.abs(c - okC);
+            if (d < en) { en = d; secili = e; }
+          });
+        }
+        if (secili) { paket = secili.pk; liste = [secili.k]; }
+        else if (paket) {
+          // Baca yoksa eski davranis: W ekseninde ortali olan tercih edilir (32/32 kanit).
+          liste = liste.filter(function (a) { return a.n === 4; });
+          const yW = paket.yuz.yhi - paket.yuz.ylo;
+          liste.sort(function (a, b) {
+            return Math.abs((a.ylo - paket.yuz.ylo) - (yW - (a.yhi - a.ylo)) / 2)
+                 - Math.abs((b.ylo - paket.yuz.ylo) - (yW - (b.yhi - b.ylo)) / 2);
+          });
+        }
       }
       if (liste.length) {
         // Ayni modulde birden fazla agiz: SOL/SAG'da iki kat (y ekseni), UST'te iki ayri
@@ -7237,6 +7674,17 @@ function agizCoz(rpolys, rlines, texts) {
         rec.h = Math.round((k.yhi - k.ylo) * 10);
         rec.x = Math.round((k.xlo - paket.yuz.xlo) * 10);
         rec.y = Math.round((k.ylo - paket.yuz.ylo) * 10);
+        // UST agzin W eksenindeki yeri (Cenk, 31.08.2026: «çizimden anlaşılıyor hangi yüze
+        // dayalı olduğu, her zaman arka yüze dayalı olmak zorunda değil»). Cizim BIRINCI
+        // ACI izdusumudur — plan yan gorunusun ALTINDA, alt gorunus USTUNDE, Right gorunus
+        // sayfanin solunda; ucu de ayni sonucu veriyor. Birinci acida planin yan gorunuse
+        // KOMSU kenari ON (servis) yuzdur. 'on' = agzin ON kenarina uzakligi (mm).
+        if (ust) {
+          const yan = modKut['Right|' + h.mod];
+          const onYukari = !yan || yan.ylo > paket.yuz.yhi;
+          rec.on = onYukari ? Math.round((paket.yuz.yhi - k.yhi) * 10)
+                            : Math.round((k.ylo - paket.yuz.ylo) * 10);
+        }
         rec.yuzW = Math.round((paket.yuz.xhi - paket.yuz.xlo) * 10);
         rec.yuzH = Math.round((paket.yuz.yhi - paket.yuz.ylo) * 10);
         rec.damper = agizKanat(rlines, gor, h.mod, k) >= 1;
@@ -7276,8 +7724,56 @@ function mode(arr) {
   return best;
 }
 
+// ---------- ÇİZİM BİRİMİ (2026-08-31) ----------
+// Çizimlerin neredeyse tamamı SANTİMETRE biriminde çizilir: tablo 1070 mm derken
+// geometri 107 birimdir ve kodun tamamı bu 10 katını varsayar. Bir çizim (O-AHU-02)
+// MİLİMETRE biriminde çıktı: hiçbir görünüş kutusu, hiçbir kat, hiçbir hücre çözülmedi.
+// Ölçek ölçülerek bulunur, başlıktan değil — $INSUNITS iki dosyada da 0 (tanımsız).
+// Tablodan kesin bilinen üç değer (Genişlik, Yükseklik, Ayak Yüksekliği) çizimdeki ölçü
+// metinleriyle karşılaştırılır. Ölçüldü (713 teknik çizim): 712 çizimde cm oyu ağır
+// bastı (mm oyu 8 ve altı), tek mm çiziminde cm oyu 0 / mm oyu 30 — ayrım keskin.
+// Normalizasyon PARSE SINIRINDA yapılır; aşağıdaki kodun tamamı eskisi gibi cm görür.
+function olcekNormalize(P) {
+  const oku = function (etiket) {
+    for (let i = 0; i < P.texts.length; i++) {
+      const lt = P.texts[i];
+      if (lt.str.replace(/^(Özellikler|Boyut|Malzemeler) - /, '') !== etiket) continue;
+      let val = null;
+      for (let j = 0; j < P.texts.length; j++) {
+        const t = P.texts[j];
+        if (Math.abs(t.y - lt.y) < 3 && t.x > lt.x + 10 && (!val || t.x < val.x)) val = t;
+      }
+      if (val) { const n = parseInt(val.str.replace(/[^\d]/g, ''), 10); if (n > 0) return n; }
+    }
+    return null;
+  };
+  const hedef = [oku('Genişlik'), oku('Yükseklik'), oku('Ayak Yüksekliği (mm)') || 150]
+    .filter(function (v) { return v; });
+  if (!hedef.length) return 1;
+  let cmOy = 0, mmOy = 0;
+  for (let i = 0; i < P.dims.length; i++) {
+    const m = P.dims[i].meas;
+    if (m == null) continue;
+    for (let k = 0; k < hedef.length; k++) {
+      if (Math.abs(m - hedef[k] / 10) < 0.6) cmOy++;
+      if (Math.abs(m - hedef[k]) < 0.6) mmOy++;
+    }
+  }
+  if (!(mmOy > cmOy && mmOy >= 3)) return 1;
+  const b = function (o, alan) {
+    for (let i = 0; i < alan.length; i++) if (o[alan[i]] != null) o[alan[i]] /= 10;
+  };
+  P.texts.forEach(function (t) { b(t, ['x', 'y', 'h']); });
+  P.dims.forEach(function (d) { b(d, ['x13', 'y13', 'x14', 'y14', 'meas']); });
+  P.geo.forEach(function (g) { b(g, ['xlo', 'xhi', 'ylo', 'yhi']); });
+  P.rlines.forEach(function (g) { b(g, ['xlo', 'xhi', 'ylo', 'yhi']); });
+  P.rpolys.forEach(function (g) { b(g, ['xlo', 'xhi', 'ylo', 'yhi']); });
+  return 10;
+}
+
 function analyzeDxf(text, fileName) {
   const P = parseDxf(text);
+  olcekNormalize(P);
   const texts = P.texts, dims = P.dims, geo = P.geo;
 
   // ---------- teknik tablo ----------
@@ -7549,6 +8045,33 @@ function analyzeDxf(text, fileName) {
     }
   }
 
+  // ---------- TAM YÜKSEKLİK MODÜLÜ (2026-08-31) ----------
+  // Bir modülün etiketi tek katta duruyor ama ÖTEKİ katın modül zincirinde tam o
+  // aralık etiketsiz kalıyorsa, o modül iki katı birden kaplıyor demektir. Bugüne
+  // kadar tam yükseklik yalnız TİP ADINDAN (Eşanjör) biliniyordu; kural geometriktir
+  // ve ölçüldü: 713 çizimde 124 eşanjörün 124.ünü aynen buluyor, üstüne yalnız
+  // K.S-1.in Dikey Karışım modülünü ekliyor (etiketi yalnız üst kata yazılmış,
+  // gövdesi iki katlı — alt kat toplamı 700 mm eksik çıkıyordu).
+  const tamKat = {};
+  if (nDecks > 1) sideBoxes.forEach(function (box) {
+    const kutuRecs = recs.filter(function (r) { return r.box === box && r.deck != null && r.lo != null; });
+    for (let dk = 0; dk < 2; dk++) {
+      const benim = kutuRecs.filter(function (r) { return r.deck === dk; });
+      const oteki = kutuRecs.filter(function (r) { return r.deck === 1 - dk; });
+      if (!benim.length || !oteki.length) continue;
+      const gy = +mode(benim.map(function (r) { return r.gy; }));
+      const grp = box.groups.filter(function (g) { return g.y === gy; })[0];
+      if (!grp) continue;
+      grp.segs.forEach(function (s) {
+        if (s.hi - s.lo < 15) return;
+        if (benim.some(function (r) { return Math.abs(r.lo - s.lo) < 2 && Math.abs(r.hi - s.hi) < 2; })) return;
+        oteki.forEach(function (r) {
+          if (Math.abs(r.lo - s.lo) < 2 && Math.abs(r.hi - s.hi) < 2) tamKat[r.name] = true;
+        });
+      });
+    }
+  });
+
   const modules = {};
   Object.keys(modVotes).forEach(function (name) {
     // Modül boyu santralin UZUNLUK ekseninde ölçülür. Uç görünüşteki yatay ölçü modülün
@@ -7566,6 +8089,12 @@ function analyzeDxf(text, fileName) {
   });
 
   const isEsanjor = function (name) { return /Eşanjör/i.test(modTypes[name] || ''); };
+  // Tam yükseklik: tip adı eşanjör OLAN ya da yukarıdaki geometrik kurala takılan modül.
+  // NOT: hücreleri TAM YÜKSEKLİĞE BİRLEŞTİRME kararı (esRanges) bilerek isEsanjor.te
+  // kaldı — orada modülün kendi hücresini kapladığı varsayılır. K.S-1.de tam yükseklik
+  // dikey karışım 2200 mm.lik bir bölümün yalnız 700 mm.si; o bölüm iki kat olarak
+  // kalmalı, tek 2640 mm.lik kutuya inmemeli.
+  const isTamKat = function (name) { return isEsanjor(name) || tamKat[name] === true; };
 
   // ---------- modül çıktısı ----------
   const modOut = Object.keys(modules).sort(function (a, b) { return +a.slice(1) - +b.slice(1); })
@@ -7573,7 +8102,7 @@ function analyzeDxf(text, fileName) {
       const type = modTypes[name] || '';
       let deck = null, hgt = null;
       if (nDecks === 1) hgt = deckHeights[0];
-      else if (isEsanjor(name)) { deck = 'her iki kat'; hgt = deckHeights.reduce(function (a, b) { return a + b; }, 0); }
+      else if (isTamKat(name)) { deck = 'her iki kat'; hgt = deckHeights.reduce(function (a, b) { return a + b; }, 0); }
       else if (modDecksAll[name] && modDecksAll[name].length) {
         const best = +mode(modDecksAll[name]);
         deck = best === 0 ? 'alt kat' : 'üst kat';
@@ -7625,15 +8154,22 @@ function analyzeDxf(text, fileName) {
     const inBox = recs.filter(function (r) { return r.box === box; });
     if (!inBox.length) return null;
     const perDeck = [];
+    const modSegs = {};   // kat -> o katın MODÜL aralıkları (hücre sınırı bunları kesemez)
     let viewRange = null; // alt katın (bu görünüşteki) x aralığı; üst kat buna kırpılır
     for (let d = 0; d < nDecks; d++) {
       const dRecs = inBox.filter(function (r) { return (nDecks === 1 ? true : r.deck === d); });
-      const nonEs = dRecs.filter(function (r) { return !isEsanjor(r.name); });
+      const nonEs = dRecs.filter(function (r) { return !isTamKat(r.name); });
       const useRecs = nonEs.length ? nonEs : dRecs;
       if (!useRecs.length) { perDeck.push(null); continue; }
       const modeY = +mode(useRecs.map(function (r) { return r.gy; }));
       const grp = box.groups.filter(function (g) { return g.y === modeY; })[0];
       if (!grp) { perDeck.push(null); continue; }
+      // Bu kattaki modüllerin x aralıkları: katın kendi ölçü zinciri + bu kata düşen
+      // etiket aralıkları. Tam yükseklik modülü (eşanjör) yalnız ikincisinde görünür —
+      // kendi zinciri alt katın satırındadır (KLM-03 A/D BLOK).
+      const katModul = grp.segs.concat(dRecs.filter(function (r) { return r.lo != null; })
+        .map(function (r) { return { lo: r.lo, hi: r.hi }; }));
+      modSegs[d] = katModul;
       // modül zincirini bitişik koşulara (run) ayır — aynı kutuda birleşmiş Sağ/Sol görünüşleri ayırt et
       const runs = segRuns(grp.segs);
       // en çok etiket içeren koşu = bu görünüşteki kat gövdesi
@@ -7718,6 +8254,14 @@ function analyzeDxf(text, fileName) {
             return o !== s && o.lo >= s.lo - 0.5 && o.hi <= s.hi + 0.5 && (o.hi - o.lo) < (s.hi - s.lo) - 0.5;
           });
         });
+        // Bir ölçü tek bir MODÜLÜN İÇİNDE başlayıp bitiyorsa o bir hücre sınırı değil,
+        // modülün kendi detay ölçüsüdür (iç açıklık). Hücre en az bir modül içerir;
+        // hiçbir hücre bir modülün içine sığmaz. (KLM ailesi: 800 mm.lik boş modülün
+        // gövdesine yazılmış 700 mm.lik iç ölçü, komşu katın hücrelerini 50 mm.lik
+        // şeritlere bölüyordu — KLM-01..04, KLM-02/03/04 blokları, V-AHU-05.)
+        segsIn = segsIn.filter(function (s) {
+          return !katModul.some(function (m) { return s.lo > m.lo + 0.6 && s.hi < m.hi - 0.6; });
+        });
         for (let i = 0; i < segsIn.length; i++) cells.push({ lo: segsIn[i].lo, hi: segsIn[i].hi, src: 'seg' });
         // boşluklar
         const evs = [extLo];
@@ -7745,18 +8289,24 @@ function analyzeDxf(text, fileName) {
     }
     // dolgu kaynaklı (çizimde ara-toplam ölçüsü olmayan) hücreleri karşı katın hücre sınırlarında böl:
     // ör. üst katta tek parça görünen uzantı, alt katın blok sınırında ikiye ayrılır
-    function splitFillCells(cells, otherCells) {
+    function splitFillCells(cells, otherCells, kendiModul) {
       if (!cells || !otherCells || !otherCells.length) return cells;
       const edges = [];
       otherCells.forEach(function (c) { edges.push(c.lo); edges.push(c.hi); });
       edges.sort(function (a, b) { return a - b; });
+      // Karşı katın sınırı BU katın bir modülünün ORTASINA denk geliyorsa orada bölünmez:
+      // hücre sınırı modülü kesemez. (KLM-03: alt kattaki 1600 mm.lik fan, üstündeki
+      // 800 mm.lik boş modülün sınırı yüzünden 800 + 800 diye ikiye bölünüyordu.)
+      const bolunebilir = function (e) {
+        return !kendiModul || !kendiModul.some(function (m) { return e > m.lo + 0.6 && e < m.hi - 0.6; });
+      };
       const out2 = [];
       cells.forEach(function (c) {
         if (c.src !== 'fill') { out2.push(c); return; }
         const parts = [{ lo: c.lo, hi: c.hi, src: 'fill' }];
         edges.forEach(function (e) {
           const p = parts[parts.length - 1];
-          if (e > p.lo + 4 && e < p.hi - 4) {
+          if (e > p.lo + 4 && e < p.hi - 4 && bolunebilir(e)) {
             parts[parts.length - 1] = { lo: p.lo, hi: e, src: 'fill' };
             parts.push({ lo: e, hi: p.hi, src: 'fill' });
           }
@@ -7772,8 +8322,8 @@ function analyzeDxf(text, fileName) {
     const out = [];
     const used1 = [];
     let cells0 = perDeck[0] || [], cells1 = nDecks > 1 ? (perDeck[1] || []) : [];
-    cells1 = splitFillCells(cells1, cells0);
-    cells0 = splitFillCells(cells0, cells1);
+    cells1 = splitFillCells(cells1, cells0, modSegs[1]);
+    cells0 = splitFillCells(cells0, cells1, modSegs[0]);
     for (let i = 0; i < cells0.length; i++) {
       const c0 = cells0[i];
       let merged = false;
@@ -7852,6 +8402,9 @@ function analyzeDxf(text, fileName) {
           const dOk = c.kat === 'tam' || c.kat === 'tek' ||
             (c.kat === 'alt' && (r.deck === 0 || r.deck == null)) ||
             (c.kat === 'üst' && r.deck === nDecks - 1);
+          // NOT: burası bilerek isEsanjor.te kaldı. Bir modül adı yalnız TEK hücreye
+          // yazılır (seen); geometrik tam yükseklik modülünü buraya da katmak, adı üst
+          // hücreden alıp alt hücreye taşımaktan başka bir şey yapmıyor (K.S-1 / M9).
           if (dOk || isEsanjor(r.name)) { c.moduller.push(r.name); break; }
         }
       }
@@ -8169,6 +8722,39 @@ function dxfAynalaOnerisi(dosyaAdi){
   return /AYNALANACAK/i.test(String(dosyaAdi||''));
 }
 
+// URETIM ADEDI de dosya adinda yazar — AYNALANACAK ile ayni desen (Cenk, 31.08.2026:
+// 'dxf adina da dikkat et, oraya da yaziyor'). Cizimin ICINDE bu bilgi yok; teknik
+// tabloda adet alani hic gecmiyor.
+//
+// Olculdu (713 teknik cizim): adinda ADET gecen 5 dosya var, besi de '2 ADET' ve besinde
+// de sayi ADET kelimesinin hemen solunda — 'KLM-01 (2 ADET)', 'P-PH-51T EF-02 2 ADET',
+// 'P-PH-11T (HAP-02)(2 ADET)', 'P-PH-53T (AYNALANACAK) (2 ADET)'. Kalan 708 dosyada
+// ADET hic gecmiyor, yani yanlis pozitif riski olculerek sifirdir.
+// Desen ADET kelimesine capalanir: '(HAP-02)(2 ADET)' icindeki 02'yi degil 2'yi okur.
+function dxfAdetOnerisi(dosyaAdi){
+  const m = String(dosyaAdi||'').match(/(\d+)\s*ADET/i);
+  return m ? ahuAdet({ adet: parseInt(m[1], 10) }) : 1;
+}
+
+// Adet IKI yerde birden yazili olabilir: dosya adinda ve teknik tablonun 'Santral Adı'
+// alaninda. Olculdu (713 teknik cizim): dosya adinda 5, Santral Adı'nda 2 kez geciyor;
+// ikisinin birden yazdigi 2 cizimde de ayni sayi. Buyugu alinir, hicbiri yoksa 1.
+// (AYNALANACAK isareti Santral Adı'nda HIC gecmiyor — o yalniz dosya adindan okunur.)
+function dxfAdetOku(dosyaAdi, santralAdi){
+  return Math.max(dxfAdetOnerisi(dosyaAdi), dxfAdetOnerisi(santralAdi));
+}
+
+// AHU ADINDAN '(2 ADET)' TEMIZLENIR. Ad Excel ve DXF DOSYA ADINA giriyor
+// ('{isNo}_{ahuAd}_KAPAK_HESABI.xlsx', '{proje} — YAN PANELLER.dxf'); adet ayri bir
+// alanda tutuldugu icin adin icinde birakilsa dosya adinda iki kez yazardi.
+function dxfAdSadelestir(ad){
+  return String(ad||'')
+    .replace(/\(?\s*\d+\s*ADET\s*\)?/gi, ' ')
+    .replace(/\s+\)/g, ')')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
 // Kunye: cizimin teknik tablosundan AHU duzeyindeki alanlar.
 function dxfKunye(r){
   const uyari = [];
@@ -8180,7 +8766,9 @@ function dxfKunye(r){
   if(r.icSac) malzeme = /paslanmaz/i.test(r.icSac) ? 'paslanmaz' : 'galvaniz';
   else uyari.push('İç Sac Adı okunamadı — malzeme elle seçilmeli.');
   if(!r.genislik) uyari.push('Genişlik okunamadı — modüllerin W ölçüsü boş kalır.');
-  const ad = r.santral || String(r.file||'DXF').replace(/\.dxf$/i,'') || 'DXF';
+  // Ad '(2 ADET)' taşıyabilir (ölçüldü: 713 çizimin 2'sinde Santral Adı böyle yazılmış);
+  // adet ayrı alanda tutulduğu için addan temizlenir — bkz. dxfAdSadelestir.
+  const ad = dxfAdSadelestir(r.santral || String(r.file||'DXF').replace(/\.dxf$/i,'')) || 'DXF';
   return { ad, seri, malzeme, en: r.genislik||0, katlar: (r.deckHeights||[]).slice(),
            profilAdi: r.profilAdi||'', icSac: r.icSac||'', toplamBoy: r.totalLen||0, uyari };
 }
@@ -8209,7 +8797,7 @@ function dxfParcaListesi(r, adlar, aynala){
     return { nm: nm, islev: tipAd[nm] || nm, boy: modBoy[nm] || 0,
              kat: modKat[nm] || 'tek',
              sira: y ? y.lo : 0,
-             kapak: (y && y.kapaklar.length) ? y.kapaklar[0] : null,
+             kapaklar: (y && y.kapaklar.length) ? y.kapaklar : [],
              acilir: !!(y && y.acilir),
              tavalar: (y && y.tavalar) || [],
              batarya: (y && y.batarya) ? y.batarya : null,
@@ -8219,8 +8807,17 @@ function dxfParcaListesi(r, adlar, aynala){
   return ham.map(function(p){
     const o = { islev: p.islev, boy: p.boy, kat: p.kat };
     // Aynalandiginda kapak modulun icinde de karsi kenara gecer.
-    if(p.kapak) o.kapak = { x: aynala ? Math.max(0, p.boy - p.kapak.lo - p.kapak.w) : p.kapak.lo,
-                            w: p.kapak.w, h: p.kapak.h };
+    // BUTUN kapaklar tasinir (Cenk, 31.08.2026): eskiden yalniz kapaklar[0] aliniyordu ve
+    // KLM-01 M1'de iki acilirin biri, DES M1'lerde ucun ikisi sessizce dusuyordu.
+    // 'kapak' alani geriye donuk uyum icin ilk kapaktir; motor 'kapaklar'i kullanir.
+    if(p.kapaklar && p.kapaklar.length){
+      o.kapaklar = p.kapaklar.map(function(k){
+        const q = { x: aynala ? Math.max(0, p.boy - k.lo - k.w) : k.lo, w: k.w, h: k.h };
+        if(k.alt > 0) q.alt = k.alt;
+        return q;
+      }).sort(function(a,b){ return a.x - b.x; });
+      o.kapak = { x: o.kapaklar[0].x, w: o.kapaklar[0].w, h: o.kapaklar[0].h };
+    }
     if(p.batarya) o.batarya = { lo: aynala ? Math.max(0, p.boy - p.batarya.lo - p.batarya.kalinlik) : p.batarya.lo,
                                 kalinlik: p.batarya.kalinlik };
     // Açılır kapak işareti — alan YALNIZ doluyken var olur (panel.yon deseni).
@@ -8243,6 +8840,9 @@ function dxfParcaListesi(r, adlar, aynala){
           q.w = a.w; q.h = a.h;
           if(a.yuz === 'ÜST'){
             if(a.x != null) q.x = aynala ? Math.max(0, p.boy - a.x - a.w) : a.x;
+            // W eksenindeki yer: ON kenarina uzaklik. Aynalama yalniz L eksenini cevirir,
+            // ON/ARKA degismez — bu alan aynen tasinir.
+            if(a.on != null) q.on = a.on;
           }else q.y = a.y;
         }
         if(a.damper) q.damper = true;
@@ -8277,7 +8877,12 @@ function dxfModulListesi(r, aynala){
              x: aynala ? toplam - x - h.boy : x,
              y: h.katKod === 'üst' ? altH : 0,
              kat: h.katKod, ad: ad, fan: fk ? dxfFanCoz(fk) : null,
-             altKat: h.katKod === 'tam' ? altH : 0,
+             // TAŞAN GÖVDE (Cenk, 31.08.2026): tek katlı çizimde kat yüksekliğini aşan
+             // gövde (DES ailesindeki plakalı eşanjör) da iki katlıdır — ölçü zinciri onu
+             // tek hücre gösterse de ÖN/ARKA yüzünde kat ayırıcı takviye vardır ve alt kat
+             // kapağı komşusuyla aynı olmalıdır. Alan aynı 'altKat'tır, yeni alan açılmaz.
+             altKat: h.katKod === 'tam' ? altH
+                   : (h.katKod === 'tek' && altH > 0 && h.yukseklik > altH + 1 ? altH : 0),
              parcalar: dxfParcaListesi(r, adlar, aynala) };
   });
   out.sort(function(a,b){ return a.x - b.x || a.y - b.y; });
@@ -8310,7 +8915,7 @@ function dxfTekilAd(ad, haric){
 // Bir cozumlemeyi yeni bir AHU olarak kurar. renderAll CAGIRMAZ.
 // Esanjor hucresinde module.esanjor ACILMAZ: DXF kenar/ust kat/saga uzaklik vermiyor,
 // gecersiz esanjor collectFaceIssues'e girip Excel ve DXF'i kilitler.
-function dxfAhuKur(r, aynala){
+function dxfAhuKur(r, aynala, adet){
   const k = dxfKunye(r);
   const ml = dxfModulListesi(r, aynala);
   if(!ml.length) return null;
@@ -8335,12 +8940,13 @@ function dxfAhuKur(r, aynala){
     return md;
   });
   yeni.active = 0;
+  ahuAdetYaz(yeni, adet);   // alan yalniz 1'den buyukken var olur
   if(bos) state.ahus[0] = yeni; else state.ahus.push(yeni);
   yeni.ad = dxfTekilAd(k.ad, yeni);   // yerlestikten SONRA: bos AHU degistiyse adi serbest kalir
   state.activeAhu = state.ahus.indexOf(yeni);
   araKatNormalize();
   esanjorNormalize();
-  return { ahu: yeni, modulSayisi: yeni.modules.length, kunye: k };
+  return { ahu: yeni, modulSayisi: yeni.modules.length, kunye: k, adet: ahuAdet(yeni) };
 }
 
 // ---------- DXF'TEN AKTARIM — ARAYUZ ----------
@@ -8363,11 +8969,14 @@ function dxaDurum(){ return { planlar: dxaPlanlar, idx: dxaIdx }; }
 
 function dxaPlanYap(r, dosya){
   const ayna = dxfAynalaOnerisi(dosya);
+  const adet = dxfAdetOku(dosya, r.santral);
   return { dosya: dosya, coz: r, kunye: dxfKunye(r), ayna: ayna, aynaOto: ayna,
+           adet: adet, adetOto: adet > 1,
            sec: r.hucreler.length > 0, hata: null };
 }
 function dxaHataPlani(dosya, mesaj){
-  return { dosya: dosya, coz: null, kunye: null, ayna: false, aynaOto: false, sec: false, hata: mesaj };
+  return { dosya: dosya, coz: null, kunye: null, ayna: false, aynaOto: false,
+           adet: 1, adetOto: false, sec: false, hata: mesaj };
 }
 function dxaModuller(p){ return p.coz ? dxfModulListesi(p.coz, p.ayna) : []; }
 
@@ -8487,6 +9096,7 @@ function dxaCiz(){
       + alan('AHU Adı', k.ad, 'Santral Adı alanından')
       + alan('Profil Serisi', k.seri ? k.seri + 'lik' : null, k.profilAdi || 'Profil Adı okunamadı')
       + alan('İç Sac', k.malzeme || null, k.icSac || 'İç Sac Adı okunamadı')
+      + alan('Üretim Adedi', p.adet + ' cihaz', p.adetOto ? 'dosya adından okundu' : 'elle')
       + alan('Genişlik (W)', k.en ? k.en + ' mm' : null, 'her modüle uygulanır')
       + alan('Katlar', k.katlar.length ? k.katlar.join(' + ') + ' mm' : null,
              k.katlar.length > 1 ? k.katlar.length + ' kat' : 'tek kat')
@@ -8498,8 +9108,11 @@ function dxaCiz(){
           ? '<label><input type=&quot;checkbox&quot; id=&quot;dxa_sec&quot;' + (p.sec ? ' checked' : '')
             + (ml.length ? '' : ' disabled') + '> Bu dosyayı aktar</label>'
           : '')
+      + '<label>Üretim adedi <input type=&quot;number&quot; id=&quot;dxa_adet&quot; min=&quot;1&quot; max=&quot;999&quot; step=&quot;1&quot; value=&quot;'
+      + p.adet + '&quot; style=&quot;width:64px;&quot;></label>'
       + '</div>';
     if(p.aynaOto) h += '<div class=&quot;note&quot;>Dosya adında AYNALANACAK geçtiği için kendiliğinden işaretlendi.</div>';
+    if(p.adetOto) h += '<div class=&quot;note&quot;>Dosya adında ' + p.adet + ' ADET yazdığı için üretim adedi kendiliğinden ' + p.adet + ' geldi.</div>';
 
     const gecen = r.checks.filter(function(c){ return c.ok; }).length;
     const dusen = r.checks.filter(function(c){ return !c.ok; });
@@ -8582,8 +9195,8 @@ function dxaAktar(){
   let modul = 0, ahu = 0;
   const adlar = [];
   secilenler.forEach(function(p){
-    const s = dxfAhuKur(p.coz, p.ayna);
-    if(s){ ahu++; modul += s.modulSayisi; adlar.push(s.ahu.ad); }
+    const s = dxfAhuKur(p.coz, p.ayna, p.adet);
+    if(s){ ahu++; modul += s.modulSayisi; adlar.push(s.ahu.ad + (s.adet > 1 ? ' ×' + s.adet : '')); }
   });
   dxaModalKapat();
   renderAll();
@@ -8724,6 +9337,10 @@ function exportToDxf(toplayici) {
     state.activeAhu = ai;
     var seriBase = String(state.varsayimlar.seri || 60);
     var seri = seriBase + (ahu.malzeme === 'paslanmaz' ? 'P' : '');
+    // ÜRETİM ADEDİ — bu santralden kaç cihaz üretilecek. Çarpım TEK yerde, aktarım
+    // sınırında yapılır: f1'in tamamı (çizim, sac serme, delik sayımı, izolasyon) zaten
+    // kayıtların 'adet' alanını okuyor, orada hiçbir değişiklik gerekmez.
+    var kat = ahuAdet(ahu);
     var ahuLabel = ahu.ad || ('AHU-' + (ai + 1));
     var projeLabel = proje ? proje + ' — ' + ahuLabel : ahuLabel;
     var mainPanels = [];
@@ -8748,7 +9365,7 @@ function exportToDxf(toplayici) {
               var K = Math.min(Math.round(sw), Math.round(sh));
               var kod = kodMap[mi + ':' + fi + ':' + ci + ':' + pi];
               var panelObj = { kalinlik: seri, tip: mapped.tip, B: B, K: K,
-                cam: mapped.cam, bogazTip: mapped.bogazTip, kod: kod, adet: 1 };
+                cam: mapped.cam, bogazTip: mapped.bogazTip, kod: kod, adet: kat };
               // PANELE MONTE AĞIZ: delik panelin sol-alt köşesine göre YÜZ ekseninde
               // tutulur; DXF parçası B×K çizildiği için yükseklik büyükse parça 90°
               // dönmüş demektir — delik de aynı dönüşü alır (rijit hareket, parça aynı).
@@ -8812,13 +9429,18 @@ function exportToDxf(toplayici) {
         if (esanjorOf(mod).aktif) {
           var eo = esanjorOlculeri();
           if (eo.gecerli) {
-            importedEsanjor.push({
-              kalinlik: seriBase, CI: eo.CI,
-              O1: eo.O1, O2: eo.O2, O3: eo.O3, O4: eo.O4,
-              o1_15: ESANJOR_15MM.o1, o2_15: ESANJOR_15MM.o2,
-              o3_15: ESANJOR_15MM.o3, o4_15: ESANJOR_15MM.o4,
-              kod: eo.es.kod || ''
-            });
+            // Eşanjör kaydında 'adet' alanı YOKTUR — f1'de her kayıt bir cihaz setidir
+            // (modül başına en fazla bir eşanjör). Üretim adedi bu yüzden kaydı KAT KEZ
+            // ekleyerek verilir; f1'in çizim ve sac serme kodu değişmez.
+            for (var _e = 0; _e < kat; _e++) {
+              importedEsanjor.push({
+                kalinlik: seriBase, CI: eo.CI,
+                O1: eo.O1, O2: eo.O2, O3: eo.O3, O4: eo.O4,
+                o1_15: ESANJOR_15MM.o1, o2_15: ESANJOR_15MM.o2,
+                o3_15: ESANJOR_15MM.o3, o4_15: ESANJOR_15MM.o4,
+                kod: eo.es.kod || ''
+              });
+            }
           }
         }
         if (araKatOf(mod).aktif) {
@@ -8849,7 +9471,7 @@ function exportToDxf(toplayici) {
       var harita = elemanDimMap[tip];
       return Object.keys(harita).map(function(k) {
         var pts = k.split('|');
-        return yap(parseInt(pts[0]), parseInt(pts[1]), harita[k]);
+        return yap(parseInt(pts[0]), parseInt(pts[1]), harita[k] * kat);
       });
     }
     var importedBogaz = elemanKayitlari('Boğaz', function(w, h, adet) {
@@ -8880,7 +9502,7 @@ function exportToDxf(toplayici) {
     var importedArakat = Object.keys(arakatDimMap).map(function(k) {
       var pts = k.split('|');
       var w = parseInt(pts[1]), h = parseInt(pts[2]);
-      return { tip: pts[0], B: Math.max(w, h), K: Math.min(w, h), adet: arakatDimMap[k] };
+      return { tip: pts[0], B: Math.max(w, h), K: Math.min(w, h), adet: arakatDimMap[k] * kat };
     });
 
     var allPanels = mainPanels.concat(altUstPanels);
@@ -8956,9 +9578,11 @@ async function exportAnalizExcel(){
       xlDevFooter(wsO);
       wsO.getCell(1,1).value = 'Cenk Altınay';
       wsO.getCell(1,1).font = XL_DEV_FONT;
+      const kat = aktifAdet();
       let rr = xlTable(wsO, 2, 'ANALİZ — MALZEME TÜKETİMİ', ['Alan','Değer'], [
         ['İş Numarası', state.proje.isNo || '—'],
         ['Santral Adı', ahuAd],
+        ['Üretim Adedi', kat + (kat > 1 ? ' cihaz — aşağıdaki bütün miktarlar TOPLAMDIR' : ' cihaz')],
         ['Profil Serisi', V.seri],
         ['İç Sac', state.ahus[y.ahuIndex] ? (state.ahus[y.ahuIndex].malzeme || '—') : '—'],
         ['Modül Sayısı', state.modules.length],
@@ -8993,9 +9617,12 @@ async function exportAnalizExcel(){
           'kapakların kesim ölçüsünden (B×K)']);
       });
       // Sarf
-      kalemler.push(['Köşe plastiği (3 yönlü)', plastik.kose, 'adet', state.modules.length+' modül × 8 köşe']);
+      kalemler.push(['Köşe plastiği (3 yönlü)', plastik.kose, 'adet',
+        state.modules.length+' modül × 8 köşe' + (kat>1 ? ' × '+kat+' cihaz' : '')]);
       kalemler.push(['Takviye plastiği', plastik.takviye, 'adet',
         plastik.takviyePlastikVar ? plastik.takviyeParca+' takviye × 2 uç' : 'bu profilde kullanılmıyor']);
+      if(kat > 1) kalemler.push(['— not —', kat, 'cihaz',
+        'Bütün miktarlar '+kat+' cihazın toplamıdır; bir cihazın kesim listesi Kapak Hesabı Excel dosyasındadır.']);
       kalemler.push(['Vida', f1.delik.vida, 'adet', 'kapak panelleri — dış sac']);
       kalemler.push(['Perçin', f1.delik.percin, 'adet', 'kapak panelleri — iç/dış aynı delik, bir kez']);
       rr = xlTable(wsO, rr, 'SATIN ALMA KALEMLERİ', ['Kalem','Miktar','Birim','Not'], kalemler);
@@ -9046,7 +9673,8 @@ async function exportAnalizExcel(){
       wsF.columns = [{width:34},{width:14},{width:14},{width:40}];
       xlDevFooter(wsF);
       let rf = xlTable(wsF, 1, 'PLASTİK', ['Kalem','Adet','Birim','Kaynak'], [
-        ['Köşe plastiği (3 yönlü)', plastik.kose, 'adet', state.modules.length+' modül × 8 köşe'],
+        ['Köşe plastiği (3 yönlü)', plastik.kose, 'adet',
+          state.modules.length+' modül × 8 köşe' + (kat>1 ? ' × '+kat+' cihaz' : '')],
         ['Takviye plastiği', plastik.takviye, 'adet',
           plastik.takviyePlastikVar
             ? plastik.takviyeParca+' takviye parçası × 2 uç (profil payı '+V.takviyePlastik+' mm)'
@@ -9094,10 +9722,14 @@ document.getElementById('btn_analiz').addEventListener('click', exportAnalizExce
 // v4: panel.colSpan + face.anaSplitLevels (eski dosyaların alan göçü syncStructure'da yapılır)
 // v5: module.araKat (ara kat — 7. sanal yüz). Eski v4/v3/v2 dosyalar açılmaya devam eder,
 //     ara katsız modül olarak gelirler (araKatNormalize kurar).
-const PROJECT_VERSION = 14;  // v10 = DXF'ten okunan bileşenler (module.dxfBilgi)
+const PROJECT_VERSION = 16;  // v10 = DXF'ten okunan bileşenler (module.dxfBilgi)
                              // v11 = çizimden okunan ağızlar (dxfBilgi.parcalar[].agizlar)
                              // v12 = ÜST ağzın L eksenindeki yeri (agizlar[].x) + tabloDan
                              // v13 = açılır kapak işareti (parcalar[].acilir)
+                             // v15 = santralin üretim adedi (ahu.adet, yalnız 1'den büyükken)
+                             // v16 = bir bölmedeki BÜTÜN kapaklar (parcalar[].kapaklar, her
+                             //       birinde 'alt' = tabandan yüksekliği) + ÜST ağzın W
+                             //       eksenindeki yeri (agizlar[].on = ÖN kenarına uzaklık)
 
 // Yüklenen her modülde araKat alanını kurar. Tembel kurulum (araKatOf) tek başına yeterli
 // olurdu ama o zaman projectData() → JSON → applyProjectData() → projectData() gidiş-dönüşü
@@ -9149,6 +9781,7 @@ function applyProjectData(data){
   if(data.proje) state.proje = data.proje;
   araKatNormalize();   // v4 ve öncesi: ara katsız modül olarak kurulur
   esanjorNormalize();  // v5 ve öncesi: eşanjörsüz modül olarak kurulur
+  adetNormalize();     // v14 ve öncesi: adetsiz (tek cihaz) olarak kurulur
   return true;
 }
 
