@@ -937,6 +937,234 @@ function esanjorOf(m){
 }
 function activeEsanjor(){ return esanjorOf(state.modules[state.active]); }
 
+/* ================== BATARYA KIZAĞI — 9. sekme (2026-09-01) ==================
+   Bataryanın altına giren kızak takımı. Takım başına üç parça, her birinden 2 adet:
+   ALT L (20/20) · OMEGA (seriye göre iki çeşit) · ÜST L (bir kanadı değişken).
+
+   Eşanjör gibi ızgarası yoktur — göz/bölüm/takviye kavramı burada da yok — bu yüzden
+   computeFace ailesine HİÇ bağlanmaz: kendi paneli, kendi hesabı, kendi aktarım adımı.
+
+   ÖLÇÜ ZİNCİRİ (Cenk, 01.09.2026):
+     uçtan uca boy      = modülün DIŞ genişliği (W) − seri payı   (50 → 102, 60 → 125)
+     kasa iç yüksekliği = H − 2 × kenar profili                   (50 → H−100, 60 → H−120)
+     üst L değişken kanat X = iç yükseklik − 25 − HR + 30         (HR batarya föyünden)
+
+   L ve OMEGA'nın KESİTİ SABİTTİR, yalnız boyları değişir. ÜST L'nin bir kanadı 20 kalır,
+   diğeri X olur; açılımı X + 17,20 mm'dir (aşağıdaki KIZAK_ACILIM_EK).
+*/
+const KIZAK_FI  = 8;
+const KIZAK_DEF = { name:'KIZAK' };
+// Uçtan uca boy payı. ESANJOR_DUS / ARAKAT_DUS ile AYNI DEĞİL — üçünü tek tabloya bağlamayın.
+const KIZAK_DUS = { '50':102, '60':125 };
+const KIZAK_DUS_VARSAYILAN = 125;   // tanınmayan seride büyük pay: kısa kızak güvenli taraf
+const KIZAK_UST_DUS = 25;
+const KIZAK_UST_EK  = 30;
+const KIZAK_SABIT_KANAT = 20;
+// ÖLÇÜLDÜ (referans DXF'ler, üç parçada da tutuyor): her büküm komşu iki kanadın HER
+// BİRİNDEN 3 mm götürür, yerine 3,20 mm'lik büküm bölgesi girer. 20/20 L'nin açılımı
+// bu yüzden 37,20'dir → değişken kanatta açılım = (20−3) + 3,20 + (X−3) = X + 17,20.
+const KIZAK_ACILIM_EK = 17.2;
+const KIZAK_MIN_BOY   = 100;
+const KIZAK_MIN_KANAT = 20;
+const KIZAK_TAKIM_ADET = 2;   // her parçadan takım başına 2 adet (referans dosya adları)
+const KIZAK_ROLLER = ['isitici','dx'];
+const KIZAK_ROL_AD = { isitici:'Isıtıcı', dx:'DX / Soğutucu' };
+
+function newKizak(){ return { aktif:false, bataryalar:[] }; }
+// esanjorOf ile aynı desen: alanı olmayan eski modülde tembel kurar ve değerleri doğrular.
+// Rol başına EN FAZLA BİR batarya tutulur — ikinci yükleme aynı rolün üzerine yazar.
+function kizakOf(m){
+  if(!m) return null;
+  if(!m.kizak || typeof m.kizak !== 'object') m.kizak = newKizak();
+  const k = m.kizak;
+  if(!Array.isArray(k.bataryalar)) k.bataryalar = [];
+  const gorulen = {};
+  k.bataryalar = k.bataryalar.filter(b => b && typeof b === 'object').map(b => {
+    const rol = KIZAK_ROLLER.indexOf(b.rol) >= 0 ? b.rol : KIZAK_ROLLER[0];
+    const say = v => { const n = Number(v); return (isFinite(n) && n>0) ? Math.round(n) : 0; };
+    const o = { rol:rol, HR:say(b.HR) };
+    // Yardımcı alanlar YALNIZ doluyken var olur (panel.yon deseni) — yoksa JSON
+    // gidiş-dönüşü sabit nokta olmaz.
+    if(say(b.LDmax)) o.LDmax = say(b.LDmax);
+    if(say(b.TR))    o.TR    = say(b.TR);
+    if(typeof b.kaynak === 'string' && b.kaynak) o.kaynak = b.kaynak;
+    return o;
+  }).filter(b => { if(gorulen[b.rol]) return false; gorulen[b.rol] = 1; return true; });
+  k.aktif = !!k.aktif;
+  return k;
+}
+function activeKizak(){ return kizakOf(state.modules[state.active]); }
+// Çizimden gelen modülde hangi batarya rolleri var (dxfBilgi) — panelde ipucu olarak yazılır.
+function kizakCizimRolleri(m){
+  const ps = (m && m.dxfBilgi && m.dxfBilgi.parcalar) || [];
+  const out = [];
+  ps.forEach(p => {
+    const t = gercekIslev(p);
+    const rol = (t === 'isitma') ? 'isitici' : (t === 'sogutma') ? 'dx' : '';
+    if(rol && out.indexOf(rol) < 0) out.push(rol);
+  });
+  return out;
+}
+
+function kizakOlculeri(){
+  const kz   = activeKizak();
+  const seri = String(state.varsayimlar.seri);
+  const V    = getV();
+  const pay  = KIZAK_DUS[seri] != null ? KIZAK_DUS[seri] : KIZAK_DUS_VARSAYILAN;
+  const H = Number(state.dims.H)||0, W = Number(state.dims.W)||0;
+  const boy = W>0 ? W - pay : 0;
+  const icH = H>0 ? H - 2*V.kenar : 0;
+
+  const eksik = [];
+  if(!(W>0)) eksik.push('Modül genişliği (W) girilmedi');
+  if(!(H>0)) eksik.push('Modül yüksekliği (H) girilmedi');
+  if(!seri)  eksik.push('Profil serisi seçilmedi');
+  if(!kz.bataryalar.length) eksik.push('Batarya föyü (PDF) yüklenmedi — HR ölçüsü okunamıyor');
+
+  const hatalar = [];
+  if(boy>0 && boy < KIZAK_MIN_BOY)
+    hatalar.push('Uçtan uca boy '+boy+' mm — en az '+KIZAK_MIN_BOY+' mm olmalı');
+
+  const bataryalar = kz.bataryalar.map(b => {
+    const X = (icH>0 && b.HR>0) ? icH - KIZAK_UST_DUS - b.HR + KIZAK_UST_EK : 0;
+    const o = { rol:b.rol, ad:KIZAK_ROL_AD[b.rol], HR:b.HR, kaynak:b.kaynak||'',
+                kanat:X, ustAcilim: X>0 ? Math.round((X + KIZAK_ACILIM_EK)*100)/100 : 0 };
+    if(b.HR>0 && icH>0 && X < KIZAK_MIN_KANAT)
+      hatalar.push(o.ad+' bataryası: üst L kanadı '+X+' mm — en az '+KIZAK_MIN_KANAT
+        +' mm olmalı (HR '+b.HR+' mm bu kasaya sığmıyor)');
+    return o;
+  });
+
+  // «HER BATARYANIN KIZAGI OLACAK» (Cenk, 01.09.2026). Çizimde görünen ama föyü
+  // yüklenmemiş batarya, sessizce eksik bir takım demektir — malzeme az sipariş edilir.
+  // KİLİTLEMEZ, çünkü çizimden rol okuma bir sezgidir; yanlış pozitifte kullanıcı tıkanmaz.
+  // Kilit istenirse tek satır: bu listeyi 'hatalar'a ekleyin.
+  const yuklu = bataryalar.map(b => b.rol);
+  const uyarilar = kizakCizimRolleri(state.modules[state.active])
+    .filter(r => yuklu.indexOf(r) < 0)
+    .map(r => 'Çizimde ' + KIZAK_ROL_AD[r] + ' bataryası var ama föyü yüklenmedi — o takım üretilmez');
+
+  return { kz, seri, pay, H, W, boy, icH, kenar:V.kenar, bataryalar, eksik, hatalar, uyarilar,
+           gecerli: eksik.length===0 && hatalar.length===0 };
+}
+
+/* ---------- Batarya föyü (PDF) → LDmax / HR / TR ----------
+   Kaynak: 'iş emri oto/is-emri-uygulamasi.html'. Harici kütüphane KULLANILMAZ: PDF
+   akışları tarayıcının yerleşik DecompressionStream'i ile açılır, metin ToUnicode (CMap)
+   tablolarıyla çözülür. Föydeki ölçü tablosunda etiket ve değer ayrı parçalar hâlinde
+   gelir; her etiketten sonraki ilk sayısal parça o etiketin değeridir.            */
+async function kizakPdfInflate(bytes){
+  const ds = new DecompressionStream('deflate');
+  const writer = ds.writable.getWriter();
+  // Bir PDF'te görsel gibi zlib olmayan akışlar da bulunur; write/close'un reddi burada
+  // yutulur, gerçek hata aşağıdaki okuma döngüsünden fırlar.
+  writer.write(bytes).catch(()=>{});
+  writer.close().catch(()=>{});
+  const reader = ds.readable.getReader();
+  const parcalar = [];
+  let toplam = 0;
+  while(true){
+    const r = await reader.read();
+    if(r.done) break;
+    parcalar.push(r.value); toplam += r.value.length;
+  }
+  const sonuc = new Uint8Array(toplam);
+  let ofs = 0;
+  for(const p of parcalar){ sonuc.set(p, ofs); ofs += p.length; }
+  return sonuc;
+}
+async function kizakPdfAkislari(buf){
+  const bytes = new Uint8Array(buf);
+  const ham = new TextDecoder('latin1').decode(bytes);
+  const akislar = [];
+  let i = 0;
+  while(true){
+    const a = ham.indexOf('stream', i);
+    if(a < 0) break;
+    let b = a + 6;
+    if(ham.charCodeAt(b) === 13) b++;
+    if(ham.charCodeAt(b) === 10) b++;
+    const e = ham.indexOf('endstream', b);
+    if(e < 0) break;
+    // 'endstream' öncesindeki satır sonu baytları veriye dahil değildir; kırpılmazsa
+    // DecompressionStream onları 'sonda çöp' sayıp hata verir.
+    let son = e;
+    while(son > b && (bytes[son-1]===10 || bytes[son-1]===13 || bytes[son-1]===32)) son--;
+    try{ akislar.push(new TextDecoder('latin1').decode(await kizakPdfInflate(bytes.slice(b, son)))); }
+    catch(_){ /* sıkıştırılmamış / şifreli / desteklenmeyen akış — atla */ }
+    i = e + 9;
+  }
+  return akislar;
+}
+// Her CMap bloğu AYRI bir aday haritadır. Bir PDF'te birden fazla font bulunur ve haritalar
+// birleştirilirse karakterler kayar; bu yüzden her metin parçası tüm adaylarla çözülüp en
+// anlamlı sonuç seçilir.
+function kizakPdfCMap(hepsi){
+  const adaylar = [];
+  for(const m of hepsi.matchAll(/begincmap([\s\S]*?)endcmap/g)){
+    const map = {};
+    for(const g of m[1].matchAll(/beginbfchar([\s\S]*?)endbfchar/g))
+      for(const p of g[1].matchAll(/<([0-9A-Fa-f]+)>\s*<([0-9A-Fa-f]+)>/g))
+        map[p[1].toUpperCase().padStart(4,'0')] = String.fromCharCode(parseInt(p[2].slice(0,4),16));
+    for(const g of m[1].matchAll(/beginbfrange([\s\S]*?)endbfrange/g))
+      for(const p of g[1].matchAll(/<([0-9A-Fa-f]+)>\s*<([0-9A-Fa-f]+)>\s*<([0-9A-Fa-f]+)>/g)){
+        const a = parseInt(p[1],16), b = parseInt(p[2],16), c = parseInt(p[3].slice(0,4),16);
+        for(let k=a; k<=b && k-a<512; k++)
+          map[k.toString(16).toUpperCase().padStart(4,'0')] = String.fromCharCode(c + (k-a));
+      }
+    if(Object.keys(map).length) adaylar.push(map);
+  }
+  return adaylar;
+}
+const KIZAK_PDF_HARF = /[0-9A-Za-zÇĞİÖŞÜçğıöşü .,%/()\-:+Ø]/;
+async function kizakPdfParcalar(buf){
+  const akislar = await kizakPdfAkislari(buf);
+  const adaylar = kizakPdfCMap(akislar.join('\n'));
+  const coz = (hex, map) => {
+    let t = '';
+    for(let i=0; i+4<=hex.length; i+=4){
+      const k = hex.slice(i,i+4).toUpperCase();
+      t += (k in map) ? map[k] : ' ';
+    }
+    return t;
+  };
+  const puan = t => { let n=0; for(const ch of t) n += (ch===' ' ? -3 : (KIZAK_PDF_HARF.test(ch) ? 1 : 0)); return n; };
+  const parcalar = [];
+  for(const akis of akislar){
+    if(akis.indexOf('BT') < 0) continue;
+    for(const bolum of akis.split(/\bBT\b/).slice(1)){
+      const govde = bolum.split(/\bET\b/)[0];
+      const td = govde.match(/([-\d.]+)\s+([-\d.]+)\s+Td/);
+      if(!td) continue;
+      const hexler = [...govde.matchAll(/<([0-9A-Fa-f]+)>\s*Tj/g)].map(m => m[1]);
+      if(!hexler.length) continue;
+      let enIyi = '', enIyiPuan = -Infinity;
+      for(const map of adaylar){
+        const t = hexler.map(h => coz(h, map)).join('');
+        const p = puan(t);
+        if(p > enIyiPuan){ enIyiPuan = p; enIyi = t; }
+      }
+      if(enIyi.trim()) parcalar.push({ y: parseFloat(td[2]), txt: enIyi.trim() });
+    }
+  }
+  return parcalar;
+}
+const KIZAK_PDF_ALANLAR = ['LDmax','HR','TR'];
+async function kizakPdfOlculeri(buf){
+  const parcalar = (await kizakPdfParcalar(buf)).sort((a,b) => b.y - a.y);
+  const sonuc = {};
+  let bekleyen = null;
+  for(const p of parcalar){
+    const t = p.txt.trim();
+    if(KIZAK_PDF_ALANLAR.indexOf(t) >= 0){ bekleyen = t; continue; }
+    if(bekleyen && /^[\d.,]+$/.test(t)){
+      if(!(bekleyen in sonuc)) sonuc[bekleyen] = t.replace(/\./g,'');
+      bekleyen = null;
+    }
+  }
+  return sonuc;
+}
+
 function faceDefOf(fi){ return isAraKat(fi) ? ARAKAT_DEF : FACE_DEFS[fi]; }
 function faceOf(fi){ return isAraKat(fi) ? activeAraKat().grid : state.faces[fi]; }
 function vOf(fi){ return isAraKat(fi) ? getVAraKat() : getV(); }
@@ -966,8 +1194,14 @@ function getVAraKat(){
     kose: 0,
     takviyePlastik: 0,
     acilirEk: 0,
-    tolW: ARAKAT_TOLERANS ? state.varsayimlar.tolW : 0,
-    tolH: ARAKAT_TOLERANS ? state.varsayimlar.tolH : 0
+    // PROFILSIZ ARA KATTA TOLERANS YOK (Cenk, 03.09.2026: «girilen olcuden 4 mm dusuyor,
+    // bu 1 mm olmasi yeterli»). Profilli ara katta panel cercevenin icine iniyor, bosluk
+    // payi gerekiyor; profilsizde cerceve yok, panel kendi bukumuyle oturuyor.
+    // Olculdu: girilen 1000 -> kesim 997 -> DIS parca govdesi 996 (3 tolerans + 1 cizim
+    // payi = 4). Tolerans 0 olunca kesim 1000, DIS govde 999 — istenen 1 mm.
+    // (IC parca DIS'ten 3 mm kucuk kalir: ic sac disin icine giriyor, tasarim geregi.)
+    tolW: (ARAKAT_TOLERANS && p > 0) ? state.varsayimlar.tolW : 0,
+    tolH: (ARAKAT_TOLERANS && p > 0) ? state.varsayimlar.tolH : 0
   };
 }
 
@@ -1930,7 +2164,13 @@ const GERCEK_MIN_KAPAK = 100;
 // Kural YALNIZ bu agiza uygulanir; tam bogaz ve oteki agizlar cizimdeki olcusunde kalir.
 const GERCEK_AGIZ_YUVARLA = 10;
 const GERCEK_KAPAK_MAX = 2000;
-const GERCEK_UST_MAX   = 1200;
+// UST PANEL SINIRI 1200 -> 1800 (Cenk, 03.09.2026: «buyuk santrallerde ust kapagi
+// gereksiz yere cok kucuk parcalara ayirdigini gordum»). 29.08'de 1200 secilmisti;
+// olculdu (713 cizim, 961 UST yuz): 1200'de toplam 2921 ust parca, 1800'de 1756.
+// Ornek — AHU-01 M2'nin 2700x3270 catisi 3x3=9 parca (817x1007) yerine 2x2=4 parca
+// (1257x1542). Sinir kalksa bile parca SACA sigmak zorunda: 1500'luk sacta kisa kenar
+// en fazla ~1396 mm, yani bu sayi sonsuz buyuk panel uretmez.
+const GERCEK_UST_MAX   = 1800;
 
 function otoDagit(total, n){
   const base = Math.floor(total/n);
@@ -3468,9 +3708,59 @@ function gercekAltYuz(uyari){
 
 // Aktif AHU'nun bütün modüllerini gerçek değerlerle kurar.
 // ÖN yüz kural motorundan, ÜST yüz tipi birleşmeden, kalan yüzler 27.08 otomatiğinden gelir.
+// ARA TAKVIYE OTOMATIK BIRLESIMI (Cenk, 03.09.2026):
+//   «destek profillerinin uclari uc uca denk gelebiliyor, yani birlesim yapmali plastik
+//    plastige ama aralarinda bosluk vardi; tiklayip birlestir dememi bekliyor, bunlari
+//    kendi yapmali.»
+//
+// Bir ara takviye komsu bolume GECEBILIYORSA birlestirilir. Sart computeFace'in kendi
+// 'joinValid' sartidir, KOPYALANMAZ — burada da ayni iki soru sorulur:
+//   (a) komsu bolumde HIZALI bir seviye var mi   (anaBar.levels[].idxA === gi)
+//   (b) aradaki ana takviye engel mi             (var, tumuyle ortulu degil ve tam o
+//                                                 seviyeden kesik degil ise ENGEL)
+// Sart saglanmiyorsa DOKUNULMAZ: aradaki dikey takviyeyi kesmek yapisal bir karardir,
+// otomatik verilmez. Birlesim yalniz bar SEGMENTLERINI birlestirir — kapak olculeri,
+// bolum sinirlari ve yuz geometrisi degismez, yalniz takviye kesim listesi degisir.
+//
+// Olculdu (713 cizim / 5357 yuz / 2140 ara takviye): 86 takviye bu durumdaydi. Hepsi
+// SOL/SAG yuzde ve hepsinde aradaki ana takviye BOYDAN BOYA birlesik kapagin altinda
+// kaliyordu (fullySuppressed) — yani ortada dikme yokken iki ayri segment ciziliyordu.
+//
+// Donus: birlestirilen takviye sayisi.
+function gercekAraBirlestir(fi){
+  const face = faceOf(fi);
+  if(!face || face.kapaksiz || !face.columns || face.columns.length < 2) return 0;
+  let toplam = 0;
+  // Zincir uzayabildigi icin degisiklik kalmayana kadar yinelenir. Tur sayisi bolum
+  // sayisiyla sinirli: her tur en az bir birlesim ekler, yoksa doner.
+  for(let tur = 0; tur < face.columns.length; tur++){
+    let c;
+    try{ c = computeFace(fi); }catch(e){ return toplam; }
+    if(!c || !c.bars || !c.bars.ara) return toplam;
+    let degisti = 0;
+    c.bars.ara.forEach(function(b){
+      if(!b.on || b.joinReq) return;
+      if(b.ci >= face.columns.length - 1) return;
+      const anaBar = c.bars.ana[b.ci];
+      const hizali = !!anaBar && anaBar.levels.some(function(l){ return l.idxA === b.gi; });
+      const engel  = !!anaBar && anaBar.on && !anaBar.fullySuppressed
+                     && anaBar.cutLevels.indexOf(b.gi) < 0;
+      if(!hizali || engel) return;
+      const col = face.columns[b.ci];
+      if(!col || !col.araJoinNext || b.gi >= col.araJoinNext.length) return;
+      col.araJoinNext[b.gi] = true;
+      degisti++;
+    });
+    toplam += degisti;
+    if(!degisti) break;
+  }
+  return toplam;
+}
+
 function gercekTumAHU(){
   const sonuc = { modul:0, atlanan:0, kapak:0, acilir:0, camli:0, ust:0, tava:0, mated:0,
-                  damper:0, bogaz:0, disAgiz:0, ustTablo:0, arka:0, kismi:0, uyari:[] };
+                  damper:0, bogaz:0, disAgiz:0, ustTablo:0, arka:0, kismi:0, birlesim:0,
+                  uyari:[] };
   state.modules.forEach(function(m, mi){
     withModule(mi, function(){
       const uyari = [];
@@ -3540,6 +3830,10 @@ function gercekTumAHU(){
         if((fi === 4 || fi === 5 || fi === 1) && gercekKismiYuz(fi, uyari)){ sonuc.kismi++; return; }
         otoUygulaYuz(fi, true, GERCEK_KAPAK_MAX);
       });
+      // Yuzler kurulduktan SONRA: uc uca gelen ara takviyeler birlestirilir. Yuz bazinda
+      // degil modul bazinda calisir ki gercekOnYuz/gercekYanYuz/otoUygulaYuz hangi yolu
+      // kurmus olursa olsun ayni kural gecsin (bkz. gercekAraBirlestir).
+      for(let bf = 0; bf < 6; bf++) sonuc.birlesim += gercekAraBirlestir(bf);
       const on2 = (m.ad ? m.ad : 'Modül '+(mi+1)) + ': ';
       uyari.forEach(function(u){ sonuc.uyari.push(on2 + u); });
     });
@@ -3560,6 +3854,8 @@ function gercekNot(s){
     +'yüze kondu ('+s.damper+' damper, '+s.bogaz+' boğaz).');
   if(s.arka) p.push(s.arka+' iki katlı modülün ARKA yüzüne kat ayırıcı yatay takviye kondu.');
   if(s.kismi) p.push(s.kismi+' yüzde komşu modülün kapattığı bölge BOŞ bırakıldı.');
+  if(s.birlesim) p.push(s.birlesim+' ara takviye uç uca geldiği için BİRLEŞTİRİLDİ '
+    +'(aralarında dikey takviye yok).');
   if(s.ustTablo) p.push('⚠ '+s.ustTablo+' ÜST ağzın ölçüsü çizimde yok, teknik tablodan alındı.');
   if(s.disAgiz) p.push('⚠ '+s.disAgiz+' ağız ALT yüzde — kapsam dışı, elle eklenmeli.');
   if(s.mated) p.push(s.mated+' birleşme yüzü kapaksız işaretlendi.');
@@ -3572,7 +3868,8 @@ function gercekNot(s){
 // 'Modül N: …' önekli, birden çok santral varsa başına santral adı da eklenir.
 function gercekSonucBirlestir(liste){
   const t = {santral: liste.length, modul:0, atlanan:0, kapak:0, acilir:0, camli:0, ust:0,
-             tava:0, mated:0, damper:0, bogaz:0, disAgiz:0, ustTablo:0, arka:0, kismi:0, uyari:[]};
+             tava:0, mated:0, damper:0, bogaz:0, disAgiz:0, ustTablo:0, arka:0, kismi:0,
+             birlesim:0, uyari:[]};
   liste.forEach(function(s){
     Object.keys(t).forEach(function(k){
       if(k === 'uyari' || k === 'santral') return;
@@ -4975,6 +5272,12 @@ function collectFaceIssues(){
           const ra = computeFace(ARAKAT_FI);
           if(ra.status.cls !== 'good') issues.push({ahu:ahuLabel, mod:'M'+(m+1), face:ARAKAT_DEF.name, text:ra.status.text});
         }
+        // Batarya kızağı da aynı kapıdan geçer.
+        if(kizakOf(md).aktif){
+          const ko = kizakOlculeri();
+          if(!ko.gecerli) issues.push({ahu:ahuLabel, mod:'M'+(m+1), face:KIZAK_DEF.name,
+            text: (ko.eksik.length ? ko.eksik : ko.hatalar).join('  |  ')});
+        }
         // Eşanjör de aynı kapıdan geçer: eksik/geçersiz ölçü DXF ve Excel'i kilitler.
         if(esanjorOf(md).aktif){
           const eo = esanjorOlculeri();
@@ -5183,6 +5486,7 @@ function renderAll(){
   FACE_DEFS.forEach((_,i)=>renderFace(i));
   renderFace(ARAKAT_FI);
   renderEsanjorPanel();
+  renderKizakPanel();
   renderGlobalSummary();
 }
 
@@ -6416,6 +6720,22 @@ function attachListeners(){
   });
 
   document.body.addEventListener('click', e=>{
+    // ---- BATARYA KIZAĞI: rol seçimi ve satır silme ----
+    const kzRol = e.target.closest && e.target.closest('[data-kzrol]');
+    if(kzRol){
+      const rol = kzRol.dataset.kzrol;
+      if(kzRol.classList.contains('kz-sil')){
+        const kz = activeKizak();
+        kz.bataryalar = kz.bataryalar.filter(b => b.rol !== rol);
+        renderKizakPanel(); renderIssuesBadge(); renderGlobalSummary();
+      } else {
+        KIZAK_ROLLER.forEach(r=>{
+          const el = document.getElementById('kz_rol_'+r);
+          if(el) el.classList.toggle('active', r === rol);
+        });
+      }
+      return;
+    }
     const additive = e.ctrlKey || e.metaKey;   // Ctrl/Cmd: seçime ekle-çıkar
     // Kapak ekle (aynı satıra)
     const addP = e.target.closest('.svg-addpanel');
@@ -6634,6 +6954,47 @@ function attachListeners(){
       face.selectedBars = [];
       renderFace(fi);
       return;
+    }
+  });
+
+  // ---- BATARYA KIZAĞI (9. sekme) ----
+  // Sabit chrome: buildTabs bu üçünü bir kez basar, delege gerekmez.
+  const kzAktif = document.getElementById('kz_aktif');
+  if(kzAktif) kzAktif.addEventListener('change', e=>{
+    activeKizak().aktif = e.target.checked;
+    renderKizakPanel(); renderIssuesBadge();
+  });
+  const kzBtn = document.getElementById('kz_pdf_btn');
+  if(kzBtn) kzBtn.addEventListener('click', ()=>{
+    const inp = document.getElementById('kz_pdf');
+    if(inp){ inp.value = ''; inp.click(); }
+  });
+  const kzPdf = document.getElementById('kz_pdf');
+  if(kzPdf) kzPdf.addEventListener('change', async e=>{
+    const dosya = e.target.files && e.target.files[0];
+    if(!dosya) return;
+    const st = document.getElementById('kz_status');
+    if(st){ st.className = 'status info'; st.textContent = 'Föy okunuyor: ' + dosya.name; }
+    try{
+      const olcu = await kizakPdfOlculeri(await dosya.arrayBuffer());
+      const HR = Number(olcu.HR)||0;
+      if(!(HR>0)){
+        if(st){ st.className = 'status bad';
+          st.textContent = '⚠ Bu PDF\'te HR ölçüsü bulunamadı — batarya seçim föyü (Friterm) olduğundan emin olun.'; }
+        return;
+      }
+      const kz  = activeKizak();
+      const rol = kizakSeciliRol();
+      const b   = { rol:rol, HR:HR, kaynak:dosya.name };
+      if(Number(olcu.LDmax)>0) b.LDmax = Number(olcu.LDmax);
+      if(Number(olcu.TR)>0)    b.TR    = Number(olcu.TR);
+      // Aynı rolün ikinci föyü ESKİSİNİN ÜZERİNE yazar — rol başına tek batarya.
+      const i = kz.bataryalar.findIndex(x => x.rol === rol);
+      if(i >= 0) kz.bataryalar[i] = b; else kz.bataryalar.push(b);
+      if(!kz.aktif) kz.aktif = true;
+      renderKizakPanel(); renderIssuesBadge(); renderGlobalSummary();
+    }catch(err){
+      if(st){ st.className = 'status bad'; st.textContent = '⚠ PDF okunamadı: ' + err.message; }
     }
   });
 
@@ -6921,12 +7282,128 @@ function renderEsanjorPanel(){
   if(tab) tab.style.opacity = es.aktif ? '' : '0.55';
 }
 
+// Yüklenecek föyün hangi bataryaya yazılacağı: rol düğmelerinden okunur.
+function kizakSeciliRol(){
+  for(const r of KIZAK_ROLLER){
+    const el = document.getElementById('kz_rol_'+r);
+    if(el && el.classList.contains('active')) return r;
+  }
+  return KIZAK_ROLLER[0];
+}
+function buildKizakHTML(){
+  const rolBtn = KIZAK_ROLLER.map(r =>
+    `<div class=&quot;tab${r===KIZAK_ROLLER[0]?' active':''}&quot; id=&quot;kz_rol_${r}&quot; data-kzrol=&quot;${r}&quot;>${KIZAK_ROL_AD[r]}</div>`).join('');
+  return `
+  <div class=&quot;section&quot;>
+    <div class=&quot;flex-between&quot; style=&quot;margin-bottom:10px;&quot;>
+      <span class=&quot;badge&quot;>BATARYA KIZAĞI — ALT L + OMEGA + ÜST L</span>
+      <div class=&quot;checkbox-row&quot;>
+        <input type=&quot;checkbox&quot; id=&quot;kz_aktif&quot;>
+        <label for=&quot;kz_aktif&quot;>Bu modülde batarya var</label>
+      </div>
+    </div>
+    <div id=&quot;kz_govde&quot;>
+      <div style=&quot;display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start;margin-bottom:14px;&quot;>
+        <div>
+          <label style=&quot;display:block;font-size:11.5px;color:var(--muted);font-weight:600;margin-bottom:6px;&quot;>Batarya Tipi</label>
+          <div class=&quot;tabs&quot; style=&quot;margin-bottom:0;&quot; id=&quot;kz_roller&quot;>${rolBtn}</div>
+        </div>
+        <div>
+          <label style=&quot;display:block;font-size:11.5px;color:var(--muted);font-weight:600;margin-bottom:6px;&quot;>Batarya Föyü</label>
+          <input type=&quot;file&quot; id=&quot;kz_pdf&quot; accept=&quot;.pdf,application/pdf&quot; style=&quot;display:none&quot;>
+          <button class=&quot;add-btn2 ghost&quot; id=&quot;kz_pdf_btn&quot;>📄 PDF Yükle — HR otomatik okunur</button>
+        </div>
+      </div>
+      <div class=&quot;dim-readout&quot;>
+        <div><div class=&quot;lbl&quot;>Uçtan Uca Boy</div><div class=&quot;val&quot; id=&quot;kz_z_boy&quot;>—</div></div>
+        <div><div class=&quot;lbl&quot;>Kasa İç Yüksekliği</div><div class=&quot;val&quot; id=&quot;kz_z_ic&quot;>—</div></div>
+        <div><div class=&quot;lbl&quot;>Seri Payı</div><div class=&quot;val&quot; id=&quot;kz_z_pay&quot;>—</div></div>
+      </div>
+      <div id=&quot;kz_liste&quot;></div>
+      <div class=&quot;status info&quot; id=&quot;kz_status&quot;>Batarya föyü yüklenmedi</div>
+      <div class=&quot;legend&quot;>
+        <span>Takım başına <b>2 ALT L + 2 OMEGA + 2 ÜST L</b>; hepsi <b>1,5 mm</b> sacdan.</span>
+        <span>Uçtan uca boy = modülün <b>dış genişliği (W)</b> − seri payı (50 → 102, 60 → 125).</span>
+        <span>Kasa iç yüksekliği = H − 2 × kenar profili · üst L kanadı = <b>iç yükseklik − 25 − HR + 30</b>.</span>
+        <span>HR ölçüsü <b>batarya föyü PDF'inden</b> okunur (LDmax / HR / TR); föy Friterm seçim çıktısıdır.</span>
+        <span>ALT L ve OMEGA'nın kesiti sabittir — yalnız boyları değişir; ÜST L'nin bir kanadı 20 mm kalır.</span>
+      </div>
+    </div>
+  </div>`;
+}
+
+// Kızak sekmesini modelden tazeler. renderAll'dan ve olay handler'larından çağrılır.
+function renderKizakPanel(){
+  const panel = document.getElementById('face-'+KIZAK_FI);
+  if(!panel) return;
+  const kz = activeKizak();
+  const o  = kizakOlculeri();
+  const set = (id, txt)=>{ const el = document.getElementById(id); if(el) el.textContent = txt; };
+
+  const cb = document.getElementById('kz_aktif');
+  if(cb) cb.checked = !!kz.aktif;
+  set('kz_z_boy', o.boy>0 ? Math.round(o.boy)+' mm' : '—');
+  set('kz_z_ic',  o.icH>0 ? Math.round(o.icH)+' mm' : '—');
+  set('kz_z_pay', o.pay+' mm  (seri '+(o.seri||'—')+')');
+
+  const liste = document.getElementById('kz_liste');
+  if(liste){
+    if(!o.bataryalar.length){
+      // Çizimden gelen modülde hangi bataryaların olduğu biliniyor — hangi föyün
+      // yükleneceğini kullanıcıya burada söyleriz.
+      const ipucu = kizakCizimRolleri(state.modules[state.active])
+        .map(r => KIZAK_ROL_AD[r]).join(' + ');
+      liste.innerHTML = `<div class=&quot;note&quot; style=&quot;margin:0 0 10px;&quot;>Henüz föy yüklenmedi.${
+        ipucu ? ' Çizime göre bu modülde <b>'+ipucu+'</b> bataryası var.' : ''}</div>`;
+    } else {
+      liste.innerHTML = `<table class=&quot;profil-table&quot; style=&quot;margin:4px 0 10px;&quot;>
+        <thead><tr><th>Batarya</th><th>HR</th><th>Üst L Kanadı</th><th>Üst L Açılımı</th><th>Föy</th><th></th></tr></thead>
+        <tbody>${o.bataryalar.map(b => `<tr>
+          <td>${b.ad}</td><td>${b.HR} mm</td>
+          <td>${b.kanat>0 ? b.kanat+' mm' : '—'}</td>
+          <td>${b.ustAcilim>0 ? b.ustAcilim.toFixed(1)+' × '+Math.round(o.boy) : '—'}</td>
+          <td style=&quot;color:var(--muted);font-size:11.5px;&quot;>${kizakEscapeHtml(b.kaynak || '—')}</td>
+          <td><button class=&quot;del-btn kz-sil&quot; data-kzrol=&quot;${b.rol}&quot;>Sil</button></td>
+        </tr>`).join('')}</tbody></table>`;
+    }
+  }
+
+  const st = document.getElementById('kz_status');
+  if(st){
+    let cls = 'info', txt = o.eksik.join('  |  ');
+    if(o.eksik.length===0 && o.hatalar.length>0){ cls = 'bad'; txt = '⚠ ' + o.hatalar.join('  |  '); }
+    else if(o.gecerli){
+      cls = 'good';
+      txt = '✓ ' + o.bataryalar.length + ' takım · boy ' + Math.round(o.boy) + ' mm · '
+          + o.bataryalar.map(b => b.ad+' üst L '+b.kanat+' mm').join(' · ')
+          + ' · toplam ' + (o.bataryalar.length * 3 * KIZAK_TAKIM_ADET) + ' parça';
+      if(o.uyarilar.length){ cls = 'warn'; txt += '   ⚠ ' + o.uyarilar.join('  |  '); }
+    }
+    st.className = 'status ' + cls;
+    st.textContent = txt;
+  }
+  const govde = document.getElementById('kz_govde');
+  if(govde) govde.style.display = kz.aktif ? '' : 'none';
+  const tab = document.getElementById('tab-'+KIZAK_FI);
+  if(tab) tab.style.opacity = kz.aktif ? '' : '0.55';
+}
+// srcdoc TÜM HTML varlıklarını çözdüğü için kaçış haritası kaynağa yazılamaz
+// (bkz. §10 tuzak 11) — varlık metinleri karakter kodundan kurulur.
+function kizakEscapeHtml(str){
+  const amp = String.fromCharCode(38), tirnak = String.fromCharCode(34);
+  return String(str)
+    .split(amp).join(amp+'amp;')
+    .split('<').join(amp+'lt;')
+    .split('>').join(amp+'gt;')
+    .split(tirnak).join(amp+'quot;');
+}
+
 function buildTabs(){
   const tabsEl = document.getElementById('tabs');
   const container = document.getElementById('faces-container');
   // 6 yüz + ARA KAT (7., sanal yüz). FACE_DEFS büyütülmez — sekme listesi burada
   // elle uzatılır ki ara kat yalnızca istediğimiz yerlere girsin.
-  const tabDefs = FACE_DEFS.concat([ARAKAT_DEF, ESANJOR_DEF]);
+  const tabDefs = FACE_DEFS.concat([ARAKAT_DEF, ESANJOR_DEF, KIZAK_DEF]);
   tabDefs.forEach((def, idx)=>{
     const tab = document.createElement('div');
     tab.className = 'tab'+(idx===0?' active':'');
@@ -6944,7 +7421,8 @@ function buildTabs(){
     panel.id = 'face-'+idx;
     panel.className = 'face-panel';
     panel.style.display = idx===0?'block':'none';
-    panel.innerHTML = (idx === ESANJOR_FI) ? buildEsanjorHTML() : buildFaceHTML(idx);
+    panel.innerHTML = (idx === ESANJOR_FI) ? buildEsanjorHTML()
+                    : (idx === KIZAK_FI) ? buildKizakHTML() : buildFaceHTML(idx);
     container.appendChild(panel);
   });
 }
@@ -8946,6 +9424,7 @@ function dxfAhuKur(r, aynala, adet){
   state.activeAhu = state.ahus.indexOf(yeni);
   araKatNormalize();
   esanjorNormalize();
+  kizakNormalize();
   return { ahu: yeni, modulSayisi: yeni.modules.length, kunye: k, adet: ahuAdet(yeni) };
 }
 
@@ -9294,7 +9773,7 @@ function exportToDxf(toplayici) {
   // aynı turdaki sonraki AHU'lar üstüne EKLER (çok AHU'lu projede tek liste oluşur).
   var ilkAktarim = true;
 
-  function openDxfTab(panels, bogazList, projeLabel, seri, tavaList, damperList, arakatList, esanjorList, reset){
+  function openDxfTab(panels, bogazList, projeLabel, seri, tavaList, damperList, arakatList, esanjorList, kizakList, reset){
     var obj = { seri: seri, proje: projeLabel, panels: panels };
     // Bayrak olmadan 'DXF Üret'e ikinci kez basmak f1'deki listeleri ÇİFTLİYORDU:
     // eski (bayat ölçülü) kayıtlar duruyor, yenileri üstüne ekleniyor ve durum çubuğu
@@ -9307,6 +9786,7 @@ function exportToDxf(toplayici) {
     if(damperList && damperList.length > 0) obj.damperList = damperList;
     if(arakatList && arakatList.length > 0) obj.arakatList = arakatList;
     if(esanjorList && esanjorList.length > 0) obj.esanjorList = esanjorList;
+    if(kizakList && kizakList.length > 0) obj.kizakList = kizakList;
     if(topla){ topla.push({ahuIndex: state.activeAhu, ahuAd: projeLabel, seri: seri, payload: obj}); return; }
     if(window.parent !== window){
       window.parent.postMessage({ type: 'dxfExport', payload: obj }, '*');
@@ -9391,6 +9871,7 @@ function exportToDxf(toplayici) {
     var elemanDimMap = { 'Boğaz': {}, 'Tava': {}, 'Damper': {} };
     var arakatDimMap = {};   // ara kat panelleri — ölçüye göre tekilleştirilir
     var importedEsanjor = [];   // eşanjör setleri — modül başına en fazla bir tane
+    var importedKizak   = [];   // batarya kızağı takımları — batarya başına bir tane
     state.modules.forEach(function(mod, mi) {
       withModule(mi, function() {
         FACE_DEFS.forEach(function(faceDef, fi) {
@@ -9441,6 +9922,23 @@ function exportToDxf(toplayici) {
                 kod: eo.es.kod || ''
               });
             }
+          }
+        }
+        // BATARYA KIZAĞI — eşanjör gibi yüz döngüsünün DIŞINDA, ayrı adım. Ölçüler
+        // modülden ve föydeki HR'den türer (kizakOlculeri). Geçersiz kızak buraya hiç
+        // gelmez: collectFaceIssues dışa aktarımı kilitler.
+        if (kizakOf(mod).aktif) {
+          var ko = kizakOlculeri();
+          if (ko.gecerli) {
+            ko.bataryalar.forEach(function(b){
+              // Kayıtta 'adet' PARÇA ÇİFTİ sayısıdır (her parçadan 2 adet); üretim adedi
+              // onunla ÇARPILIR — eşanjördeki 'kaydı kat kez ekle' yolu burada gerekmez.
+              importedKizak.push({
+                kalinlik: seriBase, seri: ko.seri, boy: Math.round(ko.boy),
+                kanat: b.kanat, rol: b.rol, ad: b.ad, HR: b.HR,
+                adet: KIZAK_TAKIM_ADET * kat
+              });
+            });
           }
         }
         if (araKatOf(mod).aktif) {
@@ -9507,8 +10005,9 @@ function exportToDxf(toplayici) {
 
     var allPanels = mainPanels.concat(altUstPanels);
     if(allPanels.length > 0 || importedBogaz.length > 0 || importedTava.length > 0
-       || importedDamper.length > 0 || importedArakat.length > 0 || importedEsanjor.length > 0){
-      openDxfTab(allPanels, importedBogaz, projeLabel, seri, importedTava, importedDamper, importedArakat, importedEsanjor, ilkAktarim);
+       || importedDamper.length > 0 || importedArakat.length > 0 || importedEsanjor.length > 0
+       || importedKizak.length > 0){
+      openDxfTab(allPanels, importedBogaz, projeLabel, seri, importedTava, importedDamper, importedArakat, importedEsanjor, importedKizak, ilkAktarim);
       ilkAktarim = false;
       totalFound++;
     }
@@ -9722,13 +10221,14 @@ document.getElementById('btn_analiz').addEventListener('click', exportAnalizExce
 // v4: panel.colSpan + face.anaSplitLevels (eski dosyaların alan göçü syncStructure'da yapılır)
 // v5: module.araKat (ara kat — 7. sanal yüz). Eski v4/v3/v2 dosyalar açılmaya devam eder,
 //     ara katsız modül olarak gelirler (araKatNormalize kurar).
-const PROJECT_VERSION = 16;  // v10 = DXF'ten okunan bileşenler (module.dxfBilgi)
+const PROJECT_VERSION = 17;  // v10 = DXF'ten okunan bileşenler (module.dxfBilgi)
                              // v11 = çizimden okunan ağızlar (dxfBilgi.parcalar[].agizlar)
                              // v12 = ÜST ağzın L eksenindeki yeri (agizlar[].x) + tabloDan
                              // v13 = açılır kapak işareti (parcalar[].acilir)
                              // v15 = santralin üretim adedi (ahu.adet, yalnız 1'den büyükken)
                              // v16 = bir bölmedeki BÜTÜN kapaklar (parcalar[].kapaklar, her
                              //       birinde 'alt' = tabandan yüksekliği) + ÜST ağzın W
+                             // v17 = batarya kızağı (module.kizak) — föyden okunan HR
                              //       eksenindeki yeri (agizlar[].on = ÖN kenarına uzaklık)
 
 // Yüklenen her modülde araKat alanını kurar. Tembel kurulum (araKatOf) tek başına yeterli
@@ -9745,6 +10245,12 @@ function araKatNormalize(){
 function esanjorNormalize(){
   state.ahus.forEach(function(ahu){
     (ahu.modules||[]).forEach(function(md){ esanjorOf(md); });
+  });
+}
+// Aynı gerekçe (JSON gidiş-dönüşü sabit nokta kalsın).
+function kizakNormalize(){
+  state.ahus.forEach(function(ahu){
+    (ahu.modules||[]).forEach(function(md){ kizakOf(md); });
   });
 }
 
@@ -9781,6 +10287,7 @@ function applyProjectData(data){
   if(data.proje) state.proje = data.proje;
   araKatNormalize();   // v4 ve öncesi: ara katsız modül olarak kurulur
   esanjorNormalize();  // v5 ve öncesi: eşanjörsüz modül olarak kurulur
+  kizakNormalize();    // v16 ve öncesi: kızaksız modül olarak kurulur
   adetNormalize();     // v14 ve öncesi: adetsiz (tek cihaz) olarak kurulur
   return true;
 }
@@ -11184,6 +11691,7 @@ boot();
     <button class=&quot;cm-tab&quot; data-mod=&quot;damper&quot;>Damper</button>
     <button class=&quot;cm-tab&quot; data-mod=&quot;arakat&quot;>Ara Kat</button>
     <button class=&quot;cm-tab&quot; data-mod=&quot;esanjor&quot;>Eşanjör</button>
+    <button class=&quot;cm-tab&quot; data-mod=&quot;kizak&quot;>Batarya Kızağı</button>
   </div>
 
   <div class=&quot;main&quot;>
@@ -11410,6 +11918,51 @@ boot();
       </div>
 
     </div><!-- end mod-arakat -->
+
+    <!-- ===== BATARYA KIZAGI MODU ===== -->
+    <!-- Elle giris YOK: liste yalnizca Kapak Hesabi'ndaki KIZAK sekmesinden gelir
+         (applyKapakData). Boy modulun W'sinden, ust L kanadi foydeki HR'den turer;
+         burada yalnizca gorulur, silinir ve DXF'e verilir. -->
+    <div id=&quot;mod-kizak&quot; style=&quot;display:none&quot;>
+
+      <input type=&quot;hidden&quot; id=&quot;k-dosyaAdi&quot; value=&quot;&quot;>
+
+      <div class=&quot;content&quot;>
+        <div class=&quot;table-header&quot;>
+          <h2>Batarya Kızağı Listesi</h2>
+          <div style=&quot;display:flex;align-items:center;gap:10px;&quot;>
+            <span class=&quot;panel-count&quot; id=&quot;k-count&quot;>0 kayıt</span>
+            <button class=&quot;cm-btn-inline&quot; id=&quot;k-btn-export&quot; disabled>⬇ Batarya Kızağı DXF Üret</button>
+          </div>
+        </div>
+
+        <div class=&quot;table-wrap&quot;>
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Batarya</th>
+                <th>Seri</th>
+                <th>Boy (mm)</th>
+                <th>HR (mm)</th>
+                <th>Üst L Kanadı (mm)</th>
+                <th>Takım</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id=&quot;k-table&quot;>
+            </tbody>
+          </table>
+          <div class=&quot;empty-msg&quot; id=&quot;k-empty&quot;>
+            Henüz batarya kızağı yok.<br>
+            <b>Kapak Hesabı</b> sekmesinde <b>KIZAK</b> sekmesini açıp
+            <b>batarya föyünü (PDF)</b> yükleyin, <b>DXF Üret</b> deyin.
+            Her takım için <b>2 ALT L + 2 OMEGA + 2 ÜST L</b> üretilir.
+          </div>
+        </div>
+      </div>
+
+    </div><!-- end mod-kizak -->
 
     <!-- ===== EŞANJÖR MODU ===== -->
     <!-- Elle giris YOK (25.08.2026): liste yalnizca Kapak Hesabi'ndaki EŞANJÖR
@@ -14221,7 +14774,7 @@ function setStatus(msg) {
 // Her mod bir #mod-… sarmalayicisidir; secici YALNIZCA display degistirir,
 // baska hicbir yer bu display'lere dokunmaz. Yeni modul eklerken uc yer:
 // CIZIM_MODLARI dizisi + .cm-tabs icine dugme + govde sarmalayicisi.
-var CIZIM_MODLARI = ['kapak', 'bogaz', 'tava', 'damper', 'arakat', 'esanjor'];
+var CIZIM_MODLARI = ['kapak', 'bogaz', 'tava', 'damper', 'arakat', 'esanjor', 'kizak'];
 
 function setCizimModu(mod) {
   if (CIZIM_MODLARI.indexOf(mod) < 0) mod = 'kapak';
@@ -14280,10 +14833,16 @@ function renderBogazTable() {
   var totalAdet = 0;
   bogazList.forEach(function(b, i) {
     totalAdet += b.adet;
+    // Saca sigmadigi icin ikiye bolunen bogaz tabloda da soylenir — yoksa kullanici
+    // girdigi olcuyu gorur ama DXF'te iki takim bulur.
+    var bl = bogazTakimlari(b.ybp);
+    var ybpMetni = bl.takim > 1
+      ? b.ybp + ' <span style=&quot;color:var(--accent2)&quot;>(2 × ' + bl.ybp + ')</span>'
+      : String(b.ybp);
     var tr = document.createElement('tr');
     tr.innerHTML =
       '<td>' + (i + 1) + '</td>' +
-      '<td>' + b.ybp + '</td>' +
+      '<td>' + ybpMetni + '</td>' +
       '<td>' + b.dbp + '</td>' +
       '<td>' + b.adet + '</td>' +
       '<td class=&quot;td-actions&quot;>' +
@@ -14467,6 +15026,36 @@ function drawBogazYBP(dxf, ox, oy, YBP) {
   }
 }
 
+// BOGAZ BOLME (Cenk, 03.09.2026) — cok genis bogazin yatay profili (YBP) tek parca
+// olarak SACA SIGMIYOR; o durumda bogaz IKIYE bolunur ve iki ayri takim cizilir.
+// Damperdeki DAMPER_BOLME_ESIGI kuralinin birebir aynisi: iki yari ortadaki dikmeyi
+// paylasir, bu yuzden her yarinin govde kenari tam yaridan 10 mm kisadir.
+//
+// OLCULDU (havuzun tamami, 713 cizim / 234 benzersiz eleman kaydi): saca sigmayan 7
+// kayit vardi ve 7'si de bogazdi — kirilan parca her seferinde YBP. YBP parcasinin
+// ayak izi YBP + 50; 1500x3000 sacta (pay 3) kullanilabilir uzun kenar 2994, yani
+// gercek sinir 2944 mm. Havuzdaki en kucuk sorunlu olcu 2950 idi.
+// Esik SABIT tutuldu (damperdeki 1800 gibi): sac ayari degisince ayni proje farkli
+// parca vermesin.
+var BOGAZ_BOLME_ESIGI = 2900;   // bu olcu ve uzeri IKI bogaza bolunur
+var BOGAZ_BOLME_EK    = 50;
+var BOGAZ_BOLME_DUS   = 10;
+var BOGAZ_GOVDE_EK    = 40;     // drawBogazYBP: govde genisligi = YBP + 40
+
+// Bir bogaz kaydini cizilecek takimlara ayirir.
+//   bolunmezse : { ybp: girilen olcu, takim: 1 }
+//   bolunurse  : { ybp: yarinin olcusu, takim: 2 }
+// Yarinin govde kenari damper formuluyle bulunur, drawBogazYBP'ye giden deger ondan
+// govde payi (40) dusulerek turer — boylece iki yol da ayni fiziksel kenari uretir.
+function bogazTakimlari(YBP) {
+  var y = Number(YBP) || 0;
+  if (y >= BOGAZ_BOLME_ESIGI) {
+    var kenar = ((y + BOGAZ_BOLME_EK) / 2) - BOGAZ_BOLME_DUS;
+    return { ybp: kenar - BOGAZ_GOVDE_EK, takim: 2 };
+  }
+  return { ybp: y, takim: 1 };
+}
+
 // Tek bir bogaz seti (2xDBP + 2xYBP, haci duzeni)
 function drawBogazSet(dxf, ox, oy, YBP, DBP) {
   var G = 100.0;
@@ -14506,6 +15095,7 @@ var BOGAZ_DOSYA_EKI  = 'BOĞAZLAR';
 var TAVA_DOSYA_EKI    = 'TAVA';
 var DAMPER_DOSYA_EKI  = 'DAMPER';
 var ARAKAT_DOSYA_EKI  = 'ARA KAT';
+var KIZAK_DOSYA_EKI   = 'BATARYA KIZAĞI';
 var ESANJOR_DOSYA_EKI = 'EŞANJÖR';
 
 // Dosya adindan YALNIZCA dosya sisteminde yasakli karakterleri ayiklar (\ / : * ? &quot; < > |).
@@ -14566,14 +15156,16 @@ function generateAndDownloadBogazDxf(list) {
   var yCursor = 0;
 
   list.forEach(function(b) {
-    for (var a = 0; a < b.adet; a++) {
-      var dim = drawBogazSet(dxf, 0, yCursor, b.ybp, b.dbp);
+    // Saca sigmayan genis bogaz IKI takima bolunur (bkz. bogazTakimlari).
+    var bl = bogazTakimlari(b.ybp);
+    for (var a = 0; a < b.adet * bl.takim; a++) {
+      var dim = drawBogazSet(dxf, 0, yCursor, bl.ybp, b.dbp);
       yCursor += dim.h + SET_GAP;
     }
   });
 
   var totalCount = 0;
-  list.forEach(function(b) { totalCount += b.adet; });
+  list.forEach(function(b) { totalCount += b.adet * bogazTakimlari(b.ybp).takim; });
 
   // Panellerde oldugu gibi dosya adina icerik son eki yazilir (bkz. topluDxfUret'teki
   // '— ALT-ÜST' ve '— YAN PANELLER'). Proje adi bos ise yalnizca son ek kullanilir.
@@ -14684,7 +15276,8 @@ function topluDxfUret() {
   var hasDamper = damperList.length > 0;
   var hasArakat = arakatList.length > 0;
   var hasEsanjor = esanjorList.length > 0;
-  if (!hasPanel && !hasBogaz && !hasTava && !hasDamper && !hasArakat && !hasEsanjor) {
+  var hasKizak = kizakList.length > 0;
+  if (!hasPanel && !hasBogaz && !hasTava && !hasDamper && !hasArakat && !hasEsanjor && !hasKizak) {
     setStatus('Üretilecek kayıt yok — önce Kapak Hesabı sekmesinden aktarın.');
     return;
   }
@@ -14765,6 +15358,10 @@ function topluDxfUret() {
     var eRes = generateAndDownloadEsanjorDxf(esanjorList);
     if (eRes && eRes.success) { exportedNames.push(eRes.filename); esanjorList.length = 0; renderEsanjorTable(); }
   }
+  if (hasKizak) {
+    var kRes = generateAndDownloadKizakDxf(kizakList);
+    if (kRes && kRes.success) { exportedNames.push(kRes.filename); kizakList.length = 0; renderKizakTable(); }
+  }
 
   } catch (err) {
     setStatus('Hata: ' + err.message +
@@ -14806,10 +15403,10 @@ var SAC_GAUGE_DEFAULT = 0.8;
 // geri kalanı ve düz parçalar eşanjörün kendi kalınlığından.
 var SAC_GAUGE_VARSAYILAN = {
   'PANEL': 0.8, 'BOGAZ': 1.0, 'DAMPER': 1.5, 'TAVA': 1.0, 'ARAKAT': 0.8,
-  'ESANJOR': 1.0, 'ESANJOR15': 1.5
+  'ESANJOR': 1.0, 'ESANJOR15': 1.5, 'KIZAK': 1.5
 };
 // Nesting'e giren tum kalinlik kodlari — modal girisleri ve yukleme/baglama burayi gezer.
-var SAC_GAUGE_KODLAR = ['PANEL', 'BOGAZ', 'DAMPER', 'TAVA', 'ARAKAT', 'ESANJOR', 'ESANJOR15'];
+var SAC_GAUGE_KODLAR = ['PANEL', 'BOGAZ', 'DAMPER', 'TAVA', 'ARAKAT', 'ESANJOR', 'ESANJOR15', 'KIZAK'];
 
 // Bir parcanin KALINLIK kodu. Cizim modulu parcalari kendi aile kodunu tasir; kapak
 // panelleri (kalinlik '50'/'60'/'50P'/'60P') tek 'PANEL' koduna duser.
@@ -14999,10 +15596,12 @@ function buildModulNestPieces() {
   var pid = 0;
 
   // BOĞAZ SETİ — 2 YBP (yatay) + 2 DBP (dikey); YBP >= 1950 ise 3. DBP eklenir.
+  // Saca sigmayan genis bogaz IKI takima bolunur — parca sayisi da o kadar artar.
   bogazList.forEach(function (b) {
-    var ybp = Number(b.ybp) || 0, dbp = Number(b.dbp) || 0;
+    var bl = bogazTakimlari(b.ybp);
+    var ybp = bl.ybp, dbp = Number(b.dbp) || 0;
     var dbpAdet = (ybp >= 1950) ? 3 : 2;
-    for (var a = 0; a < (Number(b.adet) || 1); a++) {
+    for (var a = 0; a < (Number(b.adet) || 1) * bl.takim; a++) {
       for (var i = 0; i < 2; i++) {
         pieces.push(nestParca(pid++, 'BOGAZ', 'BOGAZ', 'BOĞAZ YBP ' + ybp,
           function (w) { drawBogazYBP(w, 0, 0, ybp); }));
@@ -15075,6 +15674,24 @@ function buildModulNestPieces() {
       pieces.push(nestParca(pid++, 'ESANJOR', 'ESANJOR', 'EŞANJÖR DÜZ ' + e.CI,
         function (w) { drawEsanjorDuz(w, 0, 0, e.kalinlik, e.CI, e.kod); }));
     }
+  });
+
+  // BATARYA KIZAĞI — takım başına ALT L + OMEGA + ÜST L, her birinden kayıttaki adet
+  // kadar. Ayak izi burada da ÖLÇÜLÜR (olcuAyakIzi), formülle verilmez: geometri
+  // gömülü tablodan esnetilerek çıkıyor, tek doğruluk kaynağı çizim kodudur.
+  //
+  // DÖNDÜRME: kızak parçaları uzun ve ince; nesting bunları döndürebilmeli. Parça
+  // ÇİZİMİ kendi geometrisinden gelir (drawKizakParca), o yüzden döndürme RotWriter
+  // üzerinden GERÇEK geometrik döndürmedir — B/K takası DEĞİL.
+  kizakList.forEach(function (k) {
+    var adet = Number(k.adet) || 1;
+    kizakParcalari(k).forEach(function (pc) {
+      for (var a = 0; a < adet; a++) {
+        pieces.push(nestParca(pid++, 'KIZAK', 'KIZAK',
+          'KIZAK ' + pc.ad + ' ' + k.boy,
+          function (w) { drawKizakParca(w, 0, 0, pc.g); }));
+      }
+    });
   });
 
   return pieces;
@@ -15588,11 +16205,13 @@ function applyKapakData(data) {
     var importedDamper = data.damperList || [];   // Kapak Hesabi'ndaki 'Damper' elemanlari
     var importedArakat = data.arakatList || [];   // Kapak Hesabi'ndaki ARA KAT gozleri
     var importedEsanjor = data.esanjorList || []; // Kapak Hesabi'ndaki ESANJOR sekmesi
+    var importedKizak = data.kizakList || [];      // Kapak Hesabi'ndaki KIZAK sekmesi
     var seri = data.seri || '60';
     var proje = data.proje || '';
 
     if (!imported.length && !importedBogaz.length && !importedTava.length
-        && !importedDamper.length && !importedArakat.length && !importedEsanjor.length) return;
+        && !importedDamper.length && !importedArakat.length && !importedEsanjor.length
+        && !importedKizak.length) return;
 
     // Yeni bir aktarim turunun ILK mesaji (data.reset): Kapak Hesabi'ndan gelen ALTI liste
     // sifirlanir. 25.08.2026'ya kadar esanjor listesi ELLE giriliyordu ve dokunulmuyordu;
@@ -15602,9 +16221,11 @@ function applyKapakData(data) {
     var temizlenen = 0;
     if (data.reset) {
       temizlenen = panels.length + bogazList.length + tavaList.length
-                 + damperList.length + arakatList.length + esanjorList.length;
+                 + damperList.length + arakatList.length + esanjorList.length
+                 + kizakList.length;
       panels.length = 0; bogazList.length = 0; tavaList.length = 0;
       damperList.length = 0; arakatList.length = 0; esanjorList.length = 0;
+      kizakList.length = 0;
     }
 
     // Panel listesi
@@ -15668,6 +16289,14 @@ function applyKapakData(data) {
       renderEsanjorTable();
     }
 
+    // Batarya kizagi takimlari (01.09.2026): boy modulun W'sinden, ust L kanadi
+    // foydeki HR'den Kapak Hesabi'nda turetilir; buraya hazir gelir.
+    if (importedKizak.length) {
+      importedKizak.forEach(function(k) { kizakList.push(k); });
+      if (elKDosyaAdi && proje) elKDosyaAdi.value = proje + ' — ' + KIZAK_DOSYA_EKI;
+      renderKizakTable();
+    }
+
     // Sifirlanan ama bu turda kaydi GELMEYEN listenin tablosu da tazelenmeli;
     // yukaridaki bloklarin her biri yalnizca kayit gelen listeyi render ediyor.
     if (data.reset) {
@@ -15677,6 +16306,7 @@ function applyKapakData(data) {
       if (!importedDamper.length) renderDamperTable();
       if (!importedArakat.length) renderArakatTable();
       if (!importedEsanjor.length) renderEsanjorTable();
+      if (!importedKizak.length) renderKizakTable();
     }
 
     // Durum mesajı
@@ -15687,6 +16317,7 @@ function applyKapakData(data) {
     if (importedDamper.length) parts.push(importedDamper.length + ' damper');
     if (importedArakat.length) parts.push(importedArakat.length + ' ara kat');
     if (importedEsanjor.length) parts.push(importedEsanjor.length + ' eşanjör seti');
+    if (importedKizak.length) parts.push(importedKizak.length + ' batarya kızağı');
 
     var onceki = temizlenen ? ' (önceki ' + temizlenen + ' kayıt değiştirildi)' : '';
     if (data.autoGenerate) {
@@ -16376,6 +17007,192 @@ function generateAndDownloadArakatDxf(list) {
 renderArakatTable();
 
 // =====================================================================
+// CIZIM MODULU: BATARYA KIZAGI
+// =====================================================================
+// Kaynak: 'BATARYA KIZAK/{50LIK,60LIK} BATARYA KIZAK/*.dxf' (Cenk'in referans cizimleri).
+// GEOMETRI GOMULU TABLODUR ve esnetilerek uretilir — damperdeki DAMPER_UZUN_GEOM
+// deseninin aynisi. Satirlar: LINE = [x1,y1,x2,y2], ARC = [cx,cy,r,bas,son].
+//
+// ESNETME KURALI: yalnizca ORTA CIZGININ otesindeki koordinatlar kayar. Boylece
+// uclardaki centik / pah / kose yaricapi AYNEN korunur, yalniz duz kisim uzar-kisalir.
+// Referans olculerde (boy 991, kanat 20) uretilen geometri, dosyadakiyle BIREBIR aynidir.
+var KIZAK_L = [
+  [13.2,0,0.2,0],[0.2,1,0.2,0],[-3,1,0.2,1],[-3,1,-3,0],[-3,0,-16,0],[-20,987,-20,4],[-3,991,-16,991],
+  [-3,991,-3,990],[0.2,990,-3,990],[0.2,991,0.2,990],[17.2,987,17.2,4],[13.2,991,0.2,991],[13.2,4,4,270,0],
+  [-16,4,4,180,270],[-16,987,4,90,180],[13.2,987,4,0,90]
+];
+var KIZAK_O50 = [
+  [1,65.5,0,65.5],[1,68.7,1,65.5],[1,68.7,0,68.7],[0,68.7,0,87.7],[1,87.7,0,87.7],[1,90.9,1,87.7],
+  [1,90.9,0,90.9],[0,90.9,0,102.4],[986,107.4,5,107.4],[991,90.9,991,102.4],[991,90.9,990,90.9],
+  [990,87.7,990,90.9],[991,87.7,990,87.7],[991,68.7,991,87.7],[991,68.7,990,68.7],[990,65.5,990,68.7],
+  [991,65.5,990,65.5],[991,21.5,991,65.5],[991,21.5,990,21.5],[990,18.3,990,21.5],[991,18.3,990,18.3],
+  [991,-0.7,991,18.3],[991,-0.7,990,-0.7],[990,-3.9,990,-0.7],[991,-3.9,990,-3.9],[991,-15.9,991,-3.9],
+  [986,-20.9,5,-20.9],[0,-15.9,0,-3.9],[1,-3.9,0,-3.9],[1,-0.7,1,-3.9],[1,-0.7,0,-0.7],[0,-0.7,0,18.3],
+  [1,18.3,0,18.3],[1,21.5,1,18.3],[1,21.5,0,21.5],[0,21.5,0,65.5],[5,102.4,5,90,180],[986,102.4,5,0,90],
+  [986,-15.9,5,270,0],[5,-15.9,5,180,270]
+];
+var KIZAK_O60 = [
+  [1,65.5,0,65.5],[1,68.7,1,65.5],[1,68.7,0,68.7],[0,68.7,0,78.2],[0,78.2,3.8,87.7],[4,88.04,3.8,87.7],
+  [4,87.7,4,88.04],[4,87.7,5.5,87.7],[5.5,90.9,5.5,87.7],[5,90.9,5.5,90.9],[5,90.9,5,104.4],
+  [986,90.9,986,104.4],[987.2,87.7,986,90.9],[987.2,87.7,991,78.2],[991,8.8,991,78.2],[991,8.8,987.2,-0.7],
+  [986,-3.9,987.2,-0.7],[986,-17.9,986,-3.9],[983,-20.9,8,-20.9],[5,-17.9,5,-3.9],[5,-3.9,5.5,-3.9],
+  [5.5,-0.7,5.5,-3.9],[4,-0.7,5.5,-0.7],[4,-1.04,4,-0.7],[3.8,-0.7,4,-1.04],[3.8,-0.7,0,8.8],
+  [0,8.8,0,18.3],[1,18.3,0,18.3],[1,21.5,1,18.3],[1,21.5,0,21.5],[0,21.5,0,65.5],[983,107.4,8,107.4],
+  [8,104.4,3,90,180],[983,-17.9,3,270,360],[8,-17.9,3,180,270],[983,104.4,3,0,90]
+];
+var KIZAK_REF_BOY   = 991;   // referans cizimlerin uctan uca boyu
+var KIZAK_REF_KANAT = 20;    // ust L'nin referans kanadi (20/20 bukum)
+var KIZAK_ORTA      = 495.5; // boy ekseninin orta cizgisi (991/2)
+var KIZAK_KANAT_ORTA = 1;    // kanat ekseni: 0.2 ile 13.2 arasinda hic koordinat yok
+var KIZAK_LAYER     = '0';
+var KIZAK_GAP       = 40;    // parcalar arasi bosluk (DXF yerlesimi)
+var KIZAK_KOD_H     = 10;    // parca etiketi yazi yuksekligi
+
+// esnetmeler: [{eksen:'x'|'y', orta, delta}]
+function kizakEsnet(geom, esnetmeler) {
+  function kay(v, eksen) {
+    var r = v;
+    esnetmeler.forEach(function(e) { if (e.eksen === eksen && v > e.orta) r += e.delta; });
+    return r;
+  }
+  return geom.map(function(a) {
+    return a.length === 4
+      ? ['L', kay(a[0], 'x'), kay(a[1], 'y'), kay(a[2], 'x'), kay(a[3], 'y')]
+      : ['A', kay(a[0], 'x'), kay(a[1], 'y'), a[2], a[3], a[4]];
+  });
+}
+// L ve UST L ayni tablodan cikar: alt L'de kanat hep 20'dir (delta 0), ust L'de X.
+function kizakLGeom(boy, kanat) {
+  return kizakEsnet(KIZAK_L, [
+    { eksen: 'y', orta: KIZAK_ORTA,       delta: boy   - KIZAK_REF_BOY },
+    { eksen: 'x', orta: KIZAK_KANAT_ORTA, delta: kanat - KIZAK_REF_KANAT }
+  ]);
+}
+function kizakOmegaGeom(boy, seri) {
+  return kizakEsnet(String(seri) === '50' ? KIZAK_O50 : KIZAK_O60,
+    [{ eksen: 'x', orta: KIZAK_ORTA, delta: boy - KIZAK_REF_BOY }]);
+}
+// Cizilen parcanin sinir kutusu — yerlesim ve olcu yazisi icin.
+function kizakKutu(g) {
+  var x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+  function nok(x, y) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+  g.forEach(function(a) {
+    if (a[0] === 'L') { nok(a[1], a[2]); nok(a[3], a[4]); }
+    else { nok(a[1] - a[3], a[2] - a[3]); nok(a[1] + a[3], a[2] + a[3]); }
+  });
+  return { x0: x0, y0: y0, w: x1 - x0, h: y1 - y0 };
+}
+// Parcayi (ox, oy) orijinine cizer; geometri kendi sinir kutusundan orijine cekilir.
+function drawKizakParca(dxf, ox, oy, g) {
+  var k = kizakKutu(g);
+  g.forEach(function(a) {
+    if (a[0] === 'L') dxf.addLine(ox + a[1] - k.x0, oy + a[2] - k.y0, ox + a[3] - k.x0, oy + a[4] - k.y0, KIZAK_LAYER);
+    else dxf.addArc(ox + a[1] - k.x0, oy + a[2] - k.y0, a[3], a[4], a[5], KIZAK_LAYER);
+  });
+  return k;
+}
+
+// =====================================================================
+// BATARYA KIZAGI MODU - State & Handlers
+// =====================================================================
+var kizakList = [];
+var elKBtnExport = document.getElementById('k-btn-export');
+var elKTable = document.getElementById('k-table');
+var elKEmpty = document.getElementById('k-empty');
+var elKCount = document.getElementById('k-count');
+var elKDosyaAdi = document.getElementById('k-dosyaAdi');   // gizli: dosya adi tasiyicisi
+
+function removeKizak(index) {
+  kizakList.splice(index, 1);
+  renderKizakTable();
+  setStatus('Batarya kızağı silindi.');
+}
+
+function renderKizakTable() {
+  elKTable.innerHTML = '';
+  if (kizakList.length === 0) {
+    elKEmpty.style.display = 'block';
+    elKBtnExport.disabled = true;
+    elKCount.textContent = '0 kayıt';
+    return;
+  }
+  elKEmpty.style.display = 'none';
+  elKBtnExport.disabled = false;
+
+  var toplamParca = 0;
+  kizakList.forEach(function(k, i) {
+    toplamParca += 3 * (k.adet || 1);
+    var tr = document.createElement('tr');
+    tr.innerHTML =
+      '<td>' + (i + 1) + '</td>' +
+      '<td>' + (k.ad || k.rol || '—') + '</td>' +
+      '<td>' + (k.seri || '—') + '</td>' +
+      '<td>' + k.boy + '</td>' +
+      '<td>' + (k.HR || '—') + '</td>' +
+      '<td>' + k.kanat + '</td>' +
+      '<td>' + (k.adet || 1) + '</td>' +
+      '<td class=&quot;td-actions&quot;>' +
+        '<button class=&quot;btn-del k-btn-del&quot; data-idx=&quot;' + i + '&quot; title=&quot;Sil&quot;>Sil</button>' +
+      '</td>';
+    elKTable.appendChild(tr);
+  });
+  elKCount.textContent = kizakList.length + ' kayıt / ' + toplamParca + ' parça';
+
+  document.querySelectorAll('.k-btn-del').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      removeKizak(parseInt(btn.dataset.idx));
+    });
+  });
+}
+
+// Bir takim = ALT L + OMEGA + UST L, her birinden 'adet' kadar.
+function kizakParcalari(entry) {
+  return [
+    { ad: 'ALT L',  g: kizakLGeom(entry.boy, KIZAK_REF_KANAT) },
+    { ad: 'OMEGA',  g: kizakOmegaGeom(entry.boy, entry.seri) },
+    { ad: 'UST L',  g: kizakLGeom(entry.boy, entry.kanat) }
+  ];
+}
+
+function generateAndDownloadKizakDxf(list) {
+  var dxf = new DxfWriter();
+  var yCursor = 0;
+  var toplam = 0;
+
+  list.forEach(function(entry) {
+    var adet = entry.adet || 1;
+    kizakParcalari(entry).forEach(function(pc) {
+      var k = kizakKutu(pc.g);
+      for (var a = 0; a < adet; a++) {
+        drawKizakParca(dxf, 0, yCursor, pc.g);
+        dxf.addText(0, yCursor - KIZAK_KOD_H - 4, KIZAK_KOD_H,
+          pc.ad + ' ' + Math.round(k.w * 10) / 10 + 'x' + Math.round(k.h * 10) / 10, KIZAK_LAYER);
+        yCursor -= (k.h + KIZAK_KOD_H + 4 + KIZAK_GAP);
+        toplam++;
+      }
+    });
+  });
+
+  var name = modulDxfIndir(dxf, elKDosyaAdi, KIZAK_DOSYA_EKI, 'batarya_kizak');
+  return { success: true, count: toplam, filename: name };
+}
+
+if (elKBtnExport) {
+  elKBtnExport.addEventListener('click', function() {
+    if (kizakList.length === 0) return;
+    var r = generateAndDownloadKizakDxf(kizakList);
+    if (r && r.success) {
+      setStatus(r.count + ' parça çizildi: ' + r.filename);
+      kizakList.length = 0;
+      renderKizakTable();
+    }
+  });
+}
+
+renderKizakTable();
+
+// =====================================================================
 // CIZIM MODULU: EŞANJÖR
 // =====================================================================
 // Kaynak: CIZIM MODULLERI/esanjor.html (bolum 5). GEOMETRI BIREBIR kopyalandi.
@@ -16878,7 +17695,8 @@ const YOL_HARITASI = [
   {n:5,  t:'Motor ayakları kütüphanesi', durum:'plan',
    d:'Motor/fan seçilince ayak çizimi otomatik DXF olarak çıkacak — yalnız DXF, hesaba girmez.'},
   {n:6,  t:'Fan önü bağlantı sacı', durum:'plan', d:''},
-  {n:7,  t:'Batarya kızakları', durum:'plan', d:''},
+  {n:7,  t:'Batarya kızakları', durum:'tamam', tarih:'01.09.2026',
+   d:'9. sekme: batarya işaretlenip föy PDF-i yüklenince HR okunur; boy modülün W-sinden, üst L kanadı HR-den türer. Takım başına 2 ALT L + 2 OMEGA + 2 ÜST L, hepsi 1,5 mm.'},
   {n:8,  t:'Susturucu çizimi', durum:'plan', d:''},
   {n:9,  t:'Filtre kasetleri', durum:'plan', d:''},
   {n:10, t:'Pano sacı', durum:'plan', d:''},
