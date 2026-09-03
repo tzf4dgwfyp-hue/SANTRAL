@@ -15375,10 +15375,16 @@ function zipYap(dosyalar) {
 // Toplu uretimde dosyalar INDIRILMEZ, burada toplanir ve sonunda tek ZIP olur.
 // null iken davranis eskisi gibi: her cagri kendi dosyasini indirir.
 var indirmeToplama = null;
+// ZIP icinde bu turun klasoru — cok santralli projede her santral kendi klasorunde
+// (20 santral x 5 dosya duz bir listede okunmuyor). Bos ise klasor yok.
+var indirmeKlasor = '';
 // DXF indirmenin TEK kapisi — metni bir kez uretir, toplama moduna saygi duyar.
 function dxfIndir(dxf, tamAd) {
   var metin = dxf.generate();
-  if (indirmeToplama) { indirmeToplama.push({ ad: tamAd, veri: metin }); return tamAd; }
+  if (indirmeToplama) {
+    indirmeToplama.push({ ad: (indirmeKlasor ? indirmeKlasor + '/' : '') + tamAd, veri: metin });
+    return tamAd;
+  }
   return indirmeSirala(URL.createObjectURL(new Blob([metin], { type: 'application/dxf' })), tamAd);
 }
 function modulDxfKaydet(dxf, tamAd) {
@@ -15500,6 +15506,126 @@ var elTopluExport = document.getElementById('btn-toplu-export');
 // Bes listenin TAMAMINI tek tikta uretir: panel + bogaz + tava + damper + ara kat.
 // Her liste yalnizca KENDI dosyasi basariyla indiyse sifirlanir; govdenin tamami
 // try/catch icinde oldugu icin bir istisna hicbir listeyi silmez.
+// Kayitlari SANTRAL bazinda gruplar (gelis sirasi korunur). Etiketsiz kayit —
+// ornegin f1'de elle girilen esanjor — 'etiketsiz' grubuna duser ve dosya adini
+// eskisi gibi tasiyicilardan alir.
+function santralGruplari() {
+  var sira = [], harita = {};
+  function ekle(kayit, tur) {
+    var ad = kayit.santral || '';
+    if (!harita[ad]) {
+      harita[ad] = { ad: ad, panels: [], bogaz: [], tava: [], damper: [], arakat: [], esanjor: [], kizak: [] };
+      sira.push(harita[ad]);
+    }
+    harita[ad][tur].push(kayit);
+  }
+  panels.forEach(function (x) { ekle(x, 'panels'); });
+  bogazList.forEach(function (x) { ekle(x, 'bogaz'); });
+  tavaList.forEach(function (x) { ekle(x, 'tava'); });
+  damperList.forEach(function (x) { ekle(x, 'damper'); });
+  arakatList.forEach(function (x) { ekle(x, 'arakat'); });
+  esanjorList.forEach(function (x) { ekle(x, 'esanjor'); });
+  kizakList.forEach(function (x) { ekle(x, 'kizak'); });
+  return sira;
+}
+
+// Dosya adi tasiyicilarini bir santralin adina cevirir; eski degerleri geri
+// yuklemek icin bir fonksiyon dondurur (tur bitince arayuz eski haline doner).
+function santralAdlariKur(ad) {
+  var alanlar = [
+    ['dosyaAdi50', ad], ['dosyaAdi60', ad], ['b-dosyaAdi', ad],
+    ['t-dosyaAdi', ad + ' — ' + TAVA_DOSYA_EKI],
+    ['d-dosyaAdi', ad + ' — ' + DAMPER_DOSYA_EKI],
+    ['a-dosyaAdi', ad + ' — ' + ARAKAT_DOSYA_EKI],
+    ['e-dosyaAdi', ad + ' — ' + ESANJOR_DOSYA_EKI],
+    ['k-dosyaAdi', ad + ' — ' + KIZAK_DOSYA_EKI]
+  ];
+  var eski = [];
+  alanlar.forEach(function (a) {
+    var el = document.getElementById(a[0]);
+    if (!el) return;
+    eski.push([el, el.value]);
+    el.value = a[1];
+  });
+  return function () { eski.forEach(function (e) { e[0].value = e[1]; }); };
+}
+
+// BIR santralin dosyalarini uretir. Govde eskiden topluDxfUret'in icindeydi;
+// tek fark listelerin global degil GRUBUN listeleri olmasi ve temizligin disarida
+// yapilmasi (butun santraller basarili olursa).
+function turUret(g, exportedNames, klasorlu) {
+  var geri = g.ad ? santralAdlariKur(g.ad) : null;
+  // Klasor YALNIZ birden fazla santral varken acilir: tek santralde ZIP icinde
+  // gereksiz bir katman olurdu ve dosya adi zaten santrali soyluyor.
+  indirmeKlasor = (klasorlu && g.ad) ? dosyaAdiTemizle(g.ad) : '';
+  try {
+    // 1) Panel — grup varsa (ANA / ALTUST) ayrı DXF, yoksa sadece kalınlığa göre ayır
+    if (g.panels.length) {
+      var hasGrup = g.panels.some(function (p) { return p.grup; });
+      var grupSirasi = hasGrup ? ['ANA', 'ALTUST'] : [null];
+      grupSirasi.forEach(function (gr) {
+        var grupPanels = hasGrup ? g.panels.filter(function (p) { return (p.grup || 'ANA') === gr; }) : g.panels;
+        if (!grupPanels.length) return;
+        var groups = {};
+        grupPanels.forEach(function (p) {
+          if (!groups[p.kalinlik]) groups[p.kalinlik] = [];
+          groups[p.kalinlik].push(p);
+        });
+        Object.keys(groups).forEach(function (kalinlik) {
+          var customAd = null;
+          if (gr === 'ALTUST' || gr === 'ANA') {
+            var base = String(kalinlik).replace('P', '');
+            var el = base === '60' ? document.getElementById('dosyaAdi60') : document.getElementById('dosyaAdi50');
+            var baseAdi = (el && el.value.trim()) || (base + 'lik_panel');
+            customAd = baseAdi + ' — ' + (gr === 'ALTUST' ? ALTUST_DOSYA_EKI : YAN_DOSYA_EKI);
+          }
+          var result = generateAndDownloadDxf(groups[kalinlik], kalinlik, 1, 700, 1000, customAd);
+          if (result && result.success) exportedNames.push(result.filename);
+        });
+      });
+    }
+    // 2) Boğaz
+    if (g.bogaz.length) {
+      var bRes = generateAndDownloadBogazDxf(g.bogaz);
+      if (bRes && bRes.success) exportedNames.push(bRes.filename);
+    }
+    // 3) Çizim modülleri — sekmelerindeki tekil düğmelerle AYNI fonksiyonlar.
+    if (g.tava.length) {
+      var tRes = generateAndDownloadTavaDxf(g.tava);
+      if (tRes && tRes.success) exportedNames.push(tRes.filename);
+    }
+    if (g.damper.length) {
+      var dRes = generateAndDownloadDamperDxf(g.damper);
+      if (dRes && dRes.success) exportedNames.push(dRes.filename);
+    }
+    if (g.arakat.length) {
+      var aRes = generateAndDownloadArakatDxf(g.arakat);
+      if (aRes && aRes.success) exportedNames.push(aRes.filename);
+    }
+    // Esanjor TEK cagride IKI dosya uretebilir (1.5 MM ayri dosyaya gider).
+    if (g.esanjor.length) {
+      var eRes = generateAndDownloadEsanjorDxf(g.esanjor);
+      if (eRes && eRes.success) exportedNames.push(eRes.filename);
+    }
+    if (g.kizak.length) {
+      var kRes = generateAndDownloadKizakDxf(g.kizak);
+      if (kRes && kRes.success) exportedNames.push(kRes.filename);
+    }
+  } finally {
+    indirmeKlasor = '';
+    if (geri) geri();
+  }
+}
+
+// Butun listeleri sifirlar — YALNIZCA tur bastan sona basariyla bittiginde cagrilir
+// (yarim kalan turda kullanici aktarimi yeniden yapmak zorunda kalmasin).
+function topluListeleriTemizle() {
+  panels.length = 0; bogazList.length = 0; tavaList.length = 0; damperList.length = 0;
+  arakatList.length = 0; esanjorList.length = 0; kizakList.length = 0;
+  renderTable(); renderBogazTable(); renderTavaTable(); renderDamperTable();
+  renderArakatTable(); renderEsanjorTable(); renderKizakTable();
+}
+
 function topluDxfUret() {
   var hasPanel = panels.length > 0;
   var hasBogaz = bogazList.length > 0;
@@ -15522,84 +15648,14 @@ function topluDxfUret() {
 
   // Uretim sirasinda bir istisna cikarsa listeler DURUR (temizlenmez) ve hata durum
   // cubuguna yazilir — tava/damper/arakat/esanjor dugmelerindeki desenin aynisi.
+  var gruplar = santralGruplari();
   try {
-
-  // 1) Panel — grup varsa (ANA / ALTUST) ayrı DXF, yoksa sadece kalınlığa göre ayır
-  if (hasPanel) {
-    var panelTumuBasarili = true;
-    var hasGrup = panels.some(function(p){ return p.grup; });
-    var grupSirasi = hasGrup ? ['ANA', 'ALTUST'] : [null];
-    grupSirasi.forEach(function(g) {
-      var grupPanels = hasGrup ? panels.filter(function(p){ return (p.grup||'ANA') === g; }) : panels;
-      if (!grupPanels.length) return;
-      var groups = {};
-      grupPanels.forEach(function(p) {
-        if (!groups[p.kalinlik]) groups[p.kalinlik] = [];
-        groups[p.kalinlik].push(p);
-      });
-      Object.keys(groups).forEach(function(kalinlik) {
-        var customAd = null;
-        if (g === 'ALTUST') {
-          var base2 = String(kalinlik).replace('P','');
-          var el2 = base2 === '60' ? document.getElementById('dosyaAdi60') : document.getElementById('dosyaAdi50');
-          var baseAdi = (el2 && el2.value.trim()) || (base2 + 'lik_panel');
-          customAd = baseAdi + ' — ' + ALTUST_DOSYA_EKI;
-        } else if (g === 'ANA') {
-          var base3 = String(kalinlik).replace('P','');
-          var el3 = base3 === '60' ? document.getElementById('dosyaAdi60') : document.getElementById('dosyaAdi50');
-          var baseAdi2 = (el3 && el3.value.trim()) || (base3 + 'lik_panel');
-          customAd = baseAdi2 + ' — ' + YAN_DOSYA_EKI;
-        }
-        var result = generateAndDownloadDxf(groups[kalinlik], kalinlik, 1, 700, 1000, customAd);
-        if (result && result.success) exportedNames.push(result.filename);
-        else panelTumuBasarili = false;
-      });
-    });
-    // Liste yalnizca HER grup basariyla indiyse sifirlanir (bogazdaki desenin aynisi).
-    if (panelTumuBasarili) {
-      panels.length = 0;
-      renderTable();
-    }
-  }
-
-  // 2) Boğaz
-  if (hasBogaz) {
-    var bRes = generateAndDownloadBogazDxf(bogazList);
-    if (bRes && bRes.success) {
-      exportedNames.push(bRes.filename);
-      bogazList.length = 0;
-      renderBogazTable();
-    }
-  }
-
-  // 3) Çizim modülleri — her biri kendi dosyasını üretir, kendi listesini sıfırlar.
-  // Sekmelerindeki tekil düğmelerle AYNI fonksiyonlar çağrılır (ikinci bir üretim
-  // yolu açılmadı), yalnızca liste temizleme burada tekrarlanır.
-  if (hasTava) {
-    var tRes = generateAndDownloadTavaDxf(tavaList);
-    if (tRes && tRes.success) { exportedNames.push(tRes.filename); tavaList.length = 0; renderTavaTable(); }
-  }
-  if (hasDamper) {
-    var dRes = generateAndDownloadDamperDxf(damperList);
-    if (dRes && dRes.success) { exportedNames.push(dRes.filename); damperList.length = 0; renderDamperTable(); }
-  }
-  if (hasArakat) {
-    var aRes = generateAndDownloadArakatDxf(arakatList);
-    if (aRes && aRes.success) { exportedNames.push(aRes.filename); arakatList.length = 0; renderArakatTable(); }
-  }
-  // Esanjor TEK cagride IKI dosya uretebilir (isaretli olculer ayri 1.5 MM dosyasina
-  // gider); filename alani ana dosyayi tasir, ikincisi de ayni cagride iner.
-  if (hasEsanjor) {
-    var eRes = generateAndDownloadEsanjorDxf(esanjorList);
-    if (eRes && eRes.success) { exportedNames.push(eRes.filename); esanjorList.length = 0; renderEsanjorTable(); }
-  }
-  if (hasKizak) {
-    var kRes = generateAndDownloadKizakDxf(kizakList);
-    if (kRes && kRes.success) { exportedNames.push(kRes.filename); kizakList.length = 0; renderKizakTable(); }
-  }
-
+    var klasorlu = gruplar.filter(function (g) { return g.ad; }).length > 1;
+    gruplar.forEach(function (g) { turUret(g, exportedNames, klasorlu); });
+    topluListeleriTemizle();
   } catch (err) {
     indirmeToplama = null;   // yarim kalan tur toplama modunu KAPATMALI
+    indirmeKlasor = '';
     setStatus('Hata: ' + err.message +
       (exportedNames.length ? ' — üretilenler: ' + exportedNames.join(' | ') : ''));
     return;
@@ -15607,18 +15663,50 @@ function topluDxfUret() {
 
   var toplanan = indirmeToplama || [];
   indirmeToplama = null;
+  // AYNI ADLI iki kayit ZIP icinde birbirini ezerdi (ornegin ayni ada sahip iki
+  // santral, ya da tek santralde iki profil serisi). Ad tekrarlanirsa sonuna sira
+  // numarasi eklenir — sessizce dosya kaybetmektense adi biraz uzun olsun.
+  (function () {
+    var gorulen = {};
+    toplanan.forEach(function (x) {
+      if (!gorulen[x.ad]) { gorulen[x.ad] = 1; return; }
+      var k = ++gorulen[x.ad];
+      var nokta = x.ad.lastIndexOf(String.fromCharCode(46));
+      x.ad = nokta > 0 ? x.ad.slice(0, nokta) + ' (' + k + ')' + x.ad.slice(nokta)
+                       : x.ad + ' (' + k + ')';
+    });
+  })();
   var tekIndir = function (x) {
-    indirmeSirala(URL.createObjectURL(new Blob([x.veri], { type: 'application/dxf' })), x.ad);
+    var ad = String(x.ad).split('/').pop();   // klasor oneki yalniz ZIP icinde anlamli
+    indirmeSirala(URL.createObjectURL(new Blob([x.veri], { type: 'application/dxf' })), ad);
   };
   if (toplanan.length === 1) {
     // Tek dosyada ZIP yapilmaz — eski davranis birebir korunur.
     tekIndir(toplanan[0]);
   } else if (toplanan.length > 1) {
     try {
-      var zipAd = dosyaAdiTemizle((projeAdiOku() ? projeAdiOku() + ' — ' : '') + ZIP_DOSYA_EKI) + '.zip';
+      // ZIP adi: tek santralde onun adi, cok santralde ORTAK ONEK (genelde is no).
+      var adlar = gruplar.map(function (g) { return g.ad; }).filter(Boolean);
+      var onek = adlar.length ? adlar.reduce(function (a, b) {
+        var i = 0;
+        while (i < a.length && i < b.length && a[i] === b[i]) i++;
+        return a.slice(0, i);
+      }) : projeAdiOku();
+      onek = String(onek || '');
+      // Ortak onek bir santralin TAM adi degilse (ör. '0469 — AHU-' yarim kalmis),
+      // son ' — ' ayracindan kes: dosya adi '0469 — TÜM DXF.zip' olsun.
+      if (adlar.length > 1 && adlar.indexOf(onek) < 0) {
+        var kes = onek.lastIndexOf(' — ');
+        if (kes > 0) onek = onek.slice(0, kes);
+      }
+      onek = onek.replace(/[\s—-]+$/, '');
+      var zipAd = dosyaAdiTemizle((onek ? onek + ' — ' : '') + ZIP_DOSYA_EKI) + '.zip';
       indirmeSirala(URL.createObjectURL(zipYap(toplanan)), zipAd);
-      setStatus('✓ Toplu DXF: ' + toplanan.length + ' dosya TEK ZIP içinde indirildi — ' + zipAd
-        + '  ·  içindekiler: ' + toplanan.map(function (x) { return x.ad; }).join(' | '));
+      setStatus('✓ Toplu DXF: ' + (adlar.length > 1 ? adlar.length + ' santral · ' : '')
+        + toplanan.length + ' dosya TEK ZIP içinde indirildi — ' + zipAd
+        + (adlar.length > 1 ? '  ·  her santral kendi klasöründe' : '')
+        + '  ·  içindekiler: ' + toplanan.slice(0, 12).map(function (x) { return x.ad; }).join(' | ')
+        + (toplanan.length > 12 ? ' … (+' + (toplanan.length - 12) + ')' : ''));
     } catch (zerr) {
       // ZIP kurulamazsa dosyalar TEK TEK iner: bir kismi tarayici sinirina takilabilir
       // ama hicbirinin inmemesinden iyidir — sebep de yazilir.
@@ -16462,6 +16550,13 @@ function applyKapakData(data) {
     var importedKizak = data.kizakList || [];      // Kapak Hesabi'ndaki KIZAK sekmesi
     var seri = data.seri || '60';
     var proje = data.proje || '';
+    // Her kayit HANGI SANTRALDEN geldigini tasir. Toplu uretim dosyalari buna gore
+    // ayirir; yoksa cok santralli projede panel dosyalari (grup x kalinlik) bazinda
+    // birlesiyor, dosya adi da SON gelen santralinkini aliyordu (olculdu 03.09.2026:
+    // 20 santral -> 15 dosya, '… AHU-19 — YAN PANELLER.dxf' icinde AHU-3,5,9,…).
+    var etiketle = function (kaynak, hedef) {
+      kaynak.forEach(function (k) { if (proje) k.santral = proje; hedef.push(k); });
+    };
 
     if (!imported.length && !importedBogaz.length && !importedTava.length
         && !importedDamper.length && !importedArakat.length && !importedEsanjor.length
@@ -16484,7 +16579,7 @@ function applyKapakData(data) {
 
     // Panel listesi
     if (imported.length) {
-      imported.forEach(function(p) { panels.push(p); });
+      etiketle(imported, panels);
       if (proje) {
         var el60 = document.getElementById('dosyaAdi60');
         var el50 = document.getElementById('dosyaAdi50');
@@ -16496,7 +16591,7 @@ function applyKapakData(data) {
 
     // Boğaz listesi
     if (importedBogaz.length) {
-      importedBogaz.forEach(function(b) { bogazList.push(b); });
+      etiketle(importedBogaz, bogazList);
       if (elBDosyaAdi && proje && !elBDosyaAdi.value) elBDosyaAdi.value = proje;
       renderBogazTable();
     }
@@ -16506,7 +16601,7 @@ function applyKapakData(data) {
     // AYRI anlamlidir (genislik govde enini, yukseklik govde boyunu surer).
     // Tava govdesini cizim programi hesaplar (-45).
     if (importedTava.length) {
-      importedTava.forEach(function(t) { tavaList.push(t); });
+      etiketle(importedTava, tavaList);
       // Alan gizli ve tamamen turetilmis: her aktarimda guncellenir. Tava tek
       // basina aktarilirsa dosyaAdi50/60 bos kalacagi icin projeAdiOku() ise
       // yaramaz — ad buradan gelmek zorunda.
@@ -16518,7 +16613,7 @@ function applyKapakData(data) {
     // ikisi AYRI anlamlidir (yatay parca genisligi, dikey parca yuksekligi takip
     // eder) ve bolme kurali yalnizca genislige bakar.
     if (importedDamper.length) {
-      importedDamper.forEach(function(d) { damperList.push(d); });
+      etiketle(importedDamper, damperList);
       if (elDDosyaAdi && proje) elDDosyaAdi.value = proje + ' — ' + DAMPER_DOSYA_EKI;
       renderDamperTable();
     }
@@ -16527,7 +16622,7 @@ function applyKapakData(data) {
     // Aktarilan kayitlar listeye eklenir, form da calismaya devam eder.
     // Kayit sekli elle girisin aynisi: { tip, B, K, adet }.
     if (importedArakat.length) {
-      importedArakat.forEach(function(a) { arakatList.push(a); });
+      etiketle(importedArakat, arakatList);
       // Alan gizli ve tamamen turetilmis (elle giris kaldirildi): her aktarimda
       // guncellenir. Ara kat tek basina aktarilirsa dosyaAdi50/60 bos kalacagi icin
       // projeAdiOku() is gormez — ad buradan gelmek zorunda. Tava/damperin aynisi.
@@ -16538,7 +16633,7 @@ function applyKapakData(data) {
     // Esanjor setleri (25.08.2026): CI ve O1..O4 Kapak Hesabi'nda modul olcusunden
     // turetilir; buraya hazir gelir. 1.5 mm isareti yalnizca O3'tedir.
     if (importedEsanjor.length) {
-      importedEsanjor.forEach(function(e) { esanjorList.push(e); });
+      etiketle(importedEsanjor, esanjorList);
       if (elEDosyaAdi && proje) elEDosyaAdi.value = proje + ' — ' + ESANJOR_DOSYA_EKI;
       renderEsanjorTable();
     }
@@ -16546,7 +16641,7 @@ function applyKapakData(data) {
     // Batarya kizagi takimlari (01.09.2026): boy modulun W'sinden, ust L kanadi
     // foydeki HR'den Kapak Hesabi'nda turetilir; buraya hazir gelir.
     if (importedKizak.length) {
-      importedKizak.forEach(function(k) { kizakList.push(k); });
+      etiketle(importedKizak, kizakList);
       if (elKDosyaAdi && proje) elKDosyaAdi.value = proje + ' — ' + KIZAK_DOSYA_EKI;
       renderKizakTable();
     }
