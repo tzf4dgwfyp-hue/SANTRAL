@@ -6110,6 +6110,104 @@ function indirmeSonraki(){
   setTimeout(indirmeSonraki, INDIRME_ARA);
 }
 
+// ---------- ZIP YAZICI (store — sikistirma YOK) ----------
+// f1'deki yazicinin ikizi (iki iframe ayri belgedir). Neden gerekli: tarayici bir
+// turda tetiklenen indirmelerin ancak bir kismini aliyor — olculdu 03.09.2026
+// (gercek Chrome, 25 dosya): hepsi ayni anda -> 10; indirme kuyrugundan sonra http
+// uzerinde 25/25 AMA file:// uzerinde 1/25. Uygulama cift tiklanarak da aciliyor,
+// yani cok dosyali ciktinin tek guvenli yolu TEK dosya indirmek.
+// Sikistirma yapilmaz: deflate icin kutuphane gerekir, bu dosya bagimliliksiz kalmali.
+// Ad alaninda UTF-8 bayragi (bit 11) kurulur — Turkce adlar dogru okunur.
+let zipCrcTablo = null;
+function zipCrc32(u8){
+  if(!zipCrcTablo){
+    zipCrcTablo = new Int32Array(256);
+    for(let i=0;i<256;i++){
+      let c = i;
+      for(let k=0;k<8;k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+      zipCrcTablo[i] = c;
+    }
+  }
+  let crc = -1;
+  for(let j=0;j<u8.length;j++) crc = (crc >>> 8) ^ zipCrcTablo[(crc ^ u8[j]) & 0xFF];
+  return (crc ^ -1) >>> 0;
+}
+// MS-DOS tarih/saat alanlari (2 sn cozunurluk, 1980 baslangic)
+function zipTarih(t){
+  return {
+    saat: ((t.getHours() & 31) << 11) | ((t.getMinutes() & 63) << 5) | ((t.getSeconds()/2) & 31),
+    gun: (((t.getFullYear()-1980) & 127) << 9) | (((t.getMonth()+1) & 15) << 5) | (t.getDate() & 31)
+  };
+}
+// dosyalar: [{ad, veri}] — veri metin ya da ArrayBuffer/Uint8Array olabilir
+function zipYap(dosyalar){
+  const enc = new TextEncoder();
+  const t = zipTarih(new Date());
+  const govde = [], merkez = [];
+  let ofset = 0;
+  dosyalar.forEach(dd=>{
+    const ad = enc.encode(dd.ad);
+    const veri = (typeof dd.veri === 'string') ? enc.encode(dd.veri)
+      : (dd.veri instanceof Uint8Array ? dd.veri : new Uint8Array(dd.veri));
+    const crc = zipCrc32(veri);
+    const yerel = new Uint8Array(30 + ad.length);
+    const dv = new DataView(yerel.buffer);
+    dv.setUint32(0, 0x04034b50, true);   // yerel baslik imzasi
+    dv.setUint16(4, 20, true);           // gereken surum (2.0)
+    dv.setUint16(6, 0x0800, true);       // bayrak: ad UTF-8
+    dv.setUint16(8, 0, true);            // yontem: store
+    dv.setUint16(10, t.saat, true);
+    dv.setUint16(12, t.gun, true);
+    dv.setUint32(14, crc, true);
+    dv.setUint32(18, veri.length, true); // sikistirilmis boy = ham boy
+    dv.setUint32(22, veri.length, true);
+    dv.setUint16(26, ad.length, true);
+    yerel.set(ad, 30);
+    govde.push(yerel, veri);
+    const mrk = new Uint8Array(46 + ad.length);
+    const mv = new DataView(mrk.buffer);
+    mv.setUint32(0, 0x02014b50, true);   // merkez dizin imzasi
+    mv.setUint16(4, 20, true);
+    mv.setUint16(6, 20, true);
+    mv.setUint16(8, 0x0800, true);
+    mv.setUint16(10, 0, true);
+    mv.setUint16(12, t.saat, true);
+    mv.setUint16(14, t.gun, true);
+    mv.setUint32(16, crc, true);
+    mv.setUint32(20, veri.length, true);
+    mv.setUint32(24, veri.length, true);
+    mv.setUint16(28, ad.length, true);
+    mv.setUint32(42, ofset, true);       // yerel basligin dosya icindeki yeri
+    mrk.set(ad, 46);
+    merkez.push(mrk);
+    ofset += yerel.length + veri.length;
+  });
+  const merkezBoy = merkez.reduce((a,m)=>a+m.length, 0);
+  const son = new Uint8Array(22);
+  const sv = new DataView(son.buffer);
+  sv.setUint32(0, 0x06054b50, true);     // merkez dizin sonu
+  sv.setUint16(8, dosyalar.length, true);
+  sv.setUint16(10, dosyalar.length, true);
+  sv.setUint32(12, merkezBoy, true);
+  sv.setUint32(16, ofset, true);
+  return new Blob(govde.concat(merkez, [son]), {type:'application/zip'});
+}
+const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+// Cok dosyali ciktida TEK ZIP indirir; TEK dosyada eski davranis birebir korunur.
+// ZIP kurulamazsa (cok eski tarayici) dosyalar tek tek iner — bir kismi tarayici
+// sinirina takilabilir ama hicbirinin inmemesinden iyidir.
+function coklaIndir(dosyalar, zipAd){
+  if(!dosyalar.length) return '';
+  const tek = dd => indirmeSirala(URL.createObjectURL(new Blob([dd.veri], {type:XLSX_MIME})), dd.ad);
+  if(dosyalar.length === 1){ tek(dosyalar[0]); return dosyalar[0].ad; }
+  try{
+    indirmeSirala(URL.createObjectURL(zipYap(dosyalar)), zipAd);
+    return zipAd;
+  }catch(err){
+    dosyalar.forEach(tek);
+    return '';
+  }
+}
 async function exportExcel(){
   const note = document.getElementById('excel_note');
   const issues = collectFaceIssues();
@@ -6126,6 +6224,8 @@ async function exportExcel(){
   const ahuCount = state.ahus.length;
   const sanitizeF = s => s.replace(/[\\/:*?&quot;<>|]/g,'').replace(/\s+/g,'_');
   let totalExported = 0;
+  // Cok santralli projede dosyalar TEK ZIP olarak iner (bkz. coklaIndir).
+  const xlsxToplama = [];
   // Excel'in kendi görselleri (GÖRSEL YERLEŞİM + 3B TOPLU MONTAJ) YENİ kodu göstersin; canlı
   // uygulama (2D yüz düzenleme, 3D montaj) etkilenmesin — export bitince aşağıda geri alınır.
   excelKodModu = true;
@@ -6453,13 +6553,12 @@ async function exportExcel(){
     }
 
     const buf = await wb.xlsx.writeBuffer();
-    const blob = new Blob([buf], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
     const parts = [];
     if(state.proje.isNo) parts.push(sanitizeF(state.proje.isNo));
     if(_ahuLabel) parts.push(sanitizeF(_ahuLabel));
     parts.push('KAPAK_HESABI');
     if(parts.length===1) parts.push(new Date().toISOString().slice(0,10));
-    indirmeSirala(URL.createObjectURL(blob), parts.join('_')+'.xlsx');
+    xlsxToplama.push({ad: parts.join('_')+'.xlsx', veri: buf});
     totalExported++;
   }catch(err){
     note.textContent = '⚠ Excel oluşturma hatası ('+ _ahuLabel +'): '+err.message;
@@ -6468,9 +6567,12 @@ async function exportExcel(){
   state.activeAhu = origActiveAhu;
   excelKodModu = false;
   render3D();
+  const excelZip = (state.proje.isNo ? sanitizeF(state.proje.isNo)+'_' : '') + 'KAPAK_HESABI.zip';
+  const excelInen = coklaIndir(xlsxToplama, excelZip);
   if(totalExported > 0){
     note.textContent = ahuCount > 1
-      ? '✓ '+totalExported+'/'+ahuCount+' AHU için Excel dosyaları indirildi.'
+      ? '✓ '+totalExported+'/'+ahuCount+' AHU için Excel dosyaları indirildi'
+        + (xlsxToplama.length > 1 && excelInen ? ' — TEK ZIP içinde: '+excelInen : '')+'.'
       : '✓ Excel dosyası indirildi: 1 özet + 1 montaj + '
         +(state.modules.length*6 + state.modules.filter(md=>araKatOf(md).aktif).length)
         +' modül-yüz sayfası.';
@@ -10072,6 +10174,8 @@ async function exportAnalizExcel(){
   const hatalar = [];              // santral başına toplanan hatalar (tur durmaz)
   const sanitizeF = s => s.replace(/[\\/:*?&quot;<>|]/g,'').replace(/\s+/g,'_');
   let indirilen = 0;
+  // Cok santralli projede dosyalar TEK ZIP olarak iner (bkz. coklaIndir).
+  const analizToplama = [];
   try{
     for(let i=0;i<yukler.length;i++){
       const y = yukler[i];
@@ -10221,19 +10325,21 @@ async function exportAnalizExcel(){
       wsF.getCell(rf,1).font = XL_DEV_FONT;
 
       const buf = await wb.xlsx.writeBuffer();
-      const blob = new Blob([buf], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
       const parts = [];
       if(state.proje.isNo) parts.push(sanitizeF(state.proje.isNo));
       if(ahuAd) parts.push(sanitizeF(ahuAd));
       parts.push('ANALIZ');
-      indirmeSirala(URL.createObjectURL(blob), parts.join('_')+'.xlsx');
+      analizToplama.push({ad: parts.join('_')+'.xlsx', veri: buf});
       indirilen++;
       }catch(err){
         hatalar.push(ahuAd + ' — ' + (err && err.message ? err.message : err));
       }
     }
+    const analizZip = (state.proje.isNo ? sanitizeF(state.proje.isNo)+'_' : '') + 'ANALIZ.zip';
+    const analizInen = coklaIndir(analizToplama, analizZip);
     const basari = indirilen>1
-      ? '✓ '+indirilen+' santral için analiz dosyaları indirildi.'
+      ? '✓ '+indirilen+' santral için analiz dosyaları indirildi'
+        + (analizToplama.length > 1 && analizInen ? ' — TEK ZIP içinde: '+analizInen : '')+'.'
       : (indirilen===1 ? '✓ Analiz dosyası indirildi (ÖZET + SAC + PROFİL + SARF).' : '');
     note.textContent = basari + (hatalar.length
       ? (basari ? '  ' : '') + '⚠ Alınamayan santral: ' + hatalar.join(' | ')
@@ -14582,10 +14688,7 @@ function generateAndDownloadDxf(panelList, kalinlik, satirN, gapCol, gapRow, cus
   // oluyordu (ör. &quot;AHU 1/2&quot; → tarayici gecerli bir dosya adi uretemez).
   var dosyaAdi = dosyaAdiTemizle(customDosyaAdi || (dosyaAdiEl && dosyaAdiEl.value.trim()) || (base + 'lik_panel'));
 
-  function _dl(dxf, fname) {
-    var blob = new Blob([dxf.generate()], { type: 'application/dxf' });
-    indirmeSirala(URL.createObjectURL(blob), fname);
-  }
+  function _dl(dxf, fname) { dxfIndir(dxf, fname); }
 
   if (isPas) {
     // 2 ayri DXF: { ad } DIŞ.dxf  +  { ad } İÇ PASLANMAZ.dxf
@@ -15113,6 +15216,8 @@ function drawBogazSet(dxf, ox, oy, YBP, DBP) {
 var ALTUST_DOSYA_EKI = 'ALT-ÜST';
 var YAN_DOSYA_EKI    = 'YAN PANELLER';
 var BOGAZ_DOSYA_EKI  = 'BOĞAZLAR';
+// Toplu uretimin TEK dosyasi — icinde yukaridaki adlarla DXF'ler durur.
+var ZIP_DOSYA_EKI    = 'TÜM DXF';
 // Cizim modullerinin son ekleri — ayni semayi kullanirlar.
 var TAVA_DOSYA_EKI    = 'TAVA';
 var DAMPER_DOSYA_EKI  = 'DAMPER';
@@ -15186,10 +15291,98 @@ function indirmeSonraki() {
   setTimeout(indirmeSonraki, INDIRME_ARA);
 }
 
+// ---------- ZIP YAZICI (store — sikistirma YOK) ----------
+// Neden gerekli: tarayici bir turda tetiklenen indirmelerin ancak bir kismini aliyor.
+// Olculdu 03.09.2026 (gercek Chrome, 25 dosya): hepsi ayni anda -> 10 dosya; indirme
+// kuyrugundan sonra http uzerinde 25/25 AMA file:// uzerinde 1/25. Uygulama cift
+// tiklanarak da aciliyor (bkz. CLAUDE.md §2), yani tek guvenli yol TEK dosya indirmek.
+// Sikistirma yapilmaz: deflate icin kutuphane gerekir, bu dosya bagimliliksiz kalmali.
+// Ad alaninda UTF-8 bayragi (bit 11) kurulur — BOĞAZLAR / EŞANJÖR / KIZAĞI gibi Turkce
+// adlar Windows Gezgini ve 7-Zip tarafindan dogru okunur.
+var zipCrcTablo = null;
+function zipCrc32(u8) {
+  if (!zipCrcTablo) {
+    zipCrcTablo = new Int32Array(256);
+    for (var i = 0; i < 256; i++) {
+      var c = i;
+      for (var k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+      zipCrcTablo[i] = c;
+    }
+  }
+  var crc = -1;
+  for (var j = 0; j < u8.length; j++) crc = (crc >>> 8) ^ zipCrcTablo[(crc ^ u8[j]) & 0xFF];
+  return (crc ^ -1) >>> 0;
+}
+// MS-DOS tarih/saat alanlari (2 sn cozunurluk, 1980 baslangic)
+function zipTarih(t) {
+  return {
+    saat: ((t.getHours() & 31) << 11) | ((t.getMinutes() & 63) << 5) | ((t.getSeconds() / 2) & 31),
+    gun: (((t.getFullYear() - 1980) & 127) << 9) | (((t.getMonth() + 1) & 15) << 5) | (t.getDate() & 31)
+  };
+}
+// dosyalar: [{ad, veri}] — veri metin ya da Uint8Array/ArrayBuffer olabilir
+function zipYap(dosyalar) {
+  var enc = new TextEncoder();
+  var t = zipTarih(new Date());
+  var govde = [], merkez = [], ofset = 0;
+  dosyalar.forEach(function (dd) {
+    var ad = enc.encode(dd.ad);
+    var veri = (typeof dd.veri === 'string') ? enc.encode(dd.veri)
+      : (dd.veri instanceof Uint8Array ? dd.veri : new Uint8Array(dd.veri));
+    var crc = zipCrc32(veri);
+    var yerel = new Uint8Array(30 + ad.length);
+    var dv = new DataView(yerel.buffer);
+    dv.setUint32(0, 0x04034b50, true);   // yerel baslik imzasi
+    dv.setUint16(4, 20, true);           // gereken surum (2.0)
+    dv.setUint16(6, 0x0800, true);       // bayrak: ad UTF-8
+    dv.setUint16(8, 0, true);            // yontem: store
+    dv.setUint16(10, t.saat, true);
+    dv.setUint16(12, t.gun, true);
+    dv.setUint32(14, crc, true);
+    dv.setUint32(18, veri.length, true); // sikistirilmis boy = ham boy
+    dv.setUint32(22, veri.length, true);
+    dv.setUint16(26, ad.length, true);
+    yerel.set(ad, 30);
+    govde.push(yerel, veri);
+    var mrk = new Uint8Array(46 + ad.length);
+    var mv = new DataView(mrk.buffer);
+    mv.setUint32(0, 0x02014b50, true);   // merkez dizin imzasi
+    mv.setUint16(4, 20, true);
+    mv.setUint16(6, 20, true);
+    mv.setUint16(8, 0x0800, true);
+    mv.setUint16(10, 0, true);
+    mv.setUint16(12, t.saat, true);
+    mv.setUint16(14, t.gun, true);
+    mv.setUint32(16, crc, true);
+    mv.setUint32(20, veri.length, true);
+    mv.setUint32(24, veri.length, true);
+    mv.setUint16(28, ad.length, true);
+    mv.setUint32(42, ofset, true);       // yerel basligin dosya icindeki yeri
+    mrk.set(ad, 46);
+    merkez.push(mrk);
+    ofset += yerel.length + veri.length;
+  });
+  var merkezBoy = merkez.reduce(function (a, m) { return a + m.length; }, 0);
+  var son = new Uint8Array(22);
+  var sv = new DataView(son.buffer);
+  sv.setUint32(0, 0x06054b50, true);     // merkez dizin sonu
+  sv.setUint16(8, dosyalar.length, true);
+  sv.setUint16(10, dosyalar.length, true);
+  sv.setUint32(12, merkezBoy, true);
+  sv.setUint32(16, ofset, true);
+  return new Blob(govde.concat(merkez, [son]), { type: 'application/zip' });
+}
+// Toplu uretimde dosyalar INDIRILMEZ, burada toplanir ve sonunda tek ZIP olur.
+// null iken davranis eskisi gibi: her cagri kendi dosyasini indirir.
+var indirmeToplama = null;
+// DXF indirmenin TEK kapisi — metni bir kez uretir, toplama moduna saygi duyar.
+function dxfIndir(dxf, tamAd) {
+  var metin = dxf.generate();
+  if (indirmeToplama) { indirmeToplama.push({ ad: tamAd, veri: metin }); return tamAd; }
+  return indirmeSirala(URL.createObjectURL(new Blob([metin], { type: 'application/dxf' })), tamAd);
+}
 function modulDxfKaydet(dxf, tamAd) {
-  var blob = new Blob([dxf.generate()], { type: 'application/octet-stream' });
-  indirmeSirala(URL.createObjectURL(blob), tamAd);
-  return tamAd;
+  return dxfIndir(dxf, tamAd);
 }
 
 function modulDxfIndir(dxf, elAd, sonEk, varsayilanAd) {
@@ -15217,8 +15410,7 @@ function generateAndDownloadBogazDxf(list) {
   // '— ALT-ÜST' ve '— YAN PANELLER'). Proje adi bos ise yalnizca son ek kullanilir.
   var rawName = ((elBDosyaAdi && elBDosyaAdi.value) || '').trim();
   var name = dosyaAdiTemizle(rawName ? rawName + ' — ' + BOGAZ_DOSYA_EKI : BOGAZ_DOSYA_EKI) + '.dxf';
-  var blob = new Blob([dxf.generate()], { type: 'application/octet-stream' });
-  indirmeSirala(URL.createObjectURL(blob), name);
+  dxfIndir(dxf, name);
   return { success: true, count: totalCount, filename: name };
 }
 
@@ -15323,6 +15515,10 @@ function topluDxfUret() {
 
   setStatus('Toplu DXF üretiliyor...');
   var exportedNames = [];
+  // Dosyalar TEK ZIP olarak inecek — tarayici cok dosyayi bir turda indirmiyor
+  // (olculdu: file:// uzerinde 1, http uzerinde 10). Uretim yolu hic degismez:
+  // generateAndDownload* fonksiyonlari dxfIndir uzerinden buraya yazar.
+  indirmeToplama = [];
 
   // Uretim sirasinda bir istisna cikarsa listeler DURUR (temizlenmez) ve hata durum
   // cubuguna yazilir — tava/damper/arakat/esanjor dugmelerindeki desenin aynisi.
@@ -15403,17 +15599,37 @@ function topluDxfUret() {
   }
 
   } catch (err) {
+    indirmeToplama = null;   // yarim kalan tur toplama modunu KAPATMALI
     setStatus('Hata: ' + err.message +
       (exportedNames.length ? ' — üretilenler: ' + exportedNames.join(' | ') : ''));
     return;
   }
 
+  var toplanan = indirmeToplama || [];
+  indirmeToplama = null;
+  var tekIndir = function (x) {
+    indirmeSirala(URL.createObjectURL(new Blob([x.veri], { type: 'application/dxf' })), x.ad);
+  };
+  if (toplanan.length === 1) {
+    // Tek dosyada ZIP yapilmaz — eski davranis birebir korunur.
+    tekIndir(toplanan[0]);
+  } else if (toplanan.length > 1) {
+    try {
+      var zipAd = dosyaAdiTemizle((projeAdiOku() ? projeAdiOku() + ' — ' : '') + ZIP_DOSYA_EKI) + '.zip';
+      indirmeSirala(URL.createObjectURL(zipYap(toplanan)), zipAd);
+      setStatus('✓ Toplu DXF: ' + toplanan.length + ' dosya TEK ZIP içinde indirildi — ' + zipAd
+        + '  ·  içindekiler: ' + toplanan.map(function (x) { return x.ad; }).join(' | '));
+    } catch (zerr) {
+      // ZIP kurulamazsa dosyalar TEK TEK iner: bir kismi tarayici sinirina takilabilir
+      // ama hicbirinin inmemesinden iyidir — sebep de yazilir.
+      toplanan.forEach(tekIndir);
+      setStatus('⚠ ZIP kurulamadı (' + zerr.message + ') — ' + toplanan.length
+        + ' dosya tek tek indiriliyor: ' + exportedNames.join(' | '));
+    }
+    return;
+  }
   if (exportedNames.length > 0) {
-    // Dosyalar kuyruktan SIRAYLA iniyor; bu satır son dosya inmeden yazılır, kaçının
-    // yolda olduğu söylenmezse kullanıcı eksik indi sanır.
-    var kuyrukta = indirmeKuyrugu.length;
-    setStatus('✓ Toplu DXF tamamlandı: ' + exportedNames.join(' | ')
-      + (kuyrukta ? ' — ' + kuyrukta + ' dosya sırayla iniyor…' : ''));
+    setStatus('✓ Toplu DXF tamamlandı: ' + exportedNames.join(' | '));
   } else {
     setStatus('Hata: Hiçbir DXF üretilemedi.');
   }
@@ -16008,8 +16224,7 @@ function renderNestSheetToWriter(writer, sheet, sheetW, sheetH, yOffset) {
 
 // Blob→createObjectURL→gizli &lt;a&gt;→click→revoke — mevcut generateAndDownloadDxf'in _dl'siyle birebir aynı desen.
 function nestDownloadDxf(dxfWriter, filename) {
-  var blob = new Blob([dxfWriter.generate()], { type: 'application/dxf' });
-  indirmeSirala(URL.createObjectURL(blob), filename);
+  dxfIndir(dxfWriter, filename);
 }
 
 // Bir nest-grubunun TÜM sac'larını dikey sabit boşlukla art arda TEK bir DxfWriter'a çizer
