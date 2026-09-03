@@ -6080,6 +6080,36 @@ function analizIste(payload, zamanAsimiMs){
   });
 }
 
+// ---------- İNDİRME KUYRUĞU ----------
+// Tarayıcı, AYNI ANDA tetiklenen indirmelerin ilk 10'unu alıp gerisini SESSİZCE
+// düşürüyor (ölçüldü 03.09.2026, gerçek Chrome: 25 tetikleme → 10 dosya; aralarına
+// 100 ms konunca 25/25). Çok santralli Excel/Analiz ve f1'in Toplu DXF'i bu sınırı
+// aşıyordu — hata da vermiyordu, dosyalar sessizce düşüyordu.
+// Bu yüzden BÜTÜN indirmeler tek kuyruktan geçer: ilki hemen (kullanıcı hareketinin
+// içinde), gerisi INDIRME_ARA ms arayla. Çağıran BEKLEMEZ — blob zaten hazırdır,
+// yalnızca tıklama ertelenir; bu yüzden mevcut başarı/liste-temizleme mantığı ve
+// fonksiyonların dönüş değerleri hiç değişmez.
+const INDIRME_ARA = 300;   // ms — ölçülen sınır 100; üç katı pay bırakıldı
+const indirmeKuyrugu = [];
+let indirmeCalisiyor = false;
+function indirmeSirala(url, ad){
+  indirmeKuyrugu.push({url:url, ad:ad});
+  if(!indirmeCalisiyor){ indirmeCalisiyor = true; indirmeSonraki(); }
+  return ad;
+}
+function indirmeSonraki(){
+  const it = indirmeKuyrugu.shift();
+  if(!it){ indirmeCalisiyor = false; return; }
+  const a = document.createElement('a');
+  a.href = it.url;
+  a.download = it.ad;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(it.url), 5000);
+  setTimeout(indirmeSonraki, INDIRME_ARA);
+}
+
 async function exportExcel(){
   const note = document.getElementById('excel_note');
   const issues = collectFaceIssues();
@@ -6424,18 +6454,12 @@ async function exportExcel(){
 
     const buf = await wb.xlsx.writeBuffer();
     const blob = new Blob([buf], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
     const parts = [];
     if(state.proje.isNo) parts.push(sanitizeF(state.proje.isNo));
     if(_ahuLabel) parts.push(sanitizeF(_ahuLabel));
     parts.push('KAPAK_HESABI');
     if(parts.length===1) parts.push(new Date().toISOString().slice(0,10));
-    a.download = parts.join('_')+'.xlsx';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    setTimeout(()=>URL.revokeObjectURL(a.href), 5000);
+    indirmeSirala(URL.createObjectURL(blob), parts.join('_')+'.xlsx');
     totalExported++;
   }catch(err){
     note.textContent = '⚠ Excel oluşturma hatası ('+ _ahuLabel +'): '+err.message;
@@ -6446,7 +6470,7 @@ async function exportExcel(){
   render3D();
   if(totalExported > 0){
     note.textContent = ahuCount > 1
-      ? '✓ '+ahuCount+' AHU için Excel dosyaları indirildi.'
+      ? '✓ '+totalExported+'/'+ahuCount+' AHU için Excel dosyaları indirildi.'
       : '✓ Excel dosyası indirildi: 1 özet + 1 montaj + '
         +(state.modules.length*6 + state.modules.filter(md=>araKatOf(md).aktif).length)
         +' modül-yüz sayfası.';
@@ -10045,6 +10069,7 @@ async function exportAnalizExcel(){
 
   const stok = {boy: analizStok.boy, pay: analizStok.pay};
   const origActiveAhu = state.activeAhu;
+  const hatalar = [];              // santral başına toplanan hatalar (tur durmaz)
   const sanitizeF = s => s.replace(/[\\/:*?&quot;<>|]/g,'').replace(/\s+/g,'_');
   let indirilen = 0;
   try{
@@ -10054,6 +10079,11 @@ async function exportAnalizExcel(){
       note.textContent = (yukler.length>1 ? '['+(i+1)+'/'+yukler.length+'] ' : '')
         + 'Analiz hesaplanıyor… ' + ahuAd;
 
+      // Bir santralin analizi patlarsa DİĞERLERİ ETKİLENMEZ: hata toplanır, döngü
+      // devam eder, sonunda hangi santralin alınamadığı yazılır. Eskiden tek bir hata
+      // (ör. f1 zaman aşımı ya da sac hesabı) bütün turu durduruyordu — kullanıcı
+      // yalnız o ana kadar inen dosyaları görüyor, sebebini göremiyordu.
+      try{
       // f1: sac serme + kapak deliği. Bekleme burada — hesap DXF sekmesinde yapılıyor.
       const f1 = await analizIste(y.payload);
 
@@ -10192,22 +10222,22 @@ async function exportAnalizExcel(){
 
       const buf = await wb.xlsx.writeBuffer();
       const blob = new Blob([buf], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
       const parts = [];
       if(state.proje.isNo) parts.push(sanitizeF(state.proje.isNo));
       if(ahuAd) parts.push(sanitizeF(ahuAd));
       parts.push('ANALIZ');
-      a.download = parts.join('_')+'.xlsx';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      setTimeout(()=>URL.revokeObjectURL(a.href), 5000);
+      indirmeSirala(URL.createObjectURL(blob), parts.join('_')+'.xlsx');
       indirilen++;
+      }catch(err){
+        hatalar.push(ahuAd + ' — ' + (err && err.message ? err.message : err));
+      }
     }
-    note.textContent = indirilen>1
+    const basari = indirilen>1
       ? '✓ '+indirilen+' santral için analiz dosyaları indirildi.'
-      : '✓ Analiz dosyası indirildi (ÖZET + SAC + PROFİL + SARF).';
+      : (indirilen===1 ? '✓ Analiz dosyası indirildi (ÖZET + SAC + PROFİL + SARF).' : '');
+    note.textContent = basari + (hatalar.length
+      ? (basari ? '  ' : '') + '⚠ Alınamayan santral: ' + hatalar.join(' | ')
+      : '');
   }catch(err){
     note.textContent = '⚠ Analiz hatası: ' + (err && err.message ? err.message : err);
   }finally{
@@ -10299,9 +10329,8 @@ function saveProject(){
   a.href = URL.createObjectURL(blob);
   const fname = (state.proje.isNo || '').trim() || 'proje';
   a.download = fname.replace(/[/\\:*?&quot;<>|]/g,'_') + '.json';
-  document.body.appendChild(a);
-  a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  // Element yalnızca adı ve URL'yi taşımak için kuruldu; tıklamayı kuyruk yapar.
+  indirmeSirala(a.href, a.download);
 }
 
 function loadProject(file){
@@ -14555,14 +14584,7 @@ function generateAndDownloadDxf(panelList, kalinlik, satirN, gapCol, gapRow, cus
 
   function _dl(dxf, fname) {
     var blob = new Blob([dxf.generate()], { type: 'application/dxf' });
-    var url = URL.createObjectURL(blob);
-    var a = document.createElement('a');
-    a.href = url;
-    a.download = fname;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    indirmeSirala(URL.createObjectURL(blob), fname);
   }
 
   if (isPas) {
@@ -15133,16 +15155,40 @@ function modulDosyaAdi(elAd, sonEk, varsayilanAd) {
   return dosyaAdiTemizle(ham);
 }
 
-function modulDxfKaydet(dxf, tamAd) {
-  var blob = new Blob([dxf.generate()], { type: 'application/octet-stream' });
-  var url = URL.createObjectURL(blob);
+// ---------- İNDİRME KUYRUĞU ----------
+// f0'daki kuyruğun ikizi (iki iframe ayrı belgedir, ortak fonksiyon paylaşamazlar).
+// Tarayıcı, AYNI ANDA tetiklenen indirmelerin ilk 10'unu alıp gerisini SESSİZCE
+// düşürüyor (ölçüldü 03.09.2026, gerçek Chrome: 25 tetikleme → 10 dosya; 100 ms
+// arayla 25/25). Toplu DXF paslanmaz bir projede 10 dosyayı rahatça aşıyor:
+// panel grupları (ANA/ALT-ÜST × kalınlık × DIŞ/İÇ) + boğaz + tava + damper +
+// ara kat + eşanjör (2 dosya) + kızak.
+// Çağıran BEKLEMEZ — blob hazırdır, yalnız tıklama ertelenir; bu yüzden
+// generateAndDownload* fonksiyonlarının {success, filename} sözleşmesi ve
+// topluDxfUret'in liste temizleme kuralları hiç değişmez.
+var INDIRME_ARA = 300;   // ms — ölçülen sınır 100; üç katı pay bırakıldı
+var indirmeKuyrugu = [];
+var indirmeCalisiyor = false;
+function indirmeSirala(url, ad) {
+  indirmeKuyrugu.push({ url: url, ad: ad });
+  if (!indirmeCalisiyor) { indirmeCalisiyor = true; indirmeSonraki(); }
+  return ad;
+}
+function indirmeSonraki() {
+  var it = indirmeKuyrugu.shift();
+  if (!it) { indirmeCalisiyor = false; return; }
   var a = document.createElement('a');
-  a.href = url;
-  a.download = tamAd;
+  a.href = it.url;
+  a.download = it.ad;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  setTimeout(function () { URL.revokeObjectURL(it.url); }, 5000);
+  setTimeout(indirmeSonraki, INDIRME_ARA);
+}
+
+function modulDxfKaydet(dxf, tamAd) {
+  var blob = new Blob([dxf.generate()], { type: 'application/octet-stream' });
+  indirmeSirala(URL.createObjectURL(blob), tamAd);
   return tamAd;
 }
 
@@ -15172,14 +15218,7 @@ function generateAndDownloadBogazDxf(list) {
   var rawName = ((elBDosyaAdi && elBDosyaAdi.value) || '').trim();
   var name = dosyaAdiTemizle(rawName ? rawName + ' — ' + BOGAZ_DOSYA_EKI : BOGAZ_DOSYA_EKI) + '.dxf';
   var blob = new Blob([dxf.generate()], { type: 'application/octet-stream' });
-  var url = URL.createObjectURL(blob);
-  var a = document.createElement('a');
-  a.href = url;
-  a.download = name;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  indirmeSirala(URL.createObjectURL(blob), name);
   return { success: true, count: totalCount, filename: name };
 }
 
@@ -15370,7 +15409,11 @@ function topluDxfUret() {
   }
 
   if (exportedNames.length > 0) {
-    setStatus('✓ Toplu DXF tamamlandı: ' + exportedNames.join(' | '));
+    // Dosyalar kuyruktan SIRAYLA iniyor; bu satır son dosya inmeden yazılır, kaçının
+    // yolda olduğu söylenmezse kullanıcı eksik indi sanır.
+    var kuyrukta = indirmeKuyrugu.length;
+    setStatus('✓ Toplu DXF tamamlandı: ' + exportedNames.join(' | ')
+      + (kuyrukta ? ' — ' + kuyrukta + ' dosya sırayla iniyor…' : ''));
   } else {
     setStatus('Hata: Hiçbir DXF üretilemedi.');
   }
@@ -15966,11 +16009,7 @@ function renderNestSheetToWriter(writer, sheet, sheetW, sheetH, yOffset) {
 // Blob→createObjectURL→gizli &lt;a&gt;→click→revoke — mevcut generateAndDownloadDxf'in _dl'siyle birebir aynı desen.
 function nestDownloadDxf(dxfWriter, filename) {
   var blob = new Blob([dxfWriter.generate()], { type: 'application/dxf' });
-  var url = URL.createObjectURL(blob);
-  var a = document.createElement('a');
-  a.href = url; a.download = filename;
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  indirmeSirala(URL.createObjectURL(blob), filename);
 }
 
 // Bir nest-grubunun TÜM sac'larını dikey sabit boşlukla art arda TEK bir DxfWriter'a çizer
