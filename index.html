@@ -112,6 +112,192 @@ iframe.active{display:block;}
     --shadow-sm-el:0 1px 3px rgba(0,0,0,.4);
   }
 
+  /* PANEL — kaynak: tema/tema.css (PANEL TEMA v1.0) koyu paleti. Gizli imalat
+     modunun temasi budur (ADMIN_TEMA). Indigo vurgu, neredeyse siyah zemin. */
+  body[data-theme=&quot;panel&quot;]{
+    --bg:#08090b; --panel:#101214; --panel2:#16181c; --border:#1e2126;
+    --text:#e8eaed; --muted:#858c98; --accent:#8b93f8; --accent-soft:rgba(139,147,248,.16); --accent-ring:rgba(139,147,248,.35); --accent-fg:#0a0b0e;
+    --warn:#e0a45f; --bad:#ff5e5a; --bad-soft:rgba(255,94,90,.14); --good:#4cc38a;
+    --input-bg:#131519;    --header-bg:rgba(16,18,20,.74);
+    --shadow-card:0 1px 2px rgba(0,0,0,.4),0 4px 18px -8px rgba(0,0,0,.6);
+    --shadow-pop:0 16px 40px -12px rgba(0,0,0,.7);
+    --shadow-sm-el:0 1px 3px rgba(0,0,0,.4);
+    --r-s:8px; --r-m:11px;
+  }
+  /* Temanin imzasi: ustten gelen isik yikamasi + ince izgara. Yalniz bu temada
+     vardir, sabit konumludur ve pointer-events almaz — hicbir tiklamaya karismaz.
+     (body arka plani en altta boyanir, negatif z-index bunlarin ustune duser.) */
+  body[data-theme=&quot;panel&quot;]::before,
+  body[data-theme=&quot;panel&quot;]::after{content:'';position:fixed;inset:0;pointer-events:none;}
+  body[data-theme=&quot;panel&quot;]::before{z-index:-2;background:
+    radial-gradient(62% 44% at 50% -12%, rgba(139,147,248,.16), transparent 68%),
+    radial-gradient(38% 30% at 96% -4%, rgba(139,147,248,.07), transparent 70%);}
+  body[data-theme=&quot;panel&quot;]::after{z-index:-1;
+    background-image:linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px),
+                     linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px);
+    background-size:46px 46px;
+    -webkit-mask-image:radial-gradient(78% 55% at 50% 0%,#000,transparent 76%);
+    mask-image:radial-gradient(78% 55% at 50% 0%,#000,transparent 76%);}
+
+  /* ================= PANEL TEMASI — EFEKT KATMANI =================
+     Kaynak: tema/tema.css (PANEL TEMA v1.0). Temanin sinif adlari alinamaz
+     (.card/header/nav/button.tool); GORSEL DIL uygulamanin kendi seciciler ine
+     giydirildi. Hepsi bu tema altinda — oteki bes tema hic etkilenmez.
+     Hareketi azaltilmis (prefers-reduced-motion) ortamda hepsi kapanir. */
+
+  /* --- ust cubukta dolasan isik cizgisi (tema: header::after) --- */
+  /* Cizgi TRANSFORM ile kayar. Onceki hali background-position animasyonuydu:
+     bilesik katmanda kosmaz, her kare yeniden boyanir — ustelik .appbar'da
+     backdrop-filter:blur var, yani bulanik zemin de her kare yeniden uretiliyordu
+     (olculdu: acilista kare sayisi yariya duyuyordu). */
+  /* .appbar KIRPILMAZ: sorunlu-yuz rozetinin acilir paneli bu cubugun icindedir ve
+     asagi tasar — overflow:hidden onu keserdi. Cizgi bunun yerine cubugun ICINDE
+     kalacak kadar yuruyor. */
+  body[data-theme=&quot;panel&quot;] .appbar::after{content:'';position:absolute;bottom:0;left:0;width:34%;height:1px;
+    pointer-events:none;opacity:.85;will-change:transform;
+    background:linear-gradient(90deg,transparent,var(--accent),transparent);
+    animation:temaSweep 8s cubic-bezier(.16,1,.3,1) infinite;}
+  @keyframes temaSweep{0%{transform:translateX(-120%)}55%,100%{transform:translateX(194%)}}
+
+  /* --- kartlar: imleci takip eden isik + hover kalkmasi (tema: .card) --- */
+  body[data-theme=&quot;panel&quot;] .section{position:relative;transition:border-color .2s,box-shadow .2s;}
+  body[data-theme=&quot;panel&quot;] .section:hover{border-color:#2a2e35;box-shadow:var(--shadow-pop);}
+  body[data-theme=&quot;panel&quot;] .section::after{content:'';position:absolute;inset:0;border-radius:inherit;
+    pointer-events:none;z-index:0;opacity:0;transition:opacity .3s;
+    background:radial-gradient(340px circle at var(--mx,50%) var(--my,50%),rgba(255,255,255,.055),transparent 62%);}
+  body[data-theme=&quot;panel&quot;] .section:hover::after{opacity:1;}
+  body[data-theme=&quot;panel&quot;] .section > *{position:relative;z-index:1;}
+
+  /* --- kart basligi: versal + kucuk kare isaret (tema: .card h3) --- */
+  body[data-theme=&quot;panel&quot;] .section h2{font-size:11.5px;font-weight:650;color:var(--muted);
+    text-transform:uppercase;letter-spacing:.08em;}
+  body[data-theme=&quot;panel&quot;] .section h2::before{width:5px;height:5px;border-radius:1px;}
+
+  /* --- kartlarin sirayla iceri girmesi (tema: panelIn). YALNIZ .tema-giris
+         varken calisir: her tusa basista renderAll yeniden ciziyor, animasyon
+         her seferinde tekrarlasa ekran titrerdi. Sinifi JS ekleyip 900 ms sonra alir. */
+  /* blur BILEREK yok: 34 kartta her kare yeniden bulaniklastirmak acilisi takiyordu
+     (olculdu). translateY + opacity bilesik katmanda kosar, gorunum neredeyse ayni. */
+  @keyframes temaPanelIn{from{opacity:0;transform:translateY(12px) scale(.994)}
+    to{opacity:1;transform:none}}
+  /* Yalniz .tema-gir isaretli kartlar (ilk 12) animasyonla gelir: hepsini animasyona
+     sokmak 34 bilesik katman demekti ve acilisi yaviaslatiyordu (olculdu). */
+  body[data-theme=&quot;panel&quot;].tema-giris .section.tema-gir{animation:temaPanelIn .46s cubic-bezier(.16,1,.3,1) both;
+    animation-delay:calc(var(--i,0) * 55ms);will-change:transform,opacity;}
+  @keyframes temaCizgi{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+  body[data-theme=&quot;panel&quot;].tema-giris .section h2{transform-origin:left;}
+  body[data-theme=&quot;panel&quot;].tema-giris .viewbar{animation:temaPanelIn .4s cubic-bezier(.16,1,.3,1) both;}
+
+  /* --- butonlar (tema: button.tool / nav .grp button.on) --- */
+  body[data-theme=&quot;panel&quot;] .add-btn2{transition:transform .12s ease,filter .15s ease,box-shadow .2s ease;
+    box-shadow:0 2px 10px -3px rgba(139,147,248,.55);}
+  body[data-theme=&quot;panel&quot;] .add-btn2:hover{transform:translateY(-1px);box-shadow:0 7px 20px -7px rgba(139,147,248,.75);}
+  body[data-theme=&quot;panel&quot;] .add-btn2:active{transform:scale(.97);}
+  body[data-theme=&quot;panel&quot;] .add-btn2.ghost{box-shadow:none;}
+  body[data-theme=&quot;panel&quot;] .tab{transition:color .16s,background .16s,border-color .16s,transform .12s;}
+  body[data-theme=&quot;panel&quot;] .tab:hover{transform:translateY(-1px);}
+  body[data-theme=&quot;panel&quot;] .tab.active{box-shadow:0 2px 10px -4px rgba(139,147,248,.55);}
+  body[data-theme=&quot;panel&quot;] .vbtn{transition:color .2s ease;}
+  body[data-theme=&quot;panel&quot;] .viewbar-thumb{box-shadow:0 2px 10px -4px rgba(139,147,248,.5);}
+
+  /* --- olcu kutulari: vurgulu kutudaki isik supurmesi (tema: .o.hi) --- */
+  body[data-theme=&quot;panel&quot;] .dim-readout div{position:relative;overflow:hidden;
+    transition:border-color .18s,transform .18s cubic-bezier(.16,1,.3,1);}
+  body[data-theme=&quot;panel&quot;] .dim-readout div:hover{transform:translateY(-1px);border-color:#2a2e35;}
+  body[data-theme=&quot;panel&quot;] .dim-readout div::after{content:'';position:absolute;top:0;bottom:0;left:0;width:55%;
+    pointer-events:none;will-change:transform;
+    background:linear-gradient(115deg,transparent 20%,rgba(139,147,248,.13) 50%,transparent 80%);
+    animation:temaSweepKutu 9s cubic-bezier(.16,1,.3,1) infinite;}
+  /* Kutu kendi icinde kirpildigi icin cizgi disari tasabilir. */
+  @keyframes temaSweepKutu{0%{transform:translateX(-120%)}55%,100%{transform:translateX(310%)}}
+
+  /* --- tablolar (tema: th versal + satir hover) --- */
+  body[data-theme=&quot;panel&quot;] table th{text-transform:uppercase;letter-spacing:.06em;}
+  body[data-theme=&quot;panel&quot;] tbody tr{transition:background .14s;}
+  body[data-theme=&quot;panel&quot;] tbody tr:hover{background:var(--panel2);}
+
+  /* --- secim, odak, kaydirma cubugu --- */
+  body[data-theme=&quot;panel&quot;] ::selection{background:rgba(139,147,248,.30);color:var(--text);}
+  body[data-theme=&quot;panel&quot;] :focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+  body[data-theme=&quot;panel&quot;] ::-webkit-scrollbar-thumb{background:#2a2e35;border-radius:6px;
+    border:3px solid var(--bg);background-clip:padding-box;}
+  body[data-theme=&quot;panel&quot;] ::-webkit-scrollbar-thumb:hover{background:var(--muted);background-clip:padding-box;}
+
+  /* --- acilis: isik supurmesi (tema: #loadbeam) --- */
+  #tema-loadbeam{position:fixed;inset:0;z-index:200;pointer-events:none;will-change:transform;
+    background:linear-gradient(104deg,transparent 38%,rgba(139,147,248,.10) 47%,
+      rgba(255,255,255,.07) 50%,rgba(139,147,248,.10) 53%,transparent 62%);
+    animation:temaBeam 1.15s cubic-bezier(.32,0,.24,1) both;}
+  @keyframes temaBeam{from{transform:translate3d(-115%,0,0)}to{transform:translate3d(115%,0,0)}}
+
+  /* --- acilis: isik ucgeni (tema: #splash). Yalniz sayfa Panel temasiyla
+         acildiginda gorunur; tiklama/tus/tekerlek ile hemen kapanir. --- */
+  #tema-splash{position:fixed;inset:0;z-index:300;display:grid;place-items:center;pointer-events:none;
+    background:radial-gradient(64% 50% at 50% 45%, #121418 0%, #0a0b0e 42%, #050506 78%, #030304 100%);}
+  #tema-splash.oyna{animation:temaSplashOut .6s cubic-bezier(.16,1,.3,1) 1.78s both;}
+  /* Animasyonlar .oyna sinifiyla baslar: katman ONCE basilir (ekrani kaplasin),
+     animasyon ancak agir acilis isi bittikten sonra baslar — yoksa ilk kareler duser. */
+  #tema-splash .tri{position:relative;width:0;height:0;--u:50px;--v:43px;--d:26px;}
+  #tema-splash.oyna .tri{animation:temaTriIn 1.2s cubic-bezier(.16,1,.3,1) both,
+    temaTriOut .6s cubic-bezier(.16,1,.3,1) 1.78s both;}
+  #tema-splash i{position:absolute;width:var(--d);height:var(--d);border-radius:50%;background:#fff;
+    left:calc(var(--x) * var(--u) - var(--d)/2);
+    top:calc((var(--y) - 1.5) * var(--v) - var(--d)/2);
+    opacity:0;transform:scale(.35);will-change:transform,opacity,filter;}
+  #tema-splash.oyna i{
+    animation:temaDotIn .48s cubic-bezier(.16,1,.3,1) both, temaDotGlow 2.4s ease-in-out infinite,
+              temaEdgeRun .46s ease-out forwards;
+    animation-delay:calc(var(--i) * 38ms), calc(460ms + var(--i) * 38ms), calc(880ms + var(--p) * 50ms);}
+  /* Temanin bloom'u: nokta basina iki bulanik katman. Once box-shadow'a cevrilmisti
+     ama OLCULDU — kare sayisina etkisi yoktu (48 vs 49); asil maliyet sweep
+     animasyonundaydi. Gorunum kaybetmemek icin temanin kendi hali geri alindi. */
+  #tema-splash i::before,#tema-splash i::after{content:'';position:absolute;left:50%;top:50%;
+    border-radius:50%;background:#fff;transform:translate(-50%,-50%);pointer-events:none;}
+  #tema-splash i::before{width:205%;height:205%;filter:blur(6px);opacity:.30;}
+  #tema-splash i::after{width:470%;height:470%;filter:blur(21px);opacity:.062;}
+  @keyframes temaDotIn{to{opacity:1;transform:none}}
+  /* Parlama filter:brightness ile yapiliyordu; noktanin altinda blur(6px) ve blur(21px)
+     iki katman var, her kare yeniden boyaniyordu. Opacity bilesik katmanda kosar. */
+  @keyframes temaDotGlow{0%,100%{opacity:.82}50%{opacity:1}}
+  @keyframes temaEdgeRun{0%{transform:scale(1);filter:brightness(1)}
+    30%{transform:scale(1.72);filter:brightness(2.6) drop-shadow(0 0 26px rgba(255,255,255,.95))}
+    100%{transform:scale(1);filter:brightness(1)}}
+  @keyframes temaTriIn{from{transform:scale(.88)}to{transform:scale(1)}}
+  @keyframes temaTriOut{to{transform:scale(1.3);opacity:0;filter:blur(7px)}}
+  @keyframes temaSplashOut{to{opacity:0;visibility:hidden}}
+
+  @media (prefers-reduced-motion:reduce){
+    #tema-splash,#tema-loadbeam{display:none;}
+    body[data-theme=&quot;panel&quot;] *,body[data-theme=&quot;panel&quot;] *::before,body[data-theme=&quot;panel&quot;] *::after{animation:none!important;}
+  }
+
+  /* --- tipografi (tema: 13.5px, sik harf araligi) --- */
+  body[data-theme=&quot;panel&quot;]{font-size:13.5px;letter-spacing:-.005em;}
+  body[data-theme=&quot;panel&quot;] h1{font-weight:640;letter-spacing:-.02em;}
+
+  /* --- notlar (tema: .note — sol kenarda vurgu, kendi zemini) --- */
+  body[data-theme=&quot;panel&quot;] .note{background:var(--input-bg);border:1px solid var(--border);
+    border-left:2px solid #2a2e35;padding:6px 10px;border-radius:0 var(--r-s) var(--r-s) 0;
+    font-size:11.5px;line-height:1.5;transition:border-left-color .18s;}
+  body[data-theme=&quot;panel&quot;] .note:hover{border-left-color:var(--accent);}
+  /* Bos not kutusu cizgi gibi gorunurdu — kutu yalniz metin varken cizilir. */
+  body[data-theme=&quot;panel&quot;] .note:empty{display:none;}
+
+  /* --- rozetler (tema: .chip) --- */
+  body[data-theme=&quot;panel&quot;] .badge{background:var(--accent-soft);color:var(--accent);border-color:transparent;
+    font-weight:600;letter-spacing:.01em;}
+
+  /* --- durum kutulari: sol kenarda renk seridi --- */
+  body[data-theme=&quot;panel&quot;] .status{border-left:2px solid currentColor;border-radius:0 var(--r-s) var(--r-s) 0;}
+
+  /* --- kart basliginin altindaki cizgi buyuyerek gelsin (tema: h2::after lineGrow) --- */
+  @keyframes temaCizgiBuyu{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+  body[data-theme=&quot;panel&quot;] .section h2{position:relative;}
+  body[data-theme=&quot;panel&quot;] .section h2::after{content:'';position:absolute;left:0;right:0;bottom:-1px;height:1px;
+    background:linear-gradient(90deg,var(--accent),transparent 70%);opacity:.6;transform-origin:left;}
+  body[data-theme=&quot;panel&quot;].tema-giris .section.tema-gir h2::after{animation:temaCizgiBuyu .75s cubic-bezier(.16,1,.3,1) both;
+    animation-delay:calc(140ms + var(--i,0) * 55ms);}
+
   /* ---------- TEMEL ---------- */
   *{box-sizing:border-box;}
   ::selection{background:var(--accent-soft);color:var(--text);}
@@ -353,6 +539,7 @@ iframe.active{display:block;}
         <option value=&quot;aydinlik&quot;>Aydınlık</option>
         <option value=&quot;kehribar&quot;>Kehribar</option>
         <option value=&quot;nordik&quot;>Nordik</option>
+        <option value=&quot;panel&quot;>Panel</option>
       </select>
     </div>
     <button class=&quot;add-btn2&quot; id=&quot;btn_save_proj&quot; style=&quot;background:linear-gradient(135deg,#2a6496,#3a85c4);color:#fff;&quot; title=&quot;Projeyi .ahu.json dosyasına indir&quot;>💾 Projeyi Kaydet</button>
@@ -409,6 +596,10 @@ iframe.active{display:block;}
     <h2 style=&quot;margin-bottom:6px;&quot;>AHU Listesi</h2>
     <div class=&quot;tabs&quot; id=&quot;ahutabs&quot; style=&quot;margin-bottom:8px;flex-wrap:wrap;gap:4px;&quot;></div>
     <button class=&quot;add-btn2 ghost&quot; id=&quot;btn_addahu&quot; style=&quot;width:100%;&quot;>+ Yeni AHU</button>
+    <div style=&quot;display:flex;gap:6px;margin-top:6px;&quot;>
+      <button class=&quot;add-btn2 ghost&quot; id=&quot;btn_copyahu&quot; style=&quot;flex:1;&quot; title=&quot;Aktif AHU'nun birebir kopyasını oluşturur — küçük değişikliklerle devam edin&quot;>⧉ Kopyala</button>
+      <button class=&quot;add-btn2 ghost&quot; id=&quot;btn_mirrorahu&quot; style=&quot;flex:1;&quot; title=&quot;Aktif AHU'yu uzunluk ekseninde aynalar: SOL ile SAĞ yer değiştirir, ÖN yüzdeki kapak ÖN yüzde kalır. Tekrar basmak geri alır.&quot;>⇋ Aynala</button>
+    </div>
   </div>
 
   <div class=&quot;section&quot;>
@@ -1279,6 +1470,154 @@ function esanjorOlculeri(){
            CI, O1, O2, O3, O4, eksik, hatalar,
            gecerli: tam && hatalar.length===0 };
 }
+// ---------- AHU KOPYALAMA (2026-09-04) ----------
+// Cenk: «çok benzer bir AHU daha yapacağım, ufak değişiklikle devam edeyim».
+// Kopya DERIN olmali: modul/yuz/sutun nesneleri paylasilirsa birinde yapilan
+// degisiklik otekinde de gorunur. JSON gidis-donusu bunun en ucuz ve en guvenli
+// yolu — model zaten duz veri (proxy'ler state uzerinde, AHU nesnesinde degil).
+function ahuBenzersizAd(taban){
+  const adlar = state.ahus.map(a=>a.ad || '');
+  if(adlar.indexOf(taban) < 0) return taban;
+  for(let i=2;i<200;i++){
+    const aday = taban + ' (' + i + ')';
+    if(adlar.indexOf(aday) < 0) return aday;
+  }
+  return taban + ' (kopya)';
+}
+function copyAhu(i){
+  const kaynak = state.ahus[(i===undefined) ? state.activeAhu : i];
+  if(!kaynak) return;
+  const kopya = JSON.parse(JSON.stringify(kaynak));
+  kopya.ad = ahuBenzersizAd(kaynak.ad || 'AHU');
+  state.ahus.push(kopya);
+  state.activeAhu = state.ahus.length - 1;
+  // Tembel kurulan alanlar (araKat/esanjor/kizak/adet) JSON'da ne ise o kalir;
+  // normalize ediciler yine de cagrilir ki gidis-donus sabit nokta olsun.
+  araKatNormalize(); esanjorNormalize(); kizakNormalize(); adetNormalize();
+  renderAll();
+  const not = document.getElementById('excel_note');
+  if(not) not.textContent = '✓ ' + (kaynak.ad || 'AHU') + ' kopyalandı → ' + kopya.ad
+    + '  ·  kopya üzerinde değişiklik yapabilirsiniz.';
+}
+
+// ---------- AYNALAMA (2026-09-04) ----------
+// UZUNLUK ekseninde (x) aynalar. ÖN yüzdeki kapak ÖN yüzde KALIR (Cenk'in kuralı):
+// x ekseni çevrildiği için yer değiştiren yüzler SOL ve SAĞ'dır; ÖN/ARKA/ÜST/ALT
+// yüzlerinde ve ARA KAT'ta yalnız bölüm sırası tersine döner.
+// Aynalama kendi tersidir — iki kez uygulanınca proje eski hâline döner.
+// olculer: computeFace'in colResults'undan gelen bolum genislikleri (mm). Verilirse
+// bolum olculeri once SABITLENIR — yoksa 'son bolumde oto genislik' aynalamayla basa
+// gecer ve orada otomatik doldurma olmadigi icin yuz eksik kalir (test bulgusu).
+function aynalaYuz(face, olculer){
+  if(!face || !face.columns || face.columns.length < 1) return;
+  const N = face.columns.length;
+  // Son bolum otomatik miydi? Bu ozellik aynalamadan sonra YENI son boluma gecer;
+  // boylece iki kez aynalamak projeyi birebir eski haline dondurmeye devam eder.
+  const sonOtoydu = !(Number(face.columns[N-1].size) > 0);
+  if(olculer && olculer.length === N){
+    face.columns.forEach((c,i)=>{
+      if(olculer[i] > 0) c.size = Math.round(olculer[i] * 100) / 100;
+    });
+  }
+  // 1) Birleşik kapak (colSpan) grupları TERS ÇEVİRMEDEN ÖNCE kaydedilir: taşıyıcı
+  //    alan grubun EN SOLUNDAKİ gözdedir, ters çevrilince en sağa düşer.
+  const satir = face.columns.reduce((m,c)=>Math.max(m, c.panels.length), 0);
+  const gruplar = [];
+  for(let r=0;r<satir;r++){
+    let i = 0;
+    while(i < N){
+      const p = face.columns[i].panels[r];
+      if(!p){ i++; continue; }
+      const uz = Math.max(1, p.colSpan || 1);
+      if(uz > 1) gruplar.push({ r:r, bas:i, uz:uz, spanSize:p.spanSize });
+      i += uz;
+    }
+  }
+  // 2) Bölüm SINIRLARINDA yaşayan alanlar (i ile i+1 arası) ayrıca kaydedilir.
+  const gaps   = (face.colGaps || []).slice(0, N-1);
+  const splits = (face.anaSplitLevels || []).slice(0, N-1);
+  const araBd  = face.columns.slice(0, N-1).map(c => c.araJoinNext || []);
+  // 3) Sütunlar ve sınırlar tersine
+  face.columns.reverse();
+  face.colGaps = gaps.reverse();
+  face.anaSplitLevels = splits.reverse();
+  const araTers = araBd.reverse();
+  face.columns.forEach((c,j)=>{ c.araJoinNext = (j < N-1) ? (araTers[j] || []) : []; });
+  // 4) Birleşik kapakların taşıyıcısı grubun YENİ en soluna
+  gruplar.forEach(g=>{
+    const yeniBas = N - 1 - (g.bas + g.uz - 1);
+    for(let k=0;k<g.uz;k++){
+      const c = face.columns[yeniBas + k];
+      const p = c && c.panels[g.r];
+      if(!p) continue;
+      if(k === 0){
+        p.colSpan = g.uz;
+        if(g.spanSize) p.spanSize = g.spanSize; else delete p.spanSize;
+      } else {
+        p.colSpan = 1;
+        delete p.spanSize;
+      }
+    }
+  });
+  // 5) 'Son bölüm otomatik' özelliği yeni son bölüme geçer
+  if(sonOtoydu) face.columns[N-1].size = 0;
+  // 6) Seçimler indeks tabanlı — aynalamadan sonra anlamsız
+  face.selectedCells = [];
+  face.selectedBars = [];
+}
+function aynalaAhu(i){
+  const ahu = state.ahus[(i===undefined) ? state.activeAhu : i];
+  if(!ahu || !ahu.modules || !ahu.modules.length) return;
+  // Montajın toplam boyu: aynalama bunun içinde yapılır, modüller dışarı taşmaz.
+  const toplam = ahu.modules.reduce((m,md)=>Math.max(m, (md.pos ? md.pos.x : 0) + (md.L||0)), 0);
+  // Bölüm genişlikleri, aynalamadan ÖNCE motorun hesapladığı değerlerden okunur
+  // (otomatik dolan bölüm de dahil). collectFaceIssues/exportExcel deseni: aktif AHU
+  // geçici olarak değiştirilir ve finally ile geri alınır.
+  const eskiAhu = state.activeAhu, hedef = (i===undefined) ? state.activeAhu : i;
+  const olcuHar = [];
+  try{
+    state.activeAhu = hedef;
+    ahu.modules.forEach((md, mi)=>{
+      const kayit = {};
+      withModule(mi, ()=>{
+        const yuzler = [0,1,2,3].concat(araKatOf(md).aktif ? [ARAKAT_FI] : []);
+        yuzler.forEach(fi=>{
+          const f = faceOf(fi);
+          if(!f || f.kapaksiz || !f.columns || !f.columns.length) return;
+          const r = computeFace(fi);
+          if(!r || !r.colResults) return;
+          // colResults'taki colSize GIRILEN degerdir, cozulen genislik degil. Otomatik
+          // dolan bolumun genisligi motorun kendi zincirinden okunur: kullanilabilir
+          // ana yon olcusunden (icKullAlong) girilenlerin toplami dusulur — otomatik
+          // doldurmanin yaptigi hesabin ta kendisi.
+          const girilenler = f.columns.map(c=>Number(c.size)||0);
+          const toplamGirilen = girilenler.reduce((a,b)=>a+b, 0);
+          const kalan = Math.max(0, (Number(r.icKullAlong)||0) - toplamGirilen);
+          const sonOtoIdx = girilenler.lastIndexOf(0);
+          kayit[fi] = girilenler.map((v,ci)=> v>0 ? v : (ci===sonOtoIdx ? kalan : 0));
+        });
+      });
+      olcuHar.push(kayit);
+    });
+  } finally { state.activeAhu = eskiAhu; }
+  ahu.modules.forEach((md, mi)=>{
+    const kayit = olcuHar[mi] || {};
+    if(md.pos) md.pos.x = toplam - md.pos.x - (md.L || 0);
+    if(md.faces && md.faces.length >= 6){
+      // SOL <-> SAĞ yer değiştirir (x ekseni çevrildi); ÖN/ARKA/ÜST/ALT yerinde kalır.
+      const sol = md.faces[4]; md.faces[4] = md.faces[5]; md.faces[5] = sol;
+      // 'along' ekseni L olan yüzlerde bölüm sırası tersine döner.
+      [0,1,2,3].forEach(fi => aynalaYuz(md.faces[fi], kayit[fi]));
+    }
+    // Ara kat da L x W'dir — aynı kural.
+    if(md.araKat && md.araKat.grid) aynalaYuz(md.araKat.grid, kayit[ARAKAT_FI]);
+  });
+  renderAll();
+  const not = document.getElementById('excel_note');
+  if(not) not.textContent = '⇋ ' + (ahu.ad || 'AHU') + ' aynalandı — ÖN yüzdeki kapaklar ÖN yüzde kaldı, '
+    + 'SOL ile SAĞ yer değiştirdi. Aynı düğmeye tekrar basmak eski hâline döndürür.';
+}
+
 function addAhu(){
   const n = state.ahus.length + 1;
   state.ahus.push(newAhu(n));
@@ -3983,17 +4322,17 @@ function gercekTikla(){ gsmAc(); }
 
 // ---------- GİZLİ AKTİVASYON ----------
 // Ekranda boştayken (bir kutuya yazmıyorken) 'admincenk' yazılınca imalat paneli açılır
-// ve tema kehribara döner; ikinci kez yazılınca kapanır ve tema geri gelir.
+// ve tema PANEL temasına döner; ikinci kez yazılınca kapanır ve tema geri gelir.
 //
 // KURAL (Cenk, 28.08.2026 — KESİN): panel KOD GİRİLMEDEN GÖRÜNMEZ. Bu yüzden durum
 // HİÇBİR YERE YAZILMAZ, yalnızca oturumda yaşar: sayfa her açılışta kapalı başlar ve
 // 'admincenk' yeniden yazılmadan açılmaz. (Eskiden localStorage'da 'kh_admin' tutuluyordu
 // ve bir kez açıldıktan sonra her açılışta kod yazılmadan açık geliyordu — kural buydu,
-// kusur oydu.) Aynı sebeple tema da yazılmaz: kehribar tema modun işaretidir, yeniden
+// kusur oydu.) Aynı sebeple tema da yazılmaz: panel teması modun işaretidir, yeniden
 // açılışta kalırsa modu ele verir.
 const ADMIN_KEY = 'kh_admin';
 const ADMIN_SOZ = 'admincenk';
-const ADMIN_TEMA = 'kehribar';
+const ADMIN_TEMA = 'panel';
 let adminAcik = false, adminTampon = '', adminOncekiTema = '';
 // Eski sürümlerin bıraktığı anahtar temizlenir — yoksa o tarayıcılarda kusur sürerdi.
 try{ localStorage.removeItem(ADMIN_KEY); }catch(e){}
@@ -6665,6 +7004,8 @@ function attachListeners(){
     e.target.value = '';
   });
   document.getElementById('btn_addahu').addEventListener('click', ()=>{ addAhu(); });
+  document.getElementById('btn_copyahu').addEventListener('click', ()=>{ copyAhu(); });
+  document.getElementById('btn_mirrorahu').addEventListener('click', ()=>{ aynalaAhu(); });
   document.getElementById('ahutabs').addEventListener('click', e=>{
     const del = e.target.closest('[data-ahudel]');
     if(del){ deleteAhu(Number(del.dataset.ahudel)); e.stopPropagation(); return; }
@@ -6686,6 +7027,7 @@ function attachListeners(){
   ts.addEventListener('change', e=>{
     document.body.dataset.theme = e.target.value;
     try{ localStorage.setItem('kh_theme', e.target.value); }catch(_){}
+    temaTemizle(); temaBeam(); temaGiris();   // Panel disinda ucu de hemen cikar
   });
   try{
     const t = localStorage.getItem('kh_theme');
@@ -6707,6 +7049,7 @@ function attachListeners(){
     b.classList.add('active');
     document.getElementById('view-'+b.dataset.view).classList.add('active');
     moveViewThumb(b);
+    temaGiris();
   }));
   moveViewThumb(document.querySelector('.vbtn.active'));
   window.addEventListener('resize', ()=>moveViewThumb(document.querySelector('.vbtn.active')));
@@ -9810,9 +10153,135 @@ function dxaAktar(){
     + ' modül kuruldu. Kapak yerleşimi girilene kadar Excel ve DXF kilitli kalır — yüzlerdeki kapakları girmek size ait.';
 }
 
+// ---------- PANEL TEMASI: EFEKTLER ----------
+// Kaynak: tema/tema.js. Uygulamaya uyarlanan uc davranis:
+//   1) kartlarda imleci takip eden isik  2) kartlarin sirayla iceri girmesi
+//   3) acilis isigi (sayfa Panel temasiyla acildiginda ucgen + supurme)
+// Hepsi TEMAYA BAGLI: baska temada dinleyici is gormez, DOM'a hicbir sey eklenmez.
+const TEMA_NOKTA = [[0,0,0],[-0.5,1,8],[0.5,1,1],[-1,2,7],[0,2,40],[1,2,2],
+                    [-1.5,3,6],[-0.5,3,5],[0.5,3,4],[1.5,3,3]];
+const TEMA_GIREN = 12;         // giris animasyonuna alinan kart sayisi (bkz. olcum)
+const TEMA_PERDE_CIKIS = 1780; // ms — perdenin solmaya basladigi an (CSS'te ayni deger)
+const panelTemaMi = () => document.body.dataset.theme === 'panel';
+
+// Kartlar sirayla girsin: sinif 900 ms yasar. renderAll her tusa basista calistigi
+// icin animasyonu kalici yapmak ekrani titretirdi — bu yuzden anlik.
+function temaGiris(){
+  if(!panelTemaMi()) return;
+  // Yalniz ilk TEMA_GIREN kart animasyonla gelir — hepsini almak 34 bilesik katman
+  // demekti ve acilisi olculebilir bicimde yavaslatiyordu.
+  const kartlar = document.querySelectorAll('.section');
+  kartlar.forEach((c,i)=>{
+    if(i < TEMA_GIREN){ c.style.setProperty('--i', Math.min(i,9)); c.classList.add('tema-gir'); }
+    else c.classList.remove('tema-gir');
+  });
+  document.body.classList.remove('tema-giris');
+  void document.body.offsetWidth;            // animasyonu yeniden tetikle
+  document.body.classList.add('tema-giris');
+  clearTimeout(temaGiris._z);
+  temaGiris._z = setTimeout(()=>{
+    document.body.classList.remove('tema-giris');
+    // will-change katmanlari animasyon bitince birakilsin
+    document.querySelectorAll('.section.tema-gir').forEach(c=>c.classList.remove('tema-gir'));
+  }, 900);
+}
+
+// Panel temasindan CIKILDIGINDA efekt kalintilarini kaldirir: giris sinifi ve
+// acilis katmanlari kendi zamanlayicilariyla da silinir ama tema degisince
+// beklemenin anlami yok — baska temada ekranda is gormeyen dugum kalmasin.
+function temaTemizle(){
+  if(panelTemaMi()) return;
+  document.body.classList.remove('tema-giris');
+  ['tema-loadbeam','tema-splash'].forEach(function(id){
+    var e = document.getElementById(id); if(e) e.remove();
+  });
+}
+function temaBeam(){
+  if(!panelTemaMi()) return;
+  const eski = document.getElementById('tema-loadbeam');
+  if(eski) eski.remove();
+  const b = document.createElement('div');
+  b.id = 'tema-loadbeam';
+  document.body.appendChild(b);
+  setTimeout(()=>{ if(b.parentNode) b.remove(); }, 1300);
+}
+
+// Acilis ucgeni — YALNIZ sayfa acilisinda ve yalnizca Panel temasiyla.
+function temaSplash(){
+  if(!panelTemaMi() || document.getElementById('tema-splash')) return;
+  const d = document.createElement('div');
+  d.id = 'tema-splash';
+  // Elemanlar tek tek kurulur: innerHTML ile yazmak srcdoc icinde ham tirnak
+  // gerektirirdi (bkz. CLAUDE.md §1).
+  const tri = document.createElement('div');
+  tri.className = 'tri';
+  TEMA_NOKTA.forEach((p,i)=>{
+    const nok = document.createElement('i');
+    nok.style.setProperty('--x', p[0]);
+    nok.style.setProperty('--y', p[1]);
+    nok.style.setProperty('--i', i);
+    nok.style.setProperty('--p', p[2]);
+    tri.appendChild(nok);
+  });
+  d.appendChild(tri);
+  document.body.insertBefore(d, document.body.firstChild);
+  // Kartlar perde SOLMAYA BASLARKEN girer, perde kalktiktan SONRA degil: ikisi ust
+  // uste binsin ve tek bir acilis gibi gorunsun. Ayri ayri olunca 'sayfa iki kez
+  // aciliyor' hissi veriyordu (Cenk, 04.09.2026).
+  let girisYapildi = false;
+  const giris = ()=>{ if(girisYapildi) return; girisYapildi = true; temaGiris(); };
+  const kapat = ()=>{
+    const e = document.getElementById('tema-splash');
+    if(!e) return;
+    e.remove();
+    giris();   // erken kapatildiysa (tik/tus) kartlar yine de girsin
+  };
+  // Katman HEMEN basilir (ekrani kaplasin), animasyon ancak ana is parcacigi bosalinca
+  // baslar. Olculdu: agir acilisin ortasinda baslayinca ilk kareler 250 ms'ye kadar
+  // dusuyordu; bos parcacikta baslayinca akiyor.
+  const basla = ()=>{
+    d.classList.add('oyna');
+    setTimeout(giris, TEMA_PERDE_CIKIS);   // perde solmaya baslarken kartlar girsin
+    setTimeout(kapat, 2450);
+    ['pointerdown','keydown','wheel'].forEach(ev=>
+      window.addEventListener(ev, kapat, {once:true, passive:true}));
+  };
+  // Iki kare bekle: rAF geri cagrilari MEVCUT is parcacigindan SONRA kosar, yani
+  // buildTabs/attachListeners/renderAll zincirinin tamami bittikten sonra baslar.
+  // requestIdleCallback denendi ve BIRAKILDI: 3B kurulumu arka planda surdugu
+  // icin bos an gelmiyor, perde 900 ms zaman asimini bekleyip gec basliyordu
+  // (olculdu: perde 2,6 sn'de hala oynuyordu).
+  // requestAnimationFrame HER ORTAMDA yok (jsdom'da pretendToBeVisual kapaliyken
+  // tanimsiz) — korumasiz cagri acilisi komple patlatirdi.
+  if(typeof requestAnimationFrame === 'function')
+    requestAnimationFrame(()=>requestAnimationFrame(basla));
+  else setTimeout(basla, 0);
+  return true;   // perde kuruldu — acilistaki temaGiris'i O yapacak
+}
+
+// Imlec isigi: kartin ustundeki konumu CSS degiskenine yazar (tema: .card --mx/--my).
+document.addEventListener('pointermove', e=>{
+  if(!panelTemaMi()) return;
+  const c = e.target.closest && e.target.closest('.section');
+  if(!c) return;
+  const r = c.getBoundingClientRect();
+  c.style.setProperty('--mx', (e.clientX - r.left) + 'px');
+  c.style.setProperty('--my', (e.clientY - r.top) + 'px');
+}, {passive:true});
+
+// Acilis katmani AGIR ISTEN ONCE basilir: ekrani kaplar, kullanici bos ekran gormez
+// ve animasyon (asagida, bos is parcaciginda) takilmadan baslar.
+// Tema EN BASTA uygulanir. Kayitli tema attachListeners icinde okunuyordu; acilis
+// perdesi ondan ONCE basildigi icin 'tema henuz yok' deyip hic gorunmuyordu
+// (olculdu 03.09.2026: perde-yok). f1'in <head>'indeki earlyTheme ile ayni fikir —
+// f0'da body zaten var, ayrica acilistaki tema sicramasini da onler.
+try{ const _t = localStorage.getItem('kh_theme'); if(_t) document.body.dataset.theme = _t; }catch(_){}
+const temaPerde = temaSplash();
 buildTabs();
 attachListeners();
 renderAll();
+temaBeam();
+if(!temaPerde) temaGiris();   // perde varsa kartlari O kaldirirken oynatir
 
 // YENİ kod (İş No + Santral Adı + Y/A/U + sıra) sadece DXF üretiminde ve Excel çıktısında
 // (drawFaceSVG'nin GÖRSEL YERLEŞİM görseli + 3B TOPLU MONTAJ görseli) kullanılır — canlı 2D yüz
@@ -11532,6 +12001,78 @@ boot();
       --text-placeholder:#4f5f75;--scrollbar-thumb:#2e3e52;
     }
 
+    /* PANEL — kaynak: tema/tema.css (PANEL TEMA v1.0) koyu paleti; f0 ile ayni renkler. */
+    :root[data-theme=&quot;panel&quot;] {
+      --bg-main:#08090b;--bg-sidebar:#101214;--bg-header1:#101214;--bg-header2:#16181c;
+      --bg-input:#131519;--bg-table-head:#16181c;--bg-statusbar:#101214;
+      --bg-row-even:rgba(22,24,28,.45);--bg-row-hover:#1b1e24;--border:#1e2126;
+      --accent:#8b93f8;--accent2:#a7adfb;--bad:#ff5e5a;--text:#e8eaed;--text-muted:#858c98;
+      --text-placeholder:#5b6270;--scrollbar-thumb:#2a2e35;
+    }
+    /* Temanin imzasi (f0 ile ayni): isik yikamasi + ince izgara. */
+    :root[data-theme=&quot;panel&quot;] body::before,
+    :root[data-theme=&quot;panel&quot;] body::after{content:'';position:fixed;inset:0;pointer-events:none;}
+    :root[data-theme=&quot;panel&quot;] body::before{z-index:-2;background:
+      radial-gradient(62% 44% at 50% -12%, rgba(139,147,248,.16), transparent 68%),
+      radial-gradient(38% 30% at 96% -4%, rgba(139,147,248,.07), transparent 70%);}
+    :root[data-theme=&quot;panel&quot;] body::after{z-index:-1;
+      background-image:linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px),
+                       linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px);
+      background-size:46px 46px;
+      -webkit-mask-image:radial-gradient(78% 55% at 50% 0%,#000,transparent 76%);
+      mask-image:radial-gradient(78% 55% at 50% 0%,#000,transparent 76%);}
+
+    /* ============ PANEL TEMASI — EFEKT KATMANI ============
+       f0 ile ayni gorsel dil, f1 in kendi seciciler ine giydirilmis.
+       Hepsi bu tema altinda; oteki temalar hic etkilenmez. */
+    /* f0 ile ayni: transform ile kayar (background-position her kare boyama demekti). */
+    :root[data-theme=&quot;panel&quot;] .header::after{content:'';position:absolute;bottom:0;left:0;width:34%;height:1px;
+      pointer-events:none;opacity:.85;will-change:transform;
+      background:linear-gradient(90deg,transparent,var(--accent),transparent);
+      animation:temaSweep 8s cubic-bezier(.16,1,.3,1) infinite;}
+    @keyframes temaSweep{0%{transform:translateX(-120%)}55%,100%{transform:translateX(194%)}}
+    :root[data-theme=&quot;panel&quot;] .header{position:relative;}
+
+    /* kartlar: imlec isigi + hover kalkmasi */
+    :root[data-theme=&quot;panel&quot;] .content,:root[data-theme=&quot;panel&quot;] .nest-group-card,:root[data-theme=&quot;panel&quot;] .nest-panel{position:relative;
+      transition:border-color .2s,box-shadow .2s;}
+    :root[data-theme=&quot;panel&quot;] .nest-group-card:hover{border-color:#2a2e35;
+      box-shadow:0 2px 6px rgba(0,0,0,.45),0 16px 40px -12px rgba(0,0,0,.7);}
+    :root[data-theme=&quot;panel&quot;] .content::after,:root[data-theme=&quot;panel&quot;] .nest-group-card::after{content:'';position:absolute;inset:0;
+      border-radius:inherit;pointer-events:none;z-index:0;opacity:0;transition:opacity .3s;
+      background:radial-gradient(340px circle at var(--mx,50%) var(--my,50%),rgba(255,255,255,.05),transparent 62%);}
+    :root[data-theme=&quot;panel&quot;] .content:hover::after,:root[data-theme=&quot;panel&quot;] .nest-group-card:hover::after{opacity:1;}
+    :root[data-theme=&quot;panel&quot;] .content > *,:root[data-theme=&quot;panel&quot;] .nest-group-card > *{position:relative;z-index:1;}
+
+    /* tablolar + butonlar */
+    :root[data-theme=&quot;panel&quot;] th{text-transform:uppercase;letter-spacing:.06em;}
+    :root[data-theme=&quot;panel&quot;] tbody tr{transition:background .14s;}
+    :root[data-theme=&quot;panel&quot;] .cm-tab,:root[data-theme=&quot;panel&quot;] .cm-btn,:root[data-theme=&quot;panel&quot;] .nest-download-btn{transition:transform .12s ease,
+      filter .15s ease,box-shadow .2s ease,background .16s,border-color .16s,color .16s;}
+    :root[data-theme=&quot;panel&quot;] .cm-tab:hover,:root[data-theme=&quot;panel&quot;] .cm-btn:hover,:root[data-theme=&quot;panel&quot;] .nest-download-btn:hover{transform:translateY(-1px);}
+
+    /* secim, odak, kaydirma cubugu */
+    :root[data-theme=&quot;panel&quot;] ::selection{background:rgba(139,147,248,.30);color:var(--text);}
+    :root[data-theme=&quot;panel&quot;] :focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+    :root[data-theme=&quot;panel&quot;] ::-webkit-scrollbar-thumb{background:#2a2e35;border-radius:6px;}
+
+    /* acilis isigi (f0 ile ayni) */
+    #tema-loadbeam{position:fixed;inset:0;z-index:200;pointer-events:none;
+      background:linear-gradient(104deg,transparent 38%,rgba(139,147,248,.10) 47%,
+        rgba(255,255,255,.07) 50%,rgba(139,147,248,.10) 53%,transparent 62%);
+      animation:temaBeam 1.15s cubic-bezier(.32,0,.24,1) both;}
+    @keyframes temaBeam{from{transform:translate3d(-115%,0,0)}to{transform:translate3d(115%,0,0)}}
+
+    @media (prefers-reduced-motion:reduce){
+      #tema-loadbeam{display:none;}
+      :root[data-theme=&quot;panel&quot;] *,:root[data-theme=&quot;panel&quot;] *::before,:root[data-theme=&quot;panel&quot;] *::after{animation:none!important;}
+    }
+
+    /* --- tipografi + rozet + not (f0 ile ayni dil) --- */
+    :root[data-theme=&quot;panel&quot;] body{letter-spacing:-.005em;}
+    :root[data-theme=&quot;panel&quot;] .panel-count{background:var(--accent);color:#0a0b0e;font-weight:600;}
+    :root[data-theme=&quot;panel&quot;] .empty-msg{color:var(--text-muted);}
+
     /* ============ ANA STILLER ============ */
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -11812,6 +12353,7 @@ boot();
         <option value=&quot;aydinlik&quot;>Aydınlık</option>
         <option value=&quot;kehribar&quot;>Kehribar</option>
         <option value=&quot;nordik&quot;>Nordik</option>
+        <option value=&quot;panel&quot;>Panel</option>
       </select>
     </div>
   </div>
@@ -14878,6 +15420,30 @@ function setStatus(msg) {
 // =====================================================================
 // Tema secimi
 (function() {
+// ---------- PANEL TEMASI: EFEKTLER (f0 ile ayni davranis) ----------
+function panelTemaMi() { return document.documentElement.dataset.theme === 'panel'; }
+function temaTemizle() {
+  if (panelTemaMi()) return;
+  var e = document.getElementById('tema-loadbeam'); if (e) e.remove();
+}
+function temaBeam() {
+  if (!panelTemaMi()) return;
+  var eski = document.getElementById('tema-loadbeam');
+  if (eski) eski.remove();
+  var b = document.createElement('div');
+  b.id = 'tema-loadbeam';
+  document.body.appendChild(b);
+  setTimeout(function () { if (b.parentNode) b.remove(); }, 1300);
+}
+// Imlec isigi: kartin uzerindeki konum CSS degiskenine yazilir.
+document.addEventListener('pointermove', function (e) {
+  if (!panelTemaMi()) return;
+  var c = e.target.closest && e.target.closest('.content, .nest-group-card');
+  if (!c) return;
+  var r = c.getBoundingClientRect();
+  c.style.setProperty('--mx', (e.clientX - r.left) + 'px');
+  c.style.setProperty('--my', (e.clientY - r.top) + 'px');
+}, { passive: true });
   var sel = document.getElementById(&quot;theme_sel&quot;);
   if(!sel) return;
   // data-theme :root'ta (html) yasar — bkz. CSS'teki :root[data-theme=…] bloklari
@@ -14886,11 +15452,13 @@ function setStatus(msg) {
     var v = sel.value;
     document.documentElement.setAttribute(&quot;data-theme&quot;, v);
     try{ localStorage.setItem(&quot;dxf_theme&quot;, v); }catch(e){}
+    temaTemizle(); temaBeam();   // Panel disinda ikisi de hemen cikar
   });
   try{
     var t = localStorage.getItem(&quot;dxf_theme&quot;);
     if(t !== null){ document.documentElement.setAttribute(&quot;data-theme&quot;, t); sel.value = t; }
   }catch(e){}
+  temaBeam();   // sayfa Panel temasiyla acildiysa
 })();
 
 // =====================================================================
