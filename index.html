@@ -1116,10 +1116,15 @@ function activeAraKat(){ return araKatOf(state.modules[state.active]); }
 
    x  = kenar × √2 / 2              (karenin köşegeninin yarısı)
    CI = modül iç genişliği          (W − düşüm)
-   O1 = üst kat ölçüsü     − x      ← 'üst kat' baklavanın MERKEZİNE olan mesafedir
-   O2 = sağa olan uzaklık  − x      ← 'sağa uzaklık' da merkeze olan mesafedir
-   O3 = iç yükseklik − O1 − 2x      (2x = köşegenin tamamı)
-   O4 = iç uzunluk   − 2x − O2
+   O1 = üst kat ölçüsü     − x  − tol.o1   ← 'üst kat' baklavanın MERKEZİNE olan mesafedir
+   O2 = sağa olan uzaklık  − x  − tol.o2   ← 'sağa uzaklık' da merkeze olan mesafedir
+   O3 = iç yükseklik − (üst kat − x) − 2x − tol.o3   (2x = köşegenin tamamı)
+   O4 = iç uzunluk   − 2x − (sağa − x)     − tol.o4
+
+ TOLERANS (Cenk, 04.09.2026): kullanıcının verdiği ölçüden SONRA, yalnız ÇİZİME giden
+ değerden düşer — üst / sağ / sol 5 mm, alt 7 mm (ESANJOR_TOL). Girilen üç ölçü (kenar,
+ üst kat, sağa uzaklık) ve baklavanın yerleşimdeki yeri DEĞİŞMEZ; kısalan tek şey dört
+ düz parçanın boyudur. Tolerans f0'da düşülür, f1'in çizim kodu HİÇ değişmez.
 
  ARA KAT'tan farklı olarak eşanjörün ızgarası yoktur — göz/bölüm/takviye kavramı burada
  yok. Bu yüzden computeFace ailesine HİÇ bağlanmaz (faceOf/vOf/faceDefOf çözücüleri
@@ -1136,6 +1141,10 @@ const ESANJOR_MIN_CI = 50;
 // 1.5 mm sacdan çıkan tek parça 3. ölçüdür (alt) — Cenk, 25.08.2026. İşaretli ölçüler
 // f1'de ayrı bir '… (1.5 MM).dxf' dosyasına gider.
 const ESANJOR_15MM = { o1:false, o2:false, o3:true, o4:false };
+// Çizime giden ölçülerden düşen ekstra tolerans (Cenk, 04.09.2026). 1.üst · 2.sağ ·
+// 3.alt · 4.sol — alt 7 mm, diğer üçü 5 mm. Bu tablo tolerans formülünün TEK kopyasıdır;
+// esanjorOlculeri dışında hiçbir yerde tekrarlanmaz (applyDims deseninin aynısı).
+const ESANJOR_TOL = { o1:5, o2:5, o3:7, o4:5 };
 
 function newEsanjor(){
   return { aktif:false, kenar:0, ustKat:0, saga:0, kod:'' };
@@ -1477,10 +1486,16 @@ function esanjorOlculeri(){
   // 1e-6 payı yalnız kayan nokta gürültüsü içindir (99.9999999 → 100, 99 değil).
   const asagi = v => Math.floor(v + 1e-6);
   const CI = tam ? asagi(icW) : icW;
-  const O1 = tam ? asagi(es.ustKat - x)      : 0;
-  const O2 = tam ? asagi(es.saga   - x)      : 0;
-  const O3 = tam ? asagi(icH - (es.ustKat - x) - 2*x) : 0;
-  const O4 = tam ? asagi(icL - 2*x - (es.saga - x))   : 0;
+  // Ham ölçüler: baklavanın köşesinden iç açıklığın kenarına olan gerçek mesafe.
+  const ham1 = es.ustKat - x, ham2 = es.saga - x;
+  const ham3 = icH - ham1 - 2*x, ham4 = icL - 2*x - ham2;
+  // ÇİZİME giden ölçü: hamdan ESANJOR_TOL kadar daha düşer (üst/sağ/sol 5, alt 7 mm).
+  // Tolerans tam sayı olduğu için aşağı yuvarlamayla yer değiştirebilir; yine de zincirin
+  // sonunda tutulur ki tek kural tek yerde okunsun.
+  const O1 = tam ? asagi(ham1 - ESANJOR_TOL.o1) : 0;
+  const O2 = tam ? asagi(ham2 - ESANJOR_TOL.o2) : 0;
+  const O3 = tam ? asagi(ham3 - ESANJOR_TOL.o3) : 0;
+  const O4 = tam ? asagi(ham4 - ESANJOR_TOL.o4) : 0;
 
   // f1'in çizimi bu sınırların altında anlamsız parça üretir — burada durdurulur ki
   // bozuk ölçü DXF'e hiç gitmesin (dışa aktarım kapısı collectFaceIssues'tan geçer).
@@ -1493,8 +1508,13 @@ function esanjorOlculeri(){
       if(!(r[1] >= ESANJOR_MIN_O)) hatalar.push(r[0]+' '+r[1]+' mm — en az '+ESANJOR_MIN_O+' mm olmalı ('+r[2]+')');
     });
   }
+  // ham* yalnız arayüzün 'girilen → çizime giden' okuması içindir; dışa aktarıma
+  // HER ZAMAN toleranslı O1..O4 gider.
   return { es, seri, dus, L, H, W, icL, icH, icW, kenar, kosegen, x,
-           CI, O1, O2, O3, O4, eksik, hatalar,
+           CI, O1, O2, O3, O4, tol: ESANJOR_TOL,
+           ham1: tam ? asagi(ham1) : 0, ham2: tam ? asagi(ham2) : 0,
+           ham3: tam ? asagi(ham3) : 0, ham4: tam ? asagi(ham4) : 0,
+           eksik, hatalar,
            gecerli: tam && hatalar.length===0 };
 }
 // ---------- AHU KOPYALAMA (2026-09-04) ----------
@@ -7667,10 +7687,10 @@ function buildEsanjorHTML(){
         <div><div class=&quot;lbl&quot;>Cihaz İç Ölçüsü (CI)</div><div class=&quot;val&quot; id=&quot;es_z_ci&quot;>—</div></div>
       </div>
       <div class=&quot;dim-readout&quot;>
-        <div><div class=&quot;lbl&quot;>1. Ölçü — üst</div><div class=&quot;val&quot; id=&quot;es_z_o1&quot;>—</div></div>
-        <div><div class=&quot;lbl&quot;>2. Ölçü — sağ</div><div class=&quot;val&quot; id=&quot;es_z_o2&quot;>—</div></div>
-        <div><div class=&quot;lbl&quot;>3. Ölçü — alt · 1.5 mm</div><div class=&quot;val&quot; id=&quot;es_z_o3&quot;>—</div></div>
-        <div><div class=&quot;lbl&quot;>4. Ölçü — sol</div><div class=&quot;val&quot; id=&quot;es_z_o4&quot;>—</div></div>
+        <div><div class=&quot;lbl&quot;>1. Ölçü — üst · −${ESANJOR_TOL.o1}</div><div class=&quot;val&quot; id=&quot;es_z_o1&quot;>—</div></div>
+        <div><div class=&quot;lbl&quot;>2. Ölçü — sağ · −${ESANJOR_TOL.o2}</div><div class=&quot;val&quot; id=&quot;es_z_o2&quot;>—</div></div>
+        <div><div class=&quot;lbl&quot;>3. Ölçü — alt · 1.5 mm · −${ESANJOR_TOL.o3}</div><div class=&quot;val&quot; id=&quot;es_z_o3&quot;>—</div></div>
+        <div><div class=&quot;lbl&quot;>4. Ölçü — sol · −${ESANJOR_TOL.o4}</div><div class=&quot;val&quot; id=&quot;es_z_o4&quot;>—</div></div>
       </div>
       <div class=&quot;status info&quot; id=&quot;es_status&quot;>Ölçüler girilmedi</div>
       <div class=&quot;canvas-wrap&quot; id=&quot;es_canvas&quot;></div>
@@ -7679,6 +7699,7 @@ function buildEsanjorHTML(){
         <span><b>Üst kat ölçüsü</b> ve <b>sağa olan uzaklık</b> baklavanın <b>merkezine</b> kadar ölçülür — köşesine değil.</span>
         <span>x = kenar × √2 ⁄ 2 (köşegenin yarısı) · 1. ölçü = üst kat − x · 2. ölçü = sağa uzaklık − x</span>
         <span>3. ölçü = iç yükseklik − 1. ölçü − 2x · 4. ölçü = iç uzunluk − 2x − 2. ölçü</span>
+        <span><b>Tolerans:</b> girdiğiniz ölçüden sonra <b>çizime giden</b> değerden ayrıca düşülür — üst <b>${ESANJOR_TOL.o1}</b>, sağ <b>${ESANJOR_TOL.o2}</b>, sol <b>${ESANJOR_TOL.o4}</b>, <b>alt ${ESANJOR_TOL.o3}</b> mm. Okumalarda <b>ham → çizim</b> olarak yazılır; baklavanın yeri değişmez.</span>
         <span>Cihaz iç ölçüsü (CI) modülün <b>iç genişliğinden</b> gelir; iç ölçü = dış − 2 × kenar profili (seri 50 → 100, seri 60 → 120).</span>
         <span><b>3. ölçü (alt) 1.5 mm</b> sacdan çıkar — DXF üretiminde ayrı bir <b>… (1.5 MM).dxf</b> dosyasına gider.</span>
       </div>
@@ -7729,6 +7750,8 @@ function drawEsanjorSVG(){
     olcuCiz(cx+r, cy, ox+fw, cy, (cx+r+ox+fw)/2, cy-6, '2.', o.O2, true);
     olcuCiz(cx, cy+r, cx, oy+fh, cx+22, (cy+r+oy+fh)/2, '3.', o.O3, false);
     olcuCiz(ox, cy, cx-r, cy, (ox+cx-r)/2, cy-6, '4.', o.O4, true);
+    // Yazılan sayı ÇİZİME giden (toleranslı) parça boyudur; çizgi ham mesafeyi gösterir.
+    svg += `<text x=&quot;14&quot; y=&quot;${SVG_H-12}&quot; fill=&quot;#7d8a94&quot; font-size=&quot;10&quot;>Ölçüler toleranslıdır (çizime giden): üst −${ESANJOR_TOL.o1} · sağ −${ESANJOR_TOL.o2} · alt −${ESANJOR_TOL.o3} · sol −${ESANJOR_TOL.o4} mm</text>`;
   }
   svg += `<text x=&quot;${SVG_W-PAD}&quot; y=&quot;${SVG_H-12}&quot; fill=&quot;#9aa8b2&quot; font-size=&quot;9.5&quot; text-anchor=&quot;end&quot; font-style=&quot;italic&quot;>Cenk Altınay</text>`;
   svg += '</svg>';
@@ -7755,11 +7778,13 @@ function renderEsanjorPanel(){
   set('es_z_ic', (o.icL>0 && o.icH>0 && o.icW>0) ? `${mm(o.icL)} × ${mm(o.icH)} × ${mm(o.icW)}` : '—');
   set('es_z_x',  o.x>0 ? `${Math.round(o.kosegen)} → ${o.x.toFixed(1)}` : '—');
   set('es_z_ci', o.CI>0 ? mm(o.CI) : '—');
-  const say = v => o.gecerli || o.hatalar.length ? String(v) : '—';
-  set('es_z_o1', o.eksik.length ? '—' : say(o.O1));
-  set('es_z_o2', o.eksik.length ? '—' : say(o.O2));
-  set('es_z_o3', o.eksik.length ? '—' : say(o.O3));
-  set('es_z_o4', o.eksik.length ? '—' : say(o.O4));
+  // 'ham → çizim': solda baklavanın köşesinden kenara olan gerçek mesafe, sağda
+  // toleransı düşülmüş, çizime giden parça boyu (bkz. ESANJOR_TOL).
+  const say = (ham, v) => o.gecerli || o.hatalar.length ? (ham + ' → ' + v) : '—';
+  set('es_z_o1', o.eksik.length ? '—' : say(o.ham1, o.O1));
+  set('es_z_o2', o.eksik.length ? '—' : say(o.ham2, o.O2));
+  set('es_z_o3', o.eksik.length ? '—' : say(o.ham3, o.O3));
+  set('es_z_o4', o.eksik.length ? '—' : say(o.ham4, o.O4));
 
   const st = document.getElementById('es_status');
   if(st){
