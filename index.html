@@ -1145,9 +1145,22 @@ const ESANJOR_15MM = { o1:false, o2:false, o3:true, o4:false };
 // 3.alt · 4.sol — alt 7 mm, diğer üçü 5 mm. Bu tablo tolerans formülünün TEK kopyasıdır;
 // esanjorOlculeri dışında hiçbir yerde tekrarlanmaz (applyDims deseninin aynısı).
 const ESANJOR_TOL = { o1:5, o2:5, o3:7, o4:5 };
+// OTOMATİK ÖLÇÜ (Cenk, 04.09.2026): üst kat ölçüsü ile sağa olan uzaklık ÖN yüzün ÜST
+// KATTAKİ KÖŞE kapağından türer. Kullanıcıya kalan tek soru hangi köşe (sol üst / sağ üst)
+// ve eşanjörün kenar ölçüsü.
+//   üst kat ölçüsü    = o kapağın YÜKSEKLİĞİ − 20      ← her seride SABİT (Cenk seçti)
+//   sağa olan uzaklık = o kapağın GENİŞLİĞİ  + ek      ← ek = takviye profilinin YARISI
+// Ek seriye bağlıdır (50 → 20, 60 → 30) ve merkezi kapağın yanındaki dikmenin tam üstüne
+// oturtur. Sol üst kapak seçilse de ölçü SAĞDAN alınır (Cenk, 04.09.2026) — değişen tek
+// şey referans kapaktır, formül aynıdır.
+const ESANJOR_ON_FI = 0;                                // referans yüz: ÖN
+const ESANJOR_OTO_UST_DUS = 20;
+const ESANJOR_OTO_SAGA_EK = { '50':20, '60':30 };
+const ESANJOR_OTO_SAGA_EK_VARSAYILAN = 30;              // tanınmayan seri: büyük ek
+const ESANJOR_REFLER = { sol:'Sol Üst Kapak', sag:'Sağ Üst Kapak' };
 
 function newEsanjor(){
-  return { aktif:false, kenar:0, ustKat:0, saga:0, kod:'' };
+  return { aktif:false, kenar:0, ustKat:0, saga:0, kod:'', oto:false, ref:'sag' };
 }
 // araKatOf ile aynı desen: alanı olmayan eski modülde tembel kurar ve değerleri doğrular.
 function esanjorOf(m){
@@ -1160,6 +1173,8 @@ function esanjorOf(m){
   });
   if(typeof e.kod !== 'string') e.kod = '';
   e.aktif = !!e.aktif;
+  e.oto = !!e.oto;                                       // otomatik ölçü açık mı
+  e.ref = (e.ref === 'sol') ? 'sol' : 'sag';             // referans köşe kapağı
   return e;
 }
 function activeEsanjor(){ return esanjorOf(state.modules[state.active]); }
@@ -1459,6 +1474,36 @@ function araKatOlculeri(){
   };
 }
 
+// ÖN yüzün ÜST KATTAKİ köşe kapağından iki ölçüyü türetir (bkz. ESANJOR_OTO_* yorumu).
+// Okunan değerler kapağın KESİM (SABİT) ölçüsü DEĞİL, editörde girilen 'Kapak Genişliği w'
+// (pColSize) ve 'Kapak Yüksekliği h' (eff) değerleridir: eşanjör zinciri de aynı iç açıklık
+// uzayında çalışır (ESANJOR_DUS = 2 × kenar profili, yani icL/icH kapakların + takviyelerin
+// toplamıdır) — kesim ölçüsü alınsaydı tolerans kadar kayardı.
+function esanjorOtoOlcu(){
+  const es   = activeEsanjor();
+  const ref  = es.ref === 'sol' ? 'sol' : 'sag';
+  const seri = String(state.varsayimlar.seri);
+  const ek   = ESANJOR_OTO_SAGA_EK[seri] != null ? ESANJOR_OTO_SAGA_EK[seri] : ESANJOR_OTO_SAGA_EK_VARSAYILAN;
+  const bos  = (hata) => ({ref, ek, kapak:null, ustKat:0, saga:0, hata});
+  const face = faceOf(ESANJOR_ON_FI);
+  if(face.kapaksiz) return bos('ÖN yüz kapaksız işaretli — otomatik ölçü alınamaz');
+  // Dikey yerleşimde 'bölüm' bir yatay şerittir; üst kattaki köşe kapağı kavramı bozulur.
+  if(face.orient !== 'H') return bos('ÖN yüz DİKEY yerleşimde — otomatik ölçü yalnız yatay yerleşimde çalışır');
+  const cols = computeFace(ESANJOR_ON_FI).colResults;
+  if(!cols || !cols.length) return bos('ÖN yüzde bölüm yok');
+  const ci = ref === 'sol' ? 0 : cols.length-1;
+  let p = cols[ci].panels[0];              // panels[] ÜSTTEN ALTA → [0] üst kattaki kapak
+  if(!p) return bos('ÖN yüzün ' + (ref==='sol' ? 'sol' : 'sağ') + ' bölümünde kapak yok');
+  // Birleşik kapağın KAPLANAN hücresi kendi ölçüsünü taşımaz; taşıyıcıya gidilir.
+  if(p.covered && p.spanOwner) p = cols[p.spanOwner.col].panels[p.spanOwner.idx];
+  if(p.bos) return bos('Üst kattaki köşe hücresi Boş Alan — kapak değil');
+  const w = Number(p.pColSize)||0, h = Number(p.eff)||0;
+  if(!(w>0 && h>0)) return bos('Üst kattaki köşe kapağının ölçüsü girilmemiş');
+  return {ref, ek, kapak:{w, h, tip:p.type},
+          ustKat: h - ESANJOR_OTO_UST_DUS,
+          saga:   w + ek, hata:''};
+}
+
 // Aktif modülün eşanjör ölçü zinciri + doğrulaması. Arayüzdeki okuma, durum satırı,
 // collectFaceIssues ve dışa aktarım aynı bu fonksiyondan beslenir (tek kaynak).
 // Zincirin anlatımı için yukarıdaki EŞANJÖR blok yorumuna bakın.
@@ -1472,12 +1517,21 @@ function esanjorOlculeri(){
   const kosegen = kenar>0 ? kenar*Math.SQRT2 : 0;
   const x       = kosegen/2;
 
+  // İki ölçü ya elle girilir ya da ÖN yüzün köşe kapağından türer; zincirin gerisi aynıdır.
+  const oto     = !!es.oto;
+  const otoOlcu = oto ? esanjorOtoOlcu() : null;
+  const ustKat  = oto ? (otoOlcu.hata ? 0 : otoOlcu.ustKat) : es.ustKat;
+  const saga    = oto ? (otoOlcu.hata ? 0 : otoOlcu.saga)   : es.saga;
+
   const eksik = [];
   if(!(L>0 && H>0 && W>0)) eksik.push('Modül ölçüleri (L / H / W) girilmedi');
   if(!seri)                eksik.push('Profil serisi seçilmedi');
   if(!(kenar>0))           eksik.push('Eşanjör kenar ölçüsü girilmedi');
-  if(!(es.ustKat>0))       eksik.push('Üst kat ölçüsü girilmedi');
-  if(!(es.saga>0))         eksik.push('Sağa olan uzaklık girilmedi');
+  if(oto && otoOlcu.hata)  eksik.push('Otomatik ölçü: ' + otoOlcu.hata);
+  else {
+    if(!(ustKat>0)) eksik.push(oto ? 'Otomatik üst kat ölçüsü çıkmadı' : 'Üst kat ölçüsü girilmedi');
+    if(!(saga>0))   eksik.push(oto ? 'Otomatik sağa olan uzaklık çıkmadı' : 'Sağa olan uzaklık girilmedi');
+  }
 
   const tam = eksik.length===0;
   // Ölçüler tam sayıya ve HEP AŞAĞI yuvarlanır (Cenk, 25.08.2026): küçük kalan parça
@@ -1487,7 +1541,7 @@ function esanjorOlculeri(){
   const asagi = v => Math.floor(v + 1e-6);
   const CI = tam ? asagi(icW) : icW;
   // Ham ölçüler: baklavanın köşesinden iç açıklığın kenarına olan gerçek mesafe.
-  const ham1 = es.ustKat - x, ham2 = es.saga - x;
+  const ham1 = ustKat - x, ham2 = saga - x;
   const ham3 = icH - ham1 - 2*x, ham4 = icL - 2*x - ham2;
   // ÇİZİME giden ölçü: hamdan ESANJOR_TOL kadar daha düşer (üst/sağ/sol 5, alt 7 mm).
   // Tolerans tam sayı olduğu için aşağı yuvarlamayla yer değiştirebilir; yine de zincirin
@@ -1511,6 +1565,7 @@ function esanjorOlculeri(){
   // ham* yalnız arayüzün 'girilen → çizime giden' okuması içindir; dışa aktarıma
   // HER ZAMAN toleranslı O1..O4 gider.
   return { es, seri, dus, L, H, W, icL, icH, icW, kenar, kosegen, x,
+           ustKat, saga, oto, otoOlcu,
            CI, O1, O2, O3, O4, tol: ESANJOR_TOL,
            ham1: tam ? asagi(ham1) : 0, ham2: tam ? asagi(ham2) : 0,
            ham3: tam ? asagi(ham3) : 0, ham4: tam ? asagi(ham4) : 0,
@@ -5526,6 +5581,7 @@ function renderFace(fi){
   renderCutTable(fi);
   renderProfilTable(fi);
   renderEditor(fi);
+  esanjorOtoTazele(fi);
   renderGlobalSummary();
 }
 
@@ -5548,7 +5604,16 @@ function partialRender(fi){
   if(s){
     document.getElementById(`f${fi}_ed_info`).textContent = editorInfo(r, s.col, s.idx, face.orient);
   }
+  esanjorOtoTazele(fi);
   renderGlobalSummary();
+}
+
+// ÖN yüz değişince otomatik eşanjör ölçüsü de değişir — panel oradan besleniyorsa
+// tazelenir. Yalnız ilgili yüzte ve yalnız otomatik açıkken çalışır (boşa render yok).
+function esanjorOtoTazele(fi){
+  if(fi !== ESANJOR_ON_FI) return;
+  const es = esanjorOf(state.modules[state.active]);
+  if(es && es.aktif && es.oto) renderEsanjorPanel();
 }
 
 // ---------- CİHAZ GENELİ TAKVİYE ÖZETİ ----------
@@ -7237,6 +7302,13 @@ function attachListeners(){
 
   document.body.addEventListener('click', e=>{
     // ---- BATARYA KIZAĞI: rol seçimi ve satır silme ----
+    // EŞANJÖR otomatik ölçüsünün referans köşe kapağı (sol üst / sağ üst)
+    const esRef = e.target.closest && e.target.closest('[data-esref]');
+    if(esRef){
+      activeEsanjor().ref = esRef.dataset.esref === 'sol' ? 'sol' : 'sag';
+      renderEsanjorPanel(); renderIssuesBadge(); renderGlobalSummary();
+      return;
+    }
     const kzRol = e.target.closest && e.target.closest('[data-kzrol]');
     if(kzRol){
       const rol = kzRol.dataset.kzrol;
@@ -7584,6 +7656,12 @@ function attachListeners(){
       renderGlobalSummary();
       return;
     }
+    if(e.target.id === 'es_oto'){
+      activeEsanjor().oto = e.target.checked;
+      renderEsanjorPanel();
+      renderGlobalSummary();
+      return;
+    }
     // ---- ARA KAT kontrolleri (7. sekme) ----
     if(e.target.id === `f${ARAKAT_FI}_aktif`){
       activeAraKat().aktif = e.target.checked;
@@ -7671,6 +7749,16 @@ function buildEsanjorHTML(){
       </div>
     </div>
     <div id=&quot;es_govde&quot;>
+      <div class=&quot;checkbox-row&quot; style=&quot;margin-bottom:8px;&quot;>
+        <input type=&quot;checkbox&quot; id=&quot;es_oto&quot;>
+        <label for=&quot;es_oto&quot;><b>Ölçüleri ÖN yüzden otomatik al</b> — üst kat = köşe kapağının yüksekliği − ${ESANJOR_OTO_UST_DUS} · sağa uzaklık = genişliği + (50'lik ${ESANJOR_OTO_SAGA_EK['50']} / 60'lık ${ESANJOR_OTO_SAGA_EK['60']})</label>
+      </div>
+      <div id=&quot;es_otoref&quot; style=&quot;display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px;&quot;>
+        <span style=&quot;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.4px;&quot;>Referans Kapak</span>
+        <div class=&quot;tab&quot; id=&quot;es_ref_sol&quot; data-esref=&quot;sol&quot;>${ESANJOR_REFLER.sol}</div>
+        <div class=&quot;tab&quot; id=&quot;es_ref_sag&quot; data-esref=&quot;sag&quot;>${ESANJOR_REFLER.sag}</div>
+        <span id=&quot;es_oto_bilgi&quot; style=&quot;color:var(--muted);font-size:11.5px;&quot;></span>
+      </div>
       <div style=&quot;display:flex;gap:14px;flex-wrap:wrap;margin-bottom:12px;&quot;>
         <div class=&quot;orient-select&quot;><label>Eşanjör Kenarı (mm)</label>
           <input type=&quot;number&quot; id=&quot;es_kenar&quot; min=&quot;1&quot; step=&quot;1&quot; placeholder=&quot;kare kenarı&quot;></div>
@@ -7700,6 +7788,7 @@ function buildEsanjorHTML(){
         <span>x = kenar × √2 ⁄ 2 (köşegenin yarısı) · 1. ölçü = üst kat − x · 2. ölçü = sağa uzaklık − x</span>
         <span>3. ölçü = iç yükseklik − 1. ölçü − 2x · 4. ölçü = iç uzunluk − 2x − 2. ölçü</span>
         <span><b>Tolerans:</b> girdiğiniz ölçüden sonra <b>çizime giden</b> değerden ayrıca düşülür — üst <b>${ESANJOR_TOL.o1}</b>, sağ <b>${ESANJOR_TOL.o2}</b>, sol <b>${ESANJOR_TOL.o4}</b>, <b>alt ${ESANJOR_TOL.o3}</b> mm. Okumalarda <b>ham → çizim</b> olarak yazılır; baklavanın yeri değişmez.</span>
+        <span><b>Otomatik ölçü:</b> ÖN yüzün <b>üst kattaki köşe kapağı</b> okunur — yüksekliği − ${ESANJOR_OTO_UST_DUS} üst kat ölçüsünü, genişliği + ek sağa olan uzaklığı verir (ek = takviye profilinin yarısı, merkez o dikmenin üstüne oturur). Ölçüler kapağın <b>kesim</b> değeri değil, editörde <b>girilen</b> genişlik/yükseklik değerleridir.</span>
         <span>Cihaz iç ölçüsü (CI) modülün <b>iç genişliğinden</b> gelir; iç ölçü = dış − 2 × kenar profili (seri 50 → 100, seri 60 → 120).</span>
         <span><b>3. ölçü (alt) 1.5 mm</b> sacdan çıkar — DXF üretiminde ayrı bir <b>… (1.5 MM).dxf</b> dosyasına gider.</span>
       </div>
@@ -7726,9 +7815,9 @@ function drawEsanjorSVG(){
   svg += `<rect x=&quot;${ox}&quot; y=&quot;${oy}&quot; width=&quot;${fw}&quot; height=&quot;${fh}&quot; fill=&quot;#eef1f4&quot; stroke=&quot;#3a4d5c&quot; stroke-width=&quot;2&quot;/>`;
   svg += `<text x=&quot;${ox+fw/2}&quot; y=&quot;${oy-16}&quot; fill=&quot;#33424e&quot; font-size=&quot;12&quot; text-anchor=&quot;middle&quot;>İç uzunluk = ${Math.round(o.icL)} mm</text>`;
   svg += `<text x=&quot;${ox-16}&quot; y=&quot;${oy+fh/2}&quot; fill=&quot;#33424e&quot; font-size=&quot;12&quot; text-anchor=&quot;middle&quot; transform=&quot;rotate(-90 ${ox-16} ${oy+fh/2})&quot;>İç yükseklik = ${Math.round(o.icH)} mm</text>`;
-  if(o.x>0 && o.es.ustKat>0 && o.es.saga>0){
-    const cx = ox + (o.icL - o.es.saga)*scale;
-    const cy = oy + o.es.ustKat*scale;
+  if(o.x>0 && o.ustKat>0 && o.saga>0){
+    const cx = ox + (o.icL - o.saga)*scale;
+    const cy = oy + o.ustKat*scale;
     const r  = o.x*scale;
     const kotu = !o.gecerli;
     const dolgu = kotu ? 'rgba(224,90,90,0.20)' : 'rgba(79,184,168,0.20)';
@@ -7770,9 +7859,29 @@ function renderEsanjorPanel(){
   const cb = document.getElementById('es_aktif');
   if(cb) cb.checked = !!es.aktif;
   val('es_kenar',  es.kenar>0  ? es.kenar  : '');
-  val('es_ustkat', es.ustKat>0 ? es.ustKat : '');
-  val('es_saga',   es.saga>0   ? es.saga   : '');
+  val('es_ustkat', o.ustKat>0 ? Math.round(o.ustKat) : '');
+  val('es_saga',   o.saga>0   ? Math.round(o.saga)   : '');
   val('es_kod',    es.kod || '');
+
+  // ---- OTOMATİK ÖLÇÜ kontrolleri ----
+  const otoCb = document.getElementById('es_oto');
+  if(otoCb) otoCb.checked = !!es.oto;
+  const refWrap = document.getElementById('es_otoref');
+  if(refWrap) refWrap.style.display = es.oto ? '' : 'none';
+  ['sol','sag'].forEach(rr=>{
+    const b = document.getElementById('es_ref_'+rr);
+    if(b) b.classList.toggle('active', es.ref === rr);
+  });
+  // Otomatikte iki kutu KİLİTLİ: değer ÖN yüzden gelir, elle yazılırsa iki kaynak olurdu.
+  ['es_ustkat','es_saga'].forEach(id=>{ const el = document.getElementById(id); if(el) el.disabled = !!es.oto; });
+  const bilgi = document.getElementById('es_oto_bilgi');
+  if(bilgi){
+    const oo = o.otoOlcu;
+    bilgi.textContent = !oo ? ''
+      : oo.hata ? ('⚠ ' + oo.hata)
+      : `ÖN yüz · ${ESANJOR_REFLER[oo.ref]} ${Math.round(oo.kapak.w)} × ${Math.round(oo.kapak.h)} mm → üst kat ${Math.round(oo.ustKat)} · sağa ${Math.round(oo.saga)} (+${oo.ek})`;
+    bilgi.style.color = (oo && oo.hata) ? 'var(--bad)' : 'var(--muted)';
+  }
 
   const mm = v => v>0 ? Math.round(v)+'' : '—';
   set('es_z_ic', (o.icL>0 && o.icH>0 && o.icW>0) ? `${mm(o.icL)} × ${mm(o.icH)} × ${mm(o.icW)}` : '—');
@@ -10863,7 +10972,7 @@ document.getElementById('btn_analiz').addEventListener('click', exportAnalizExce
 // v4: panel.colSpan + face.anaSplitLevels (eski dosyaların alan göçü syncStructure'da yapılır)
 // v5: module.araKat (ara kat — 7. sanal yüz). Eski v4/v3/v2 dosyalar açılmaya devam eder,
 //     ara katsız modül olarak gelirler (araKatNormalize kurar).
-const PROJECT_VERSION = 17;  // v10 = DXF'ten okunan bileşenler (module.dxfBilgi)
+const PROJECT_VERSION = 18;  // v10 = DXF'ten okunan bileşenler (module.dxfBilgi)
                              // v11 = çizimden okunan ağızlar (dxfBilgi.parcalar[].agizlar)
                              // v12 = ÜST ağzın L eksenindeki yeri (agizlar[].x) + tabloDan
                              // v13 = açılır kapak işareti (parcalar[].acilir)
@@ -10872,6 +10981,8 @@ const PROJECT_VERSION = 17;  // v10 = DXF'ten okunan bileşenler (module.dxfBilg
                              //       birinde 'alt' = tabandan yüksekliği) + ÜST ağzın W
                              // v17 = batarya kızağı (module.kizak) — föyden okunan HR
                              //       eksenindeki yeri (agizlar[].on = ÖN kenarına uzaklık)
+                             // v18 = eşanjörün otomatik ölçüsü (esanjor.oto + esanjor.ref):
+                             //       üst kat ve sağa uzaklık ÖN yüzün köşe kapağından türer
 
 // Yüklenen her modülde araKat alanını kurar. Tembel kurulum (araKatOf) tek başına yeterli
 // olurdu ama o zaman projectData() → JSON → applyProjectData() → projectData() gidiş-dönüşü
