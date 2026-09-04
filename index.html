@@ -34,7 +34,13 @@ iframe.active{display:block;}
 .road-rozet{font-size:9.5px;font-weight:700;padding:2px 8px;border-radius:20px;white-space:nowrap;margin-top:2px;letter-spacing:.3px;}
 .rz-plan{background:#1a2e42;color:#7aa8c8;border:1px solid #24435f;}
 .rz-suruyor{background:#3a2f10;color:#e0a13a;border:1px solid #6a541c;}
+.rz-kontrol{background:#12283a;color:#5aa9e6;border:1px solid #1d4460;}
 .rz-tamam{background:#12362f;color:#4fb8a8;border:1px solid #1d5b4f;}
+.road-grup{display:flex;align-items:center;gap:9px;padding:14px 10px 5px;}
+.road-grup:first-child{padding-top:4px;}
+.road-grup b{color:#4fb8a8;font-size:11px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;}
+.road-grup i{color:#7aa8c8;font-size:10.5px;font-style:normal;background:#16283a;border:1px solid #24435f;border-radius:20px;padding:1px 8px;}
+.road-grup em{flex:1;height:1px;background:#1e3a52;}
 .road-item.tamam .road-t{color:#83a89e;}
 #road-alt{padding:9px 18px;border-top:1px solid #1e3a52;color:#5c7f9b;font-size:11px;flex-shrink:0;}
 </style>
@@ -70,6 +76,7 @@ iframe.active{display:block;}
     --text:#f2f3f5; --muted:#95999f; --accent:#3ecab3; --accent-soft:rgba(62,202,179,.15); --accent-ring:rgba(62,202,179,.35); --accent-fg:#06231f;
     --warn:#ffb340; --bad:#ff453a; --bad-soft:rgba(255,69,58,.14); --good:#32d74b;
     --input-bg:#1b1e22;    --header-bg:rgba(23,25,29,.72);
+    --isik:rgba(255,255,255,.055); --border-hi:rgba(255,255,255,.20);
     --shadow-card:0 1px 2px rgba(0,0,0,.5),0 12px 28px -10px rgba(0,0,0,.6);
     --shadow-pop:0 16px 44px -10px rgba(0,0,0,.65);
     --shadow-sm-el:0 1px 3px rgba(0,0,0,.4);
@@ -80,6 +87,7 @@ iframe.active{display:block;}
     --text:#eceeef; --muted:#98999e; --accent:#5aa9e6; --accent-soft:rgba(90,169,230,.15); --accent-ring:rgba(90,169,230,.35); --accent-fg:#ffffff;
     --warn:#e0a541; --bad:#ff453a; --bad-soft:rgba(255,69,58,.14); --good:#5fc26a;
     --input-bg:#1c1e21;    --header-bg:rgba(26,28,31,.72);
+    --isik:rgba(255,255,255,.05); --border-hi:rgba(255,255,255,.18);
     --shadow-card:0 1px 2px rgba(0,0,0,.5),0 12px 28px -10px rgba(0,0,0,.6);
     --shadow-pop:0 16px 44px -10px rgba(0,0,0,.65);
     --shadow-sm-el:0 1px 3px rgba(0,0,0,.4);
@@ -89,6 +97,7 @@ iframe.active{display:block;}
     --text:#1d1d1f; --muted:#6e6e73; --accent:#0071e3; --accent-soft:rgba(0,113,227,.08); --accent-ring:rgba(0,113,227,.28); --accent-fg:#ffffff;
     --warn:#c17f0a; --bad:#d70015; --bad-soft:rgba(215,0,21,.09); --good:#248a3d;
     --input-bg:#ffffff;    --header-bg:rgba(255,255,255,.72);
+    --isik:rgba(0,0,0,.045); --border-hi:rgba(0,0,0,.18);
     --shadow-card:0 1px 3px rgba(0,0,0,.04),0 10px 24px -8px rgba(0,0,0,.10);
     --shadow-pop:0 18px 40px -10px rgba(0,0,0,.16);
     --shadow-sm-el:0 1px 2px rgba(0,0,0,.08);
@@ -98,6 +107,7 @@ iframe.active{display:block;}
     --text:#f2ece3; --muted:#a89b89; --accent:#e5a53c; --accent-soft:rgba(229,165,60,.15); --accent-ring:rgba(229,165,60,.35); --accent-fg:#241a06;
     --warn:#e5a53c; --bad:#ff453a; --bad-soft:rgba(255,69,58,.14); --good:#8fbf5a;
     --input-bg:#1a1613;    --header-bg:rgba(28,24,21,.72);
+    --isik:rgba(255,236,205,.06); --border-hi:rgba(255,255,255,.18);
     --shadow-card:0 1px 2px rgba(0,0,0,.5),0 12px 28px -10px rgba(0,0,0,.6);
     --shadow-pop:0 16px 44px -10px rgba(0,0,0,.65);
     --shadow-sm-el:0 1px 3px rgba(0,0,0,.4);
@@ -107,6 +117,7 @@ iframe.active{display:block;}
     --text:#e8eef7; --muted:#8a9bb5; --accent:#5bc9e0; --accent-soft:rgba(91,201,224,.14); --accent-ring:rgba(91,201,224,.34); --accent-fg:#04222a;
     --warn:#e0b04a; --bad:#ff5e5a; --bad-soft:rgba(255,94,90,.14); --good:#5fbf8f;
     --input-bg:#111826;    --header-bg:rgba(20,27,37,.72);
+    --isik:rgba(190,225,255,.06); --border-hi:rgba(255,255,255,.18);
     --shadow-card:0 1px 2px rgba(0,0,0,.5),0 12px 28px -10px rgba(0,0,0,.6);
     --shadow-pop:0 16px 44px -10px rgba(0,0,0,.65);
     --shadow-sm-el:0 1px 3px rgba(0,0,0,.4);
@@ -119,6 +130,7 @@ iframe.active{display:block;}
     --text:#e8eaed; --muted:#858c98; --accent:#8b93f8; --accent-soft:rgba(139,147,248,.16); --accent-ring:rgba(139,147,248,.35); --accent-fg:#0a0b0e;
     --warn:#e0a45f; --bad:#ff5e5a; --bad-soft:rgba(255,94,90,.14); --good:#4cc38a;
     --input-bg:#131519;    --header-bg:rgba(16,18,20,.74);
+    --isik:rgba(255,255,255,.055); --border-hi:#2a2e35;
     --shadow-card:0 1px 2px rgba(0,0,0,.4),0 4px 18px -8px rgba(0,0,0,.6);
     --shadow-pop:0 16px 40px -12px rgba(0,0,0,.7);
     --shadow-sm-el:0 1px 3px rgba(0,0,0,.4);
@@ -139,82 +151,19 @@ iframe.active{display:block;}
     -webkit-mask-image:radial-gradient(78% 55% at 50% 0%,#000,transparent 76%);
     mask-image:radial-gradient(78% 55% at 50% 0%,#000,transparent 76%);}
 
-  /* ================= PANEL TEMASI — EFEKT KATMANI =================
-     Kaynak: tema/tema.css (PANEL TEMA v1.0). Temanin sinif adlari alinamaz
-     (.card/header/nav/button.tool); GORSEL DIL uygulamanin kendi seciciler ine
-     giydirildi. Hepsi bu tema altinda — oteki bes tema hic etkilenmez.
-     Hareketi azaltilmis (prefers-reduced-motion) ortamda hepsi kapanir. */
-
-  /* --- ust cubukta dolasan isik cizgisi (tema: header::after) --- */
-  /* Cizgi TRANSFORM ile kayar. Onceki hali background-position animasyonuydu:
-     bilesik katmanda kosmaz, her kare yeniden boyanir — ustelik .appbar'da
-     backdrop-filter:blur var, yani bulanik zemin de her kare yeniden uretiliyordu
-     (olculdu: acilista kare sayisi yariya duyuyordu). */
-  /* .appbar KIRPILMAZ: sorunlu-yuz rozetinin acilir paneli bu cubugun icindedir ve
-     asagi tasar — overflow:hidden onu keserdi. Cizgi bunun yerine cubugun ICINDE
-     kalacak kadar yuruyor. */
-  body[data-theme=&quot;panel&quot;] .appbar::after{content:'';position:absolute;bottom:0;left:0;width:34%;height:1px;
-    pointer-events:none;opacity:.85;will-change:transform;
-    background:linear-gradient(90deg,transparent,var(--accent),transparent);
-    animation:temaSweep 8s cubic-bezier(.16,1,.3,1) infinite;}
-  @keyframes temaSweep{0%{transform:translateX(-120%)}55%,100%{transform:translateX(194%)}}
-
-  /* --- kartlar: imleci takip eden isik + hover kalkmasi (tema: .card) --- */
-  body[data-theme=&quot;panel&quot;] .section{position:relative;transition:border-color .2s,box-shadow .2s;}
-  body[data-theme=&quot;panel&quot;] .section:hover{border-color:#2a2e35;box-shadow:var(--shadow-pop);}
-  body[data-theme=&quot;panel&quot;] .section::after{content:'';position:absolute;inset:0;border-radius:inherit;
-    pointer-events:none;z-index:0;opacity:0;transition:opacity .3s;
-    background:radial-gradient(340px circle at var(--mx,50%) var(--my,50%),rgba(255,255,255,.055),transparent 62%);}
-  body[data-theme=&quot;panel&quot;] .section:hover::after{opacity:1;}
-  body[data-theme=&quot;panel&quot;] .section > *{position:relative;z-index:1;}
+  /* ============ PANEL TEMASININ KIMLIGI — yalniz bu tema ============
+     Kaynak: tema/tema.css (PANEL TEMA v1.0). Burada YALNIZ duragan gorunum vardir:
+     versal basliklar, not/rozet/durum bicimi, secim rengi, tipografi.
+     HAREKET (gecis, animasyon, hover kalkmasi, acilis perdesi) 04.09.2026'da butun
+     temalara acildi ve bu style blogunun SONUNDAKI 'EFEKT KATMANI' blogunda durur. */
 
   /* --- kart basligi: versal + kucuk kare isaret (tema: .card h3) --- */
   body[data-theme=&quot;panel&quot;] .section h2{font-size:11.5px;font-weight:650;color:var(--muted);
     text-transform:uppercase;letter-spacing:.08em;}
   body[data-theme=&quot;panel&quot;] .section h2::before{width:5px;height:5px;border-radius:1px;}
 
-  /* --- kartlarin sirayla iceri girmesi (tema: panelIn). YALNIZ .tema-giris
-         varken calisir: her tusa basista renderAll yeniden ciziyor, animasyon
-         her seferinde tekrarlasa ekran titrerdi. Sinifi JS ekleyip 900 ms sonra alir. */
-  /* blur BILEREK yok: 34 kartta her kare yeniden bulaniklastirmak acilisi takiyordu
-     (olculdu). translateY + opacity bilesik katmanda kosar, gorunum neredeyse ayni. */
-  @keyframes temaPanelIn{from{opacity:0;transform:translateY(12px) scale(.994)}
-    to{opacity:1;transform:none}}
-  /* Yalniz .tema-gir isaretli kartlar (ilk 12) animasyonla gelir: hepsini animasyona
-     sokmak 34 bilesik katman demekti ve acilisi yaviaslatiyordu (olculdu). */
-  body[data-theme=&quot;panel&quot;].tema-giris .section.tema-gir{animation:temaPanelIn .46s cubic-bezier(.16,1,.3,1) both;
-    animation-delay:calc(var(--i,0) * 55ms);will-change:transform,opacity;}
-  @keyframes temaCizgi{from{transform:scaleX(0)}to{transform:scaleX(1)}}
-  body[data-theme=&quot;panel&quot;].tema-giris .section h2{transform-origin:left;}
-  body[data-theme=&quot;panel&quot;].tema-giris .viewbar{animation:temaPanelIn .4s cubic-bezier(.16,1,.3,1) both;}
-
-  /* --- butonlar (tema: button.tool / nav .grp button.on) --- */
-  body[data-theme=&quot;panel&quot;] .add-btn2{transition:transform .12s ease,filter .15s ease,box-shadow .2s ease;
-    box-shadow:0 2px 10px -3px rgba(139,147,248,.55);}
-  body[data-theme=&quot;panel&quot;] .add-btn2:hover{transform:translateY(-1px);box-shadow:0 7px 20px -7px rgba(139,147,248,.75);}
-  body[data-theme=&quot;panel&quot;] .add-btn2:active{transform:scale(.97);}
-  body[data-theme=&quot;panel&quot;] .add-btn2.ghost{box-shadow:none;}
-  body[data-theme=&quot;panel&quot;] .tab{transition:color .16s,background .16s,border-color .16s,transform .12s;}
-  body[data-theme=&quot;panel&quot;] .tab:hover{transform:translateY(-1px);}
-  body[data-theme=&quot;panel&quot;] .tab.active{box-shadow:0 2px 10px -4px rgba(139,147,248,.55);}
-  body[data-theme=&quot;panel&quot;] .vbtn{transition:color .2s ease;}
-  body[data-theme=&quot;panel&quot;] .viewbar-thumb{box-shadow:0 2px 10px -4px rgba(139,147,248,.5);}
-
-  /* --- olcu kutulari: vurgulu kutudaki isik supurmesi (tema: .o.hi) --- */
-  body[data-theme=&quot;panel&quot;] .dim-readout div{position:relative;overflow:hidden;
-    transition:border-color .18s,transform .18s cubic-bezier(.16,1,.3,1);}
-  body[data-theme=&quot;panel&quot;] .dim-readout div:hover{transform:translateY(-1px);border-color:#2a2e35;}
-  body[data-theme=&quot;panel&quot;] .dim-readout div::after{content:'';position:absolute;top:0;bottom:0;left:0;width:55%;
-    pointer-events:none;will-change:transform;
-    background:linear-gradient(115deg,transparent 20%,rgba(139,147,248,.13) 50%,transparent 80%);
-    animation:temaSweepKutu 9s cubic-bezier(.16,1,.3,1) infinite;}
-  /* Kutu kendi icinde kirpildigi icin cizgi disari tasabilir. */
-  @keyframes temaSweepKutu{0%{transform:translateX(-120%)}55%,100%{transform:translateX(310%)}}
-
-  /* --- tablolar (tema: th versal + satir hover) --- */
+  /* --- tablolar (tema: th versal) --- */
   body[data-theme=&quot;panel&quot;] table th{text-transform:uppercase;letter-spacing:.06em;}
-  body[data-theme=&quot;panel&quot;] tbody tr{transition:background .14s;}
-  body[data-theme=&quot;panel&quot;] tbody tr:hover{background:var(--panel2);}
 
   /* --- secim, odak, kaydirma cubugu --- */
   body[data-theme=&quot;panel&quot;] ::selection{background:rgba(139,147,248,.30);color:var(--text);}
@@ -222,54 +171,6 @@ iframe.active{display:block;}
   body[data-theme=&quot;panel&quot;] ::-webkit-scrollbar-thumb{background:#2a2e35;border-radius:6px;
     border:3px solid var(--bg);background-clip:padding-box;}
   body[data-theme=&quot;panel&quot;] ::-webkit-scrollbar-thumb:hover{background:var(--muted);background-clip:padding-box;}
-
-  /* --- acilis: isik supurmesi (tema: #loadbeam) --- */
-  #tema-loadbeam{position:fixed;inset:0;z-index:200;pointer-events:none;will-change:transform;
-    background:linear-gradient(104deg,transparent 38%,rgba(139,147,248,.10) 47%,
-      rgba(255,255,255,.07) 50%,rgba(139,147,248,.10) 53%,transparent 62%);
-    animation:temaBeam 1.15s cubic-bezier(.32,0,.24,1) both;}
-  @keyframes temaBeam{from{transform:translate3d(-115%,0,0)}to{transform:translate3d(115%,0,0)}}
-
-  /* --- acilis: isik ucgeni (tema: #splash). Yalniz sayfa Panel temasiyla
-         acildiginda gorunur; tiklama/tus/tekerlek ile hemen kapanir. --- */
-  #tema-splash{position:fixed;inset:0;z-index:300;display:grid;place-items:center;pointer-events:none;
-    background:radial-gradient(64% 50% at 50% 45%, #121418 0%, #0a0b0e 42%, #050506 78%, #030304 100%);}
-  #tema-splash.oyna{animation:temaSplashOut .6s cubic-bezier(.16,1,.3,1) 1.78s both;}
-  /* Animasyonlar .oyna sinifiyla baslar: katman ONCE basilir (ekrani kaplasin),
-     animasyon ancak agir acilis isi bittikten sonra baslar — yoksa ilk kareler duser. */
-  #tema-splash .tri{position:relative;width:0;height:0;--u:50px;--v:43px;--d:26px;}
-  #tema-splash.oyna .tri{animation:temaTriIn 1.2s cubic-bezier(.16,1,.3,1) both,
-    temaTriOut .6s cubic-bezier(.16,1,.3,1) 1.78s both;}
-  #tema-splash i{position:absolute;width:var(--d);height:var(--d);border-radius:50%;background:#fff;
-    left:calc(var(--x) * var(--u) - var(--d)/2);
-    top:calc((var(--y) - 1.5) * var(--v) - var(--d)/2);
-    opacity:0;transform:scale(.35);will-change:transform,opacity,filter;}
-  #tema-splash.oyna i{
-    animation:temaDotIn .48s cubic-bezier(.16,1,.3,1) both, temaDotGlow 2.4s ease-in-out infinite,
-              temaEdgeRun .46s ease-out forwards;
-    animation-delay:calc(var(--i) * 38ms), calc(460ms + var(--i) * 38ms), calc(880ms + var(--p) * 50ms);}
-  /* Temanin bloom'u: nokta basina iki bulanik katman. Once box-shadow'a cevrilmisti
-     ama OLCULDU — kare sayisina etkisi yoktu (48 vs 49); asil maliyet sweep
-     animasyonundaydi. Gorunum kaybetmemek icin temanin kendi hali geri alindi. */
-  #tema-splash i::before,#tema-splash i::after{content:'';position:absolute;left:50%;top:50%;
-    border-radius:50%;background:#fff;transform:translate(-50%,-50%);pointer-events:none;}
-  #tema-splash i::before{width:205%;height:205%;filter:blur(6px);opacity:.30;}
-  #tema-splash i::after{width:470%;height:470%;filter:blur(21px);opacity:.062;}
-  @keyframes temaDotIn{to{opacity:1;transform:none}}
-  /* Parlama filter:brightness ile yapiliyordu; noktanin altinda blur(6px) ve blur(21px)
-     iki katman var, her kare yeniden boyaniyordu. Opacity bilesik katmanda kosar. */
-  @keyframes temaDotGlow{0%,100%{opacity:.82}50%{opacity:1}}
-  @keyframes temaEdgeRun{0%{transform:scale(1);filter:brightness(1)}
-    30%{transform:scale(1.72);filter:brightness(2.6) drop-shadow(0 0 26px rgba(255,255,255,.95))}
-    100%{transform:scale(1);filter:brightness(1)}}
-  @keyframes temaTriIn{from{transform:scale(.88)}to{transform:scale(1)}}
-  @keyframes temaTriOut{to{transform:scale(1.3);opacity:0;filter:blur(7px)}}
-  @keyframes temaSplashOut{to{opacity:0;visibility:hidden}}
-
-  @media (prefers-reduced-motion:reduce){
-    #tema-splash,#tema-loadbeam{display:none;}
-    body[data-theme=&quot;panel&quot;] *,body[data-theme=&quot;panel&quot;] *::before,body[data-theme=&quot;panel&quot;] *::after{animation:none!important;}
-  }
 
   /* --- tipografi (tema: 13.5px, sik harf araligi) --- */
   body[data-theme=&quot;panel&quot;]{font-size:13.5px;letter-spacing:-.005em;}
@@ -289,14 +190,6 @@ iframe.active{display:block;}
 
   /* --- durum kutulari: sol kenarda renk seridi --- */
   body[data-theme=&quot;panel&quot;] .status{border-left:2px solid currentColor;border-radius:0 var(--r-s) var(--r-s) 0;}
-
-  /* --- kart basliginin altindaki cizgi buyuyerek gelsin (tema: h2::after lineGrow) --- */
-  @keyframes temaCizgiBuyu{from{transform:scaleX(0)}to{transform:scaleX(1)}}
-  body[data-theme=&quot;panel&quot;] .section h2{position:relative;}
-  body[data-theme=&quot;panel&quot;] .section h2::after{content:'';position:absolute;left:0;right:0;bottom:-1px;height:1px;
-    background:linear-gradient(90deg,var(--accent),transparent 70%);opacity:.6;transform-origin:left;}
-  body[data-theme=&quot;panel&quot;].tema-giris .section.tema-gir h2::after{animation:temaCizgiBuyu .75s cubic-bezier(.16,1,.3,1) both;
-    animation-delay:calc(140ms + var(--i,0) * 55ms);}
 
   /* ---------- TEMEL ---------- */
   *{box-sizing:border-box;}
@@ -518,6 +411,140 @@ iframe.active{display:block;}
   .gsm-bilgi .u{color:var(--warn);}
   .gsm-rozet{margin-left:auto;font-size:11px;color:var(--muted);border:1px solid var(--border);
     border-radius:999px;padding:1px 9px;flex-shrink:0;}
+  /* ================= EFEKT KATMANI — BUTUN TEMALARDA =================
+     Kaynak: tema/tema.css + tema.js (PANEL TEMA v1.0). 03.09.2026'da yalniz Panel
+     temasinda kosuyordu; 04.09.2026'da Cenk'in istegiyle BUTUN temalara acildi
+     (acilis perdesi dahil).
+     IKI KURAL:
+       1) Burada yalniz HAREKET vardir. Duragan gorunum (versal baslik, not/rozet
+          bicimi, secim rengi, tipografi) Panel'in kimligidir, yukarida kalir.
+       2) Renk SABIT HEX degil, temanin kendi degiskeninden okunur: Aydinlik temada
+          beyaz uzerine beyaz isik gorunmezdi. Imlec isigi --isik, hover cercevesi
+          --border-hi, isiltilar --accent / --accent-ring / --accent-soft.
+     Blok dosyanin SONUNDADIR (bkz. ozgulluk notu). Hareketi azaltilmis ortamda
+     asagidaki genel @media hepsini kapatir. */
+
+  /* --- ust cubukta dolasan isik cizgisi --- */
+  /* Cizgi TRANSFORM ile kayar. Onceki hali background-position animasyonuydu:
+     bilesik katmanda kosmaz, her kare yeniden boyanir — ustelik .appbar'da
+     backdrop-filter:blur var, yani bulanik zemin de her kare yeniden uretiliyordu
+     (olculdu: acilista kare sayisi yariya dusuyordu). */
+  /* .appbar KIRPILMAZ: sorunlu-yuz rozetinin acilir paneli bu cubugun icindedir ve
+     asagi tasar — overflow:hidden onu keserdi. Cizgi bunun yerine cubugun ICINDE
+     kalacak kadar yuruyor. */
+  .appbar::after{content:'';position:absolute;bottom:0;left:0;width:34%;height:1px;
+    pointer-events:none;opacity:.85;will-change:transform;
+    background:linear-gradient(90deg,transparent,var(--accent),transparent);
+    animation:temaSweep 8s cubic-bezier(.16,1,.3,1) infinite;}
+  @keyframes temaSweep{0%{transform:translateX(-120%)}55%,100%{transform:translateX(194%)}}
+
+  /* --- kartlar: imleci takip eden isik + hover kalkmasi --- */
+  .section{position:relative;transition:border-color .2s,box-shadow .2s;}
+  .section:hover{border-color:var(--border-hi);box-shadow:var(--shadow-pop);}
+  .section::after{content:'';position:absolute;inset:0;border-radius:inherit;
+    pointer-events:none;z-index:0;opacity:0;transition:opacity .3s;
+    background:radial-gradient(340px circle at var(--mx,50%) var(--my,50%),var(--isik),transparent 62%);}
+  .section:hover::after{opacity:1;}
+  .section > *{position:relative;z-index:1;}
+
+  /* --- kartlarin sirayla iceri girmesi. YALNIZ .tema-giris varken calisir: her tusa
+         basista renderAll yeniden ciziyor, animasyon her seferinde tekrarlasa ekran
+         titrerdi. Sinifi JS ekleyip 900 ms sonra alir. */
+  /* blur BILEREK yok: 34 kartta her kare yeniden bulaniklastirmak acilisi takiyordu
+     (olculdu). translateY + opacity bilesik katmanda kosar, gorunum neredeyse ayni. */
+  @keyframes temaPanelIn{from{opacity:0;transform:translateY(12px) scale(.994)}
+    to{opacity:1;transform:none}}
+  /* Yalniz .tema-gir isaretli kartlar (ilk 12) animasyonla gelir: hepsini animasyona
+     sokmak 34 bilesik katman demekti ve acilisi olculebilir bicimde yavaslatiyordu. */
+  .tema-giris .section.tema-gir{animation:temaPanelIn .46s cubic-bezier(.16,1,.3,1) both;
+    animation-delay:calc(var(--i,0) * 55ms);will-change:transform,opacity;}
+  .tema-giris .viewbar{animation:temaPanelIn .4s cubic-bezier(.16,1,.3,1) both;}
+
+  /* --- kart basliginin altindaki cizgi buyuyerek gelsin --- */
+  @keyframes temaCizgiBuyu{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+  .section h2{position:relative;}
+  .section h2::after{content:'';position:absolute;left:0;right:0;bottom:-1px;height:1px;
+    background:linear-gradient(90deg,var(--accent),transparent 70%);opacity:.6;transform-origin:left;}
+  .tema-giris .section h2{transform-origin:left;}
+  .tema-giris .section.tema-gir h2::after{animation:temaCizgiBuyu .75s cubic-bezier(.16,1,.3,1) both;
+    animation-delay:calc(140ms + var(--i,0) * 55ms);}
+
+  /* --- butonlar --- */
+  .add-btn2{transition:transform .12s ease,filter .15s ease,box-shadow .2s ease;
+    box-shadow:0 2px 10px -3px var(--accent-ring);}
+  .add-btn2:hover{transform:translateY(-1px);box-shadow:0 7px 20px -7px var(--accent-ring);}
+  .add-btn2:active{transform:scale(.97);}
+  .add-btn2.ghost{box-shadow:none;}
+  .tab{transition:color .16s,background .16s,border-color .16s,transform .12s;}
+  .tab:hover{transform:translateY(-1px);}
+  .tab.active{box-shadow:0 2px 10px -4px var(--accent-ring);}
+  .vbtn{transition:color .2s ease;}
+  .viewbar-thumb{box-shadow:0 2px 10px -4px var(--accent-ring);}
+
+  /* --- olcu kutulari: vurgulu kutudaki isik supurmesi --- */
+  .dim-readout div{position:relative;overflow:hidden;
+    transition:border-color .18s,transform .18s cubic-bezier(.16,1,.3,1);}
+  .dim-readout div:hover{transform:translateY(-1px);border-color:var(--border-hi);}
+  .dim-readout div::after{content:'';position:absolute;top:0;bottom:0;left:0;width:55%;
+    pointer-events:none;will-change:transform;
+    background:linear-gradient(115deg,transparent 20%,var(--accent-soft) 50%,transparent 80%);
+    animation:temaSweepKutu 9s cubic-bezier(.16,1,.3,1) infinite;}
+  /* Kutu kendi icinde kirpildigi icin cizgi disari tasabilir. */
+  @keyframes temaSweepKutu{0%{transform:translateX(-120%)}55%,100%{transform:translateX(310%)}}
+
+  /* --- tablo satiri --- */
+  /* Zemin temel stilde 'tbody tr:hover td' ile veriliyor; gecis td'ye yazilmali. */
+  tbody tr,tbody tr td{transition:background .14s;}
+
+  /* --- acilis: isik supurmesi --- */
+  #tema-loadbeam{position:fixed;inset:0;z-index:200;pointer-events:none;will-change:transform;
+    background:linear-gradient(104deg,transparent 38%,var(--accent-soft) 47%,
+      var(--isik) 50%,var(--accent-soft) 53%,transparent 62%);
+    animation:temaBeam 1.15s cubic-bezier(.32,0,.24,1) both;}
+  @keyframes temaBeam{from{transform:translate3d(-115%,0,0)}to{transform:translate3d(115%,0,0)}}
+
+  /* --- acilis: isik ucgeni. Sayfa acilisinda, HER temada. Tiklama/tus/tekerlek
+         ile hemen kapanir. Perde ve noktalar temanin renklerini alir: Aydinlik
+         temada beyaz nokta beyaz perdede gorunmezdi. --- */
+  #tema-splash{position:fixed;inset:0;z-index:300;display:grid;place-items:center;pointer-events:none;
+    background:radial-gradient(64% 50% at 50% 45%, var(--panel2) 0%, var(--bg) 46%, var(--bg) 100%);}
+  #tema-splash.oyna{animation:temaSplashOut .6s cubic-bezier(.16,1,.3,1) 1.78s both;}
+  /* Animasyonlar .oyna sinifiyla baslar: katman ONCE basilir (ekrani kaplasin),
+     animasyon ancak agir acilis isi bittikten sonra baslar — yoksa ilk kareler duser. */
+  #tema-splash .tri{position:relative;width:0;height:0;--u:50px;--v:43px;--d:26px;color:var(--text);}
+  #tema-splash.oyna .tri{animation:temaTriIn 1.2s cubic-bezier(.16,1,.3,1) both,
+    temaTriOut .6s cubic-bezier(.16,1,.3,1) 1.78s both;}
+  #tema-splash i{position:absolute;width:var(--d);height:var(--d);border-radius:50%;background:currentColor;
+    left:calc(var(--x) * var(--u) - var(--d)/2);
+    top:calc((var(--y) - 1.5) * var(--v) - var(--d)/2);
+    opacity:0;transform:scale(.35);will-change:transform,opacity,filter;}
+  #tema-splash.oyna i{
+    animation:temaDotIn .48s cubic-bezier(.16,1,.3,1) both, temaDotGlow 2.4s ease-in-out infinite,
+              temaEdgeRun .46s ease-out forwards;
+    animation-delay:calc(var(--i) * 38ms), calc(460ms + var(--i) * 38ms), calc(880ms + var(--p) * 50ms);}
+  /* Temanin bloom'u: nokta basina iki bulanik katman. Once box-shadow'a cevrilmisti
+     ama OLCULDU — kare sayisina etkisi yoktu (48 vs 49); asil maliyet sweep
+     animasyonundaydi. Gorunum kaybetmemek icin temanin kendi hali geri alindi. */
+  #tema-splash i::before,#tema-splash i::after{content:'';position:absolute;left:50%;top:50%;
+    border-radius:50%;background:currentColor;transform:translate(-50%,-50%);pointer-events:none;}
+  #tema-splash i::before{width:205%;height:205%;filter:blur(6px);opacity:.30;}
+  #tema-splash i::after{width:470%;height:470%;filter:blur(21px);opacity:.062;}
+  @keyframes temaDotIn{to{opacity:1;transform:none}}
+  /* Parlama filter:brightness ile yapiliyordu; noktanin altinda blur(6px) ve blur(21px)
+     iki katman var, her kare yeniden boyaniyordu. Opacity bilesik katmanda kosar. */
+  @keyframes temaDotGlow{0%,100%{opacity:.82}50%{opacity:1}}
+  @keyframes temaEdgeRun{0%{transform:scale(1);filter:brightness(1)}
+    30%{transform:scale(1.72);filter:brightness(2.6) drop-shadow(0 0 26px var(--accent-ring))}
+    100%{transform:scale(1);filter:brightness(1)}}
+  @keyframes temaTriIn{from{transform:scale(.88)}to{transform:scale(1)}}
+  @keyframes temaTriOut{to{transform:scale(1.3);opacity:0;filter:blur(7px)}}
+  @keyframes temaSplashOut{to{opacity:0;visibility:hidden}}
+  /* Hareket azaltilmisken perde ve supurme HIC cizilmez; asagidaki genel blok
+     yalniz animasyonu durdurur, perde ekranda asili kalirdi. */
+  @media (prefers-reduced-motion:reduce){
+    #tema-splash,#tema-loadbeam{display:none;}
+  }
+
   @media (prefers-reduced-motion: reduce){
     *{transition:none!important;animation:none!important;}
   }
@@ -7027,7 +7054,7 @@ function attachListeners(){
   ts.addEventListener('change', e=>{
     document.body.dataset.theme = e.target.value;
     try{ localStorage.setItem('kh_theme', e.target.value); }catch(_){}
-    temaTemizle(); temaBeam(); temaGiris();   // Panel disinda ucu de hemen cikar
+    temaBeam(); temaGiris();   // her temada calisir (04.09.2026)
   });
   try{
     const t = localStorage.getItem('kh_theme');
@@ -10153,21 +10180,19 @@ function dxaAktar(){
     + ' modül kuruldu. Kapak yerleşimi girilene kadar Excel ve DXF kilitli kalır — yüzlerdeki kapakları girmek size ait.';
 }
 
-// ---------- PANEL TEMASI: EFEKTLER ----------
+// ---------- ACILIS VE KART EFEKTLERI ----------
 // Kaynak: tema/tema.js. Uygulamaya uyarlanan uc davranis:
 //   1) kartlarda imleci takip eden isik  2) kartlarin sirayla iceri girmesi
-//   3) acilis isigi (sayfa Panel temasiyla acildiginda ucgen + supurme)
-// Hepsi TEMAYA BAGLI: baska temada dinleyici is gormez, DOM'a hicbir sey eklenmez.
+//   3) acilis isigi (ucgen + supurme)
+// 04.09.2026: uculu de artik HER TEMADA calisir (Cenk'in istegi). Renkleri CSS'ten
+// gelir (--isik / --border-hi / --accent), bu yuzden acik temada da gorunur.
 const TEMA_NOKTA = [[0,0,0],[-0.5,1,8],[0.5,1,1],[-1,2,7],[0,2,40],[1,2,2],
                     [-1.5,3,6],[-0.5,3,5],[0.5,3,4],[1.5,3,3]];
 const TEMA_GIREN = 12;         // giris animasyonuna alinan kart sayisi (bkz. olcum)
 const TEMA_PERDE_CIKIS = 1780; // ms — perdenin solmaya basladigi an (CSS'te ayni deger)
-const panelTemaMi = () => document.body.dataset.theme === 'panel';
-
 // Kartlar sirayla girsin: sinif 900 ms yasar. renderAll her tusa basista calistigi
 // icin animasyonu kalici yapmak ekrani titretirdi — bu yuzden anlik.
 function temaGiris(){
-  if(!panelTemaMi()) return;
   // Yalniz ilk TEMA_GIREN kart animasyonla gelir — hepsini almak 34 bilesik katman
   // demekti ve acilisi olculebilir bicimde yavaslatiyordu.
   const kartlar = document.querySelectorAll('.section');
@@ -10186,18 +10211,7 @@ function temaGiris(){
   }, 900);
 }
 
-// Panel temasindan CIKILDIGINDA efekt kalintilarini kaldirir: giris sinifi ve
-// acilis katmanlari kendi zamanlayicilariyla da silinir ama tema degisince
-// beklemenin anlami yok — baska temada ekranda is gormeyen dugum kalmasin.
-function temaTemizle(){
-  if(panelTemaMi()) return;
-  document.body.classList.remove('tema-giris');
-  ['tema-loadbeam','tema-splash'].forEach(function(id){
-    var e = document.getElementById(id); if(e) e.remove();
-  });
-}
 function temaBeam(){
-  if(!panelTemaMi()) return;
   const eski = document.getElementById('tema-loadbeam');
   if(eski) eski.remove();
   const b = document.createElement('div');
@@ -10206,9 +10220,9 @@ function temaBeam(){
   setTimeout(()=>{ if(b.parentNode) b.remove(); }, 1300);
 }
 
-// Acilis ucgeni — YALNIZ sayfa acilisinda ve yalnizca Panel temasiyla.
+// Acilis ucgeni — YALNIZ sayfa acilisinda (her temada; renkleri CSS'ten alir).
 function temaSplash(){
-  if(!panelTemaMi() || document.getElementById('tema-splash')) return;
+  if(document.getElementById('tema-splash')) return;
   const d = document.createElement('div');
   d.id = 'tema-splash';
   // Elemanlar tek tek kurulur: innerHTML ile yazmak srcdoc icinde ham tirnak
@@ -10261,7 +10275,6 @@ function temaSplash(){
 
 // Imlec isigi: kartin ustundeki konumu CSS degiskenine yazar (tema: .card --mx/--my).
 document.addEventListener('pointermove', e=>{
-  if(!panelTemaMi()) return;
   const c = e.target.closest && e.target.closest('.section');
   if(!c) return;
   const r = c.getBoundingClientRect();
@@ -10271,10 +10284,9 @@ document.addEventListener('pointermove', e=>{
 
 // Acilis katmani AGIR ISTEN ONCE basilir: ekrani kaplar, kullanici bos ekran gormez
 // ve animasyon (asagida, bos is parcaciginda) takilmadan baslar.
-// Tema EN BASTA uygulanir. Kayitli tema attachListeners icinde okunuyordu; acilis
-// perdesi ondan ONCE basildigi icin 'tema henuz yok' deyip hic gorunmuyordu
-// (olculdu 03.09.2026: perde-yok). f1'in <head>'indeki earlyTheme ile ayni fikir —
-// f0'da body zaten var, ayrica acilistaki tema sicramasini da onler.
+// Tema EN BASTA uygulanir: perde artik her temada cizilse de RENKLERINI temadan alir
+// (--panel2/--bg/--text). Tema sonra uygulanirsa perde bir an Gece renkleriyle
+// cizilip sonra sicrardi. f1'in <head>'indeki earlyTheme ile ayni fikir.
 try{ const _t = localStorage.getItem('kh_theme'); if(_t) document.body.dataset.theme = _t; }catch(_){}
 const temaPerde = temaSplash();
 buildTabs();
@@ -11964,7 +11976,8 @@ boot();
       --text: #f2f3f5;
       --text-muted: #95999f;
       --text-placeholder: #4d5159;
-      --scrollbar-thumb: #3a3d44;
+      --isik: rgba(255,255,255,.05);
+      --border-hi: rgba(255,255,255,.18);
     }
 
     /* ============ TEMALAR ============ */
@@ -11978,6 +11991,7 @@ boot();
       --bg-row-even:rgba(34,37,40,.35);--bg-row-hover:#272a2e;--border:#2c2f34;
       --accent:#5aa9e6;--accent2:#7ec8f0;--bad:#ff453a;--text:#eceeef;--text-muted:#98999e;
       --text-placeholder:#555860;--scrollbar-thumb:#3a3d42;
+      --isik:rgba(255,255,255,.05);--border-hi:rgba(255,255,255,.18);
     }
     :root[data-theme=&quot;aydinlik&quot;] {
       --bg-main:#f5f5f7;--bg-sidebar:#ffffff;--bg-header1:#ffffff;--bg-header2:#f7f8fa;
@@ -11985,6 +11999,7 @@ boot();
       --bg-row-even:rgba(240,242,245,.6);--bg-row-hover:#eaecef;--border:#d1d5db;
       --accent:#0071e3;--accent2:#2196f3;--bad:#d70015;--text:#1d1d1f;--text-muted:#6e6e73;
       --text-placeholder:#9a9a9f;--scrollbar-thumb:#c8cacc;
+      --isik:rgba(0,0,0,.045);--border-hi:rgba(0,0,0,.18);
     }
     :root[data-theme=&quot;kehribar&quot;] {
       --bg-main:#141110;--bg-sidebar:#1c1815;--bg-header1:#1c1815;--bg-header2:#241f1a;
@@ -11992,6 +12007,7 @@ boot();
       --bg-row-even:rgba(36,31,26,.4);--bg-row-hover:#2a2420;--border:#2e2822;
       --accent:#e5a53c;--accent2:#f0c070;--bad:#ff453a;--text:#f2ece3;--text-muted:#a89b89;
       --text-placeholder:#6a5e4e;--scrollbar-thumb:#3e3730;
+      --isik:rgba(255,236,205,.06);--border-hi:rgba(255,255,255,.18);
     }
     :root[data-theme=&quot;nordik&quot;] {
       --bg-main:#0b0f16;--bg-sidebar:#141b25;--bg-header1:#141b25;--bg-header2:#1b2431;
@@ -11999,6 +12015,7 @@ boot();
       --bg-row-even:rgba(27,36,49,.4);--bg-row-hover:#202d3e;--border:#273447;
       --accent:#5bc9e0;--accent2:#7de0f5;--bad:#ff5e5a;--text:#e8eef7;--text-muted:#8a9bb5;
       --text-placeholder:#4f5f75;--scrollbar-thumb:#2e3e52;
+      --isik:rgba(190,225,255,.06);--border-hi:rgba(255,255,255,.18);
     }
 
     /* PANEL — kaynak: tema/tema.css (PANEL TEMA v1.0) koyu paleti; f0 ile ayni renkler. */
@@ -12008,6 +12025,7 @@ boot();
       --bg-row-even:rgba(22,24,28,.45);--bg-row-hover:#1b1e24;--border:#1e2126;
       --accent:#8b93f8;--accent2:#a7adfb;--bad:#ff5e5a;--text:#e8eaed;--text-muted:#858c98;
       --text-placeholder:#5b6270;--scrollbar-thumb:#2a2e35;
+      --isik:rgba(255,255,255,.05);--border-hi:#2a2e35;
     }
     /* Temanin imzasi (f0 ile ayni): isik yikamasi + ince izgara. */
     :root[data-theme=&quot;panel&quot;] body::before,
@@ -12022,51 +12040,13 @@ boot();
       -webkit-mask-image:radial-gradient(78% 55% at 50% 0%,#000,transparent 76%);
       mask-image:radial-gradient(78% 55% at 50% 0%,#000,transparent 76%);}
 
-    /* ============ PANEL TEMASI — EFEKT KATMANI ============
-       f0 ile ayni gorsel dil, f1 in kendi seciciler ine giydirilmis.
-       Hepsi bu tema altinda; oteki temalar hic etkilenmez. */
-    /* f0 ile ayni: transform ile kayar (background-position her kare boyama demekti). */
-    :root[data-theme=&quot;panel&quot;] .header::after{content:'';position:absolute;bottom:0;left:0;width:34%;height:1px;
-      pointer-events:none;opacity:.85;will-change:transform;
-      background:linear-gradient(90deg,transparent,var(--accent),transparent);
-      animation:temaSweep 8s cubic-bezier(.16,1,.3,1) infinite;}
-    @keyframes temaSweep{0%{transform:translateX(-120%)}55%,100%{transform:translateX(194%)}}
-    :root[data-theme=&quot;panel&quot;] .header{position:relative;}
-
-    /* kartlar: imlec isigi + hover kalkmasi */
-    :root[data-theme=&quot;panel&quot;] .content,:root[data-theme=&quot;panel&quot;] .nest-group-card,:root[data-theme=&quot;panel&quot;] .nest-panel{position:relative;
-      transition:border-color .2s,box-shadow .2s;}
-    :root[data-theme=&quot;panel&quot;] .nest-group-card:hover{border-color:#2a2e35;
-      box-shadow:0 2px 6px rgba(0,0,0,.45),0 16px 40px -12px rgba(0,0,0,.7);}
-    :root[data-theme=&quot;panel&quot;] .content::after,:root[data-theme=&quot;panel&quot;] .nest-group-card::after{content:'';position:absolute;inset:0;
-      border-radius:inherit;pointer-events:none;z-index:0;opacity:0;transition:opacity .3s;
-      background:radial-gradient(340px circle at var(--mx,50%) var(--my,50%),rgba(255,255,255,.05),transparent 62%);}
-    :root[data-theme=&quot;panel&quot;] .content:hover::after,:root[data-theme=&quot;panel&quot;] .nest-group-card:hover::after{opacity:1;}
-    :root[data-theme=&quot;panel&quot;] .content > *,:root[data-theme=&quot;panel&quot;] .nest-group-card > *{position:relative;z-index:1;}
-
-    /* tablolar + butonlar */
+    /* ========= PANEL TEMASININ KIMLIGI — yalniz bu tema =========
+       Duragan gorunum: versal baslik, secim rengi, rozet. HAREKET 04.09.2026'da
+       butun temalara acildi, bu style blogunun SONUNDAKI 'EFEKT KATMANI' blogunda. */
     :root[data-theme=&quot;panel&quot;] th{text-transform:uppercase;letter-spacing:.06em;}
-    :root[data-theme=&quot;panel&quot;] tbody tr{transition:background .14s;}
-    :root[data-theme=&quot;panel&quot;] .cm-tab,:root[data-theme=&quot;panel&quot;] .cm-btn,:root[data-theme=&quot;panel&quot;] .nest-download-btn{transition:transform .12s ease,
-      filter .15s ease,box-shadow .2s ease,background .16s,border-color .16s,color .16s;}
-    :root[data-theme=&quot;panel&quot;] .cm-tab:hover,:root[data-theme=&quot;panel&quot;] .cm-btn:hover,:root[data-theme=&quot;panel&quot;] .nest-download-btn:hover{transform:translateY(-1px);}
-
-    /* secim, odak, kaydirma cubugu */
     :root[data-theme=&quot;panel&quot;] ::selection{background:rgba(139,147,248,.30);color:var(--text);}
     :root[data-theme=&quot;panel&quot;] :focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
     :root[data-theme=&quot;panel&quot;] ::-webkit-scrollbar-thumb{background:#2a2e35;border-radius:6px;}
-
-    /* acilis isigi (f0 ile ayni) */
-    #tema-loadbeam{position:fixed;inset:0;z-index:200;pointer-events:none;
-      background:linear-gradient(104deg,transparent 38%,rgba(139,147,248,.10) 47%,
-        rgba(255,255,255,.07) 50%,rgba(139,147,248,.10) 53%,transparent 62%);
-      animation:temaBeam 1.15s cubic-bezier(.32,0,.24,1) both;}
-    @keyframes temaBeam{from{transform:translate3d(-115%,0,0)}to{transform:translate3d(115%,0,0)}}
-
-    @media (prefers-reduced-motion:reduce){
-      #tema-loadbeam{display:none;}
-      :root[data-theme=&quot;panel&quot;] *,:root[data-theme=&quot;panel&quot;] *::before,:root[data-theme=&quot;panel&quot;] *::after{animation:none!important;}
-    }
 
     /* --- tipografi + rozet + not (f0 ile ayni dil) --- */
     :root[data-theme=&quot;panel&quot;] body{letter-spacing:-.005em;}
@@ -12322,6 +12302,46 @@ boot();
     }
     .cm-btn-inline:disabled { opacity: .4; cursor: not-allowed; }
 
+    /* ============ EFEKT KATMANI — BUTUN TEMALARDA ============
+       f0 ile ayni gorsel dil, f1'in kendi seciciler ine giydirilmis. 04.09.2026'da
+       Panel'den butun temalara acildi; renkler tema degiskenlerinden okunur
+       (--isik / --border-hi / --accent). Blok BILEREK dosyanin SONUNDA: secicileri
+       temel stillerle ayni ozgullukte, once gelseydi temel stiller ezerdi. */
+    .header{position:relative;}
+    /* f0 ile ayni: transform ile kayar (background-position her kare boyama demekti). */
+    .header::after{content:'';position:absolute;bottom:0;left:0;width:34%;height:1px;
+      pointer-events:none;opacity:.85;will-change:transform;
+      background:linear-gradient(90deg,transparent,var(--accent),transparent);
+      animation:temaSweep 8s cubic-bezier(.16,1,.3,1) infinite;}
+    @keyframes temaSweep{0%{transform:translateX(-120%)}55%,100%{transform:translateX(194%)}}
+
+    /* kartlar: imlec isigi + hover kalkmasi */
+    .content,.nest-group-card,.nest-panel{position:relative;transition:border-color .2s,box-shadow .2s;}
+    .nest-group-card:hover{border-color:var(--border-hi);
+      box-shadow:0 2px 6px rgba(0,0,0,.45),0 16px 40px -12px rgba(0,0,0,.7);}
+    .content::after,.nest-group-card::after{content:'';position:absolute;inset:0;
+      border-radius:inherit;pointer-events:none;z-index:0;opacity:0;transition:opacity .3s;
+      background:radial-gradient(340px circle at var(--mx,50%) var(--my,50%),var(--isik),transparent 62%);}
+    .content:hover::after,.nest-group-card:hover::after{opacity:1;}
+    .content > *,.nest-group-card > *{position:relative;z-index:1;}
+
+    /* tablolar + butonlar */
+    tbody tr,tbody tr td{transition:background .14s;}
+    .cm-tab,.cm-btn,.nest-download-btn{transition:transform .12s ease,
+      filter .15s ease,box-shadow .2s ease,background .16s,border-color .16s,color .16s;}
+    .cm-tab:hover,.cm-btn:hover,.nest-download-btn:hover{transform:translateY(-1px);}
+
+    /* acilis isigi (f0 ile ayni) */
+    #tema-loadbeam{position:fixed;inset:0;z-index:200;pointer-events:none;will-change:transform;
+      background:linear-gradient(104deg,transparent 38%,var(--isik) 47%,
+        var(--isik) 53%,transparent 62%);
+      animation:temaBeam 1.15s cubic-bezier(.32,0,.24,1) both;}
+    @keyframes temaBeam{from{transform:translate3d(-115%,0,0)}to{transform:translate3d(115%,0,0)}}
+
+    @media (prefers-reduced-motion:reduce){
+      #tema-loadbeam{display:none;}
+      *,*::before,*::after{transition:none!important;animation:none!important;}
+    }
 
   </style>
   <script>
@@ -15420,14 +15440,9 @@ function setStatus(msg) {
 // =====================================================================
 // Tema secimi
 (function() {
-// ---------- PANEL TEMASI: EFEKTLER (f0 ile ayni davranis) ----------
-function panelTemaMi() { return document.documentElement.dataset.theme === 'panel'; }
-function temaTemizle() {
-  if (panelTemaMi()) return;
-  var e = document.getElementById('tema-loadbeam'); if (e) e.remove();
-}
+// ---------- ACILIS VE KART EFEKTLERI (f0 ile ayni davranis) ----------
+// 04.09.2026: Panel temasindan butun temalara acildi; renkler CSS degiskenlerinden.
 function temaBeam() {
-  if (!panelTemaMi()) return;
   var eski = document.getElementById('tema-loadbeam');
   if (eski) eski.remove();
   var b = document.createElement('div');
@@ -15437,7 +15452,6 @@ function temaBeam() {
 }
 // Imlec isigi: kartin uzerindeki konum CSS degiskenine yazilir.
 document.addEventListener('pointermove', function (e) {
-  if (!panelTemaMi()) return;
   var c = e.target.closest && e.target.closest('.content, .nest-group-card');
   if (!c) return;
   var r = c.getBoundingClientRect();
@@ -15452,13 +15466,13 @@ document.addEventListener('pointermove', function (e) {
     var v = sel.value;
     document.documentElement.setAttribute(&quot;data-theme&quot;, v);
     try{ localStorage.setItem(&quot;dxf_theme&quot;, v); }catch(e){}
-    temaTemizle(); temaBeam();   // Panel disinda ikisi de hemen cikar
+    temaBeam();   // her temada calisir (04.09.2026)
   });
   try{
     var t = localStorage.getItem(&quot;dxf_theme&quot;);
     if(t !== null){ document.documentElement.setAttribute(&quot;data-theme&quot;, t); sel.value = t; }
   }catch(e){}
-  temaBeam();   // sayfa Panel temasiyla acildiysa
+  temaBeam();   // sayfa acilisinda
 })();
 
 // =====================================================================
@@ -18581,12 +18595,12 @@ setTimeout(function() {
 <div id="road-modal" onclick="if(event.target===this)yolHaritasiAc(false)">
   <div id="road-card">
     <div id="road-head">
-      <h2>Yol Haritası — Yakında Eklenecekler</h2>
+      <h2>Yol Haritası</h2>
       <span id="road-sayac"></span>
       <button id="road-kapat" onclick="yolHaritasiAc(false)" title="Kapat">&times;</button>
     </div>
     <div id="road-body"></div>
-    <div id="road-alt">Sıra bağlayıcı değildir; bir madde bitince listede işaretlenir.</div>
+    <div id="road-alt">Sıra bağlayıcı değildir. <b>Kontrol edilecekler</b> yazıldı ama sahada denenmedi; denendikçe tamamlananlara geçer.</div>
   </div>
 </div>
 <script>
@@ -18604,7 +18618,7 @@ function show(i){
 const YOL_HARITASI = [
   {n:1,  t:'Ara kat — profilsiz seçenek', durum:'tamam', tarih:'25.08.2026',
    d:'Profil yok: panel iç açıklığın tamamını kaplar (p=0), çerçeve/bölme profili üretilmez, çizim tipi 5X3.'},
-  {n:2,  t:'Eşanjör modülü AHU Studio\'ya taşınacak', durum:'tamam', tarih:'25.08.2026',
+  {n:2,  t:'Eşanjör modülü AHU Studio\'ya taşınacak', durum:'kontrol', tarih:'25.08.2026',
    d:'8. sekme: kenar + üst kat + sağa uzaklık girilir, CI ve 1..4. ölçü modül ölçüsünden türer. f1\'deki elle giriş formu kaldırıldı.'},
   {n:3,  t:'Eşanjör önüne filtre ve damper', durum:'plan',
    d:'Eşanjörün önüne filtre ve damper eklenebilir hâle gelecek.'},
@@ -18612,7 +18626,7 @@ const YOL_HARITASI = [
   {n:5,  t:'Motor ayakları kütüphanesi', durum:'plan',
    d:'Motor/fan seçilince ayak çizimi otomatik DXF olarak çıkacak — yalnız DXF, hesaba girmez.'},
   {n:6,  t:'Fan önü bağlantı sacı', durum:'plan', d:''},
-  {n:7,  t:'Batarya kızakları', durum:'tamam', tarih:'01.09.2026',
+  {n:7,  t:'Batarya kızakları', durum:'kontrol', tarih:'01.09.2026',
    d:'9. sekme: batarya işaretlenip föy PDF-i yüklenince HR okunur; boy modülün W-sinden, üst L kanadı HR-den türer. Takım başına 2 ALT L + 2 OMEGA + 2 ÜST L, hepsi 1,5 mm.'},
   {n:8,  t:'Susturucu çizimi', durum:'plan', d:''},
   {n:9,  t:'Filtre kasetleri', durum:'plan', d:''},
@@ -18628,23 +18642,47 @@ const YOL_HARITASI = [
   {n:17, t:'Malzeme analizi (santral bazlı Excel)', durum:'tamam', tarih:'31.08.2026',
    d:'Ne satın alınacağı: nesting sonrası kaç mm sacdan kaç plaka, kesim planı sonrası kaç boy profil, kaç köşe ve kaç takviye plastiği, kapak deliklerinden kaç vida ve kaç perçin.'}
 ];
-const ROZET = {plan:['rz-plan','PLANLANDI'], suruyor:['rz-suruyor','SÜRÜYOR'], tamam:['rz-tamam','TAMAM']};
+const ROZET = {plan:['rz-plan','PLANLANDI'], suruyor:['rz-suruyor','SÜRÜYOR'],
+               kontrol:['rz-kontrol','KONTROL BEKLİYOR'], tamam:['rz-tamam','TAMAM']};
+// Panel UC BOLUME ayrilir (Cenk, 04.09.2026). Bir maddenin hangi bolume dustugunu
+// YALNIZ 'durum' alani belirler — madde numaralari ve liste sirasi degismez, yani
+// bir isi tasimak icin tek kelime yeter. 'kontrol' = yazildi, sahada denenmedi.
+const YOL_GRUPLARI = [
+  {ad:'Tamamlananlar',        durumlar:['tamam']},
+  {ad:'Kontrol Edilecekler',  durumlar:['kontrol']},
+  {ad:'Yakında Eklenecekler', durumlar:['suruyor','plan']}
+];
 function yolKacar(){
-  const tamam = YOL_HARITASI.filter(x=>x.durum==='tamam').length;
-  return {tamam, toplam: YOL_HARITASI.length};
+  const say = k => YOL_HARITASI.filter(x=>YOL_GRUPLARI[k].durumlar.indexOf(x.durum)>=0).length;
+  return {tamam:say(0), kontrol:say(1), yakin:say(2), toplam:YOL_HARITASI.length};
+}
+// i = BOLUM ICI sira (Cenk, 04.09.2026: 'liste sıralama numaraları da kendi içinde olsun').
+// Planin kendi numarasi (x.n) ekrandan kalkti ama KAYBOLMADI: satirin data-no'sunda ve
+// numaranin ipucunda durur — CLAUDE.md ve notlar maddeleri hala onunla aniyor (#7 kizak
+// gibi), ayrica kaynak siranin korundugunu test oradan olcuyor.
+function yolSatir(x, i){
+  const rz = ROZET[x.durum] || ROZET.plan;
+  // Kontroldeki madde BITMEDI, yalnizca yazildi — tarihin etiketi de bunu soylemeli.
+  const ne = x.durum==='kontrol' ? 'Eklendi: ' : 'Bitti: ';
+  const alt = [x.d || '', x.tarih ? (ne+x.tarih) : ''].filter(Boolean).join(' · ');
+  return '<div class="road-item '+(x.durum==='tamam'?'tamam':'')+'" data-no="'+x.n+'">'
+    + '<div class="road-no" title="Plan sırası: '+x.n+'">'+(i+1)+'</div>'
+    + '<div class="road-ic"><div class="road-t">'+x.t+'</div>'
+    + (alt ? '<div class="road-d">'+alt+'</div>' : '')+'</div>'
+    + '<span class="road-rozet '+rz[0]+'">'+rz[1]+'</span></div>';
 }
 function yolHaritasiCiz(){
   const s = yolKacar();
-  document.getElementById('road-sayac').textContent = s.toplam+' maddenin '+s.tamam+'’i tamam';
-  document.getElementById('road-btn-sayac').textContent = s.tamam+'/'+s.toplam;
-  document.getElementById('road-body').innerHTML = YOL_HARITASI.map(x=>{
-    const rz = ROZET[x.durum] || ROZET.plan;
-    const alt = [x.d || '', x.tarih ? ('Bitti: '+x.tarih) : ''].filter(Boolean).join(' · ');
-    return '<div class="road-item '+(x.durum==='tamam'?'tamam':'')+'">'
-      + '<div class="road-no">'+x.n+'</div>'
-      + '<div class="road-ic"><div class="road-t">'+x.t+'</div>'
-      + (alt ? '<div class="road-d">'+alt+'</div>' : '')+'</div>'
-      + '<span class="road-rozet '+rz[0]+'">'+rz[1]+'</span></div>';
+  document.getElementById('road-sayac').textContent =
+    s.toplam+' madde · '+s.tamam+' tamam · '+s.kontrol+' kontrolde · '+s.yakin+' sırada';
+  // Dugmedeki sayac YAZILMIS isi sayar (tamam + kontrol): kontroldeki madde artik
+  // 'yakinda eklenecekler' degildir, ama 'tamam' da degildir.
+  document.getElementById('road-btn-sayac').textContent = (s.tamam+s.kontrol)+'/'+s.toplam;
+  document.getElementById('road-body').innerHTML = YOL_GRUPLARI.map(g=>{
+    const uyan = YOL_HARITASI.filter(x=>g.durumlar.indexOf(x.durum)>=0);
+    if(!uyan.length) return '';
+    return '<div class="road-grup"><b>'+g.ad+'</b><i>'+uyan.length+'</i><em></em></div>'
+      + uyan.map(yolSatir).join('');
   }).join('');
 }
 function yolHaritasiAc(ac){
