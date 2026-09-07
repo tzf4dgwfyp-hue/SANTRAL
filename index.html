@@ -11925,9 +11925,18 @@ function exportToDxf(toplayici) {
         return yap(parseInt(pts[0]), parseInt(pts[1]), harita[k] * kat);
       });
     }
+    // MARKALAMA KODU — panel markasiyla AYNI onekten (ahuKodOnEki) + uc harfli
+    // aile kisaltmasi + numara. TIP KODUDUR (Cenk, 07.09.2026): ayni olcudeki
+    // butun parcalar ayni kodu tasir, yani olcuye gore tekillestirme oldugu gibi
+    // kalir ve kesim listesiyle birebir ortusur. Numara kaydin sirasidir
+    // (elemanDimMap'in ekleme sirasi) — ayni proje her aktarimda ayni kodu verir.
+    // TAVA'da marka YOKTUR (Cenk: «sadece tavada markalama olmasin»), bu yuzden
+    // tava kaydina kod da konmaz.
+    var markaOnEk = ahuKodOnEki() + '-';
+    function markaKodu(aile, i) { return markaOnEk + aile + (i + 1); }
     var importedBogaz = elemanKayitlari('Boğaz', function(w, h, adet) {
       return { ybp: w, dbp: h, adet: adet };
-    });
+    }).map(function(r, i) { r.kod = markaKodu('BGZ', i); return r; });
     // Tava: girilen ölçü PANEL/açıklık ölçüsüdür; çizim programı 45'i kendi düşer
     // (panel 600 geniş x 1350 yüksek -> gövde 555 x 1305). Cihaz tipi profil serisinden
     // gelir; özel seri tanımlıysa tava tarafı 60'lık paya düşer (TAVA_ALT varsayılanı).
@@ -11945,7 +11954,7 @@ function exportToDxf(toplayici) {
     // İkiye bölme YALNIZCA genişliğe bakar: 1800+ genişlik bölünür, yükseklik bölmez.
     var importedDamper = elemanKayitlari('Damper', function(w, h, adet) {
       return { genislik: w, yukseklik: h, adet: adet };
-    });
+    }).map(function(r, i) { r.kod = markaKodu('DMP', i); return r; });
     // Ara kat paneli: f1'in ARA KAT modülüne gider. Kayıt şekli oradaki elle girişle aynı
     // ({tip, B, K, adet}) ve tip her iki profil için de '4.5X3' — 30×30 ile 30×60 arasındaki
     // fark parçanın kendisinde değil, iç ölçüyü ne kadar daralttığındadır (p). B/K normalize
@@ -11954,7 +11963,11 @@ function exportToDxf(toplayici) {
       var pts = k.split('|');
       var w = parseInt(pts[1]), h = parseInt(pts[2]);
       return { tip: pts[0], B: Math.max(w, h), K: Math.min(w, h), adet: arakatDimMap[k] * kat };
-    });
+    }).map(function(r, i) { r.kod = markaKodu('AKT', i); return r; });
+    // Kizak kayitlari modul dongusunun ICINDE dolduruluyor (markaOnEk henuz yok),
+    // kod bu yuzden burada, sirasiyla veriliyor. Bir takimin uc parcasi da AYNI
+    // kodu tasir (Cenk: «takim kodu yeter»).
+    importedKizak.forEach(function(r, i) { r.kod = markaKodu('KZK', i); });
 
     var allPanels = mainPanels.concat(altUstPanels);
     if(allPanels.length > 0 || importedBogaz.length > 0 || importedTava.length > 0
@@ -16425,11 +16438,89 @@ function addPV(dxf, x, y0, y1, xofs, cn, cf, layer, vidaYs) {
 // noktadan beslenir — değeri burada değiştirmek hepsini birden etkiler.
 var KOD_CAM_KACIS = 20;
 
+// =====================================================================
+// MARKALAMA — HER PARCA MARKA TASIR, MARKA PARCADAN BUYUK OLMAZ (07.09.2026)
+// Cenk: «markalama olmayan hicbir parca olmayacak ancak markalamalar parcadan
+//        buyuk olmayacak». TAVA haric (Cenk: «sadece tavada markalama olmasin»),
+//        ESANJOR de oldugu gibi birakildi (h=10, sag-ust kose; referans LSP ile
+//        birebir eslesiyor).
+// Kod TEK KAYNAKTAN gelir: f0'daki ahuKodOnEki() + uc harfli aile kisaltmasi +
+// numara (BGZ / DMP / AKT / KZK). Ayni olcudeki parcalar AYNI kodu tasir —
+// TIP KODU, yani olcuye gore tekillestirme oldugu gibi kalir (Cenk sectti).
+// =====================================================================
+var MARKA_H     = 35.0;        // hedef yazi yuksekligi — panelin bugunku boyu
+var MARKA_MIN_H = 10.0;        // Cenk'in sectigi alt sinir (esanjorun yazisiyla ayni)
+var MARKA_HARF  = 0.6;         // DXF standart fontta karakter genisligi ~ 0.6 * yukseklik
+var MARKA_LAYER = 'KOD_BUYUK';
+
+// Kodu W x H kutusuna SIGDIRIR (Cenk'in sectigi sira):
+//   1) yatay, tam boy   -> sigan her parcada cikti BIREBIR bugunku gibi kalir
+//   2) 90 derece donuk, tam boy  -> dar ama uzun parcada yazi buyuk kalir
+//   3) kucultulur; iki yondeki adaydan BUYUK olani secilir, 0.1 mm asagi yuvarlanir
+// SIGMA her zaman one gecer: MARKA_MIN_H bir HEDEFTIR, marka parcadan buyuk cikamaz.
+function markaOlcu(kod, W, H) {
+  var n = String(kod || '').length;
+  if (!n || !(W > 0) || !(H > 0)) return null;
+  var gen = function (h) { return n * h * MARKA_HARF; };
+  if (gen(MARKA_H) <= W && MARKA_H <= H) return { h: MARKA_H, rot: 0 };
+  if (gen(MARKA_H) <= H && MARKA_H <= W) return { h: MARKA_H, rot: 90 };
+  var hYatay = Math.min(W / (n * MARKA_HARF), H);
+  var hDikey = Math.min(H / (n * MARKA_HARF), W);
+  var yatay = hYatay >= hDikey;
+  var h = Math.floor((yatay ? hYatay : hDikey) * 10) / 10;
+  return { h: h, rot: yatay ? 0 : 90, kucultuldu: true, altSinirAltinda: h < MARKA_MIN_H };
+}
+
+// Parcanin GERCEK sinir kutusu (YAZI haric). Marka ikinci bir olcu kaynagindan
+// degil, parcanin KENDI ciziminden kalibre edilir — cizim degisirse marka da
+// kendiliginden takip eder (nesting'deki olcuAyakIzi deseninin aynisi).
+// SPLINE alani 'controlPoints'tir: damper parcalari ve cam splinelerle ciziliyor.
+function markaKutusu(cizFn) {
+  var sc = new DxfWriter();
+  cizFn(sc);
+  var x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  function nk(x, y) {
+    if (!isFinite(x) || !isFinite(y)) return;
+    if (x < x0) x0 = x;
+    if (x > x1) x1 = x;
+    if (y < y0) y0 = y;
+    if (y > y1) y1 = y;
+  }
+  sc.entities.forEach(function (e) {
+    if (e.type === 'LINE') { nk(e.x1, e.y1); nk(e.x2, e.y2); }
+    else if (e.type === 'CIRCLE' || e.type === 'ARC') { nk(e.cx - e.r, e.cy - e.r); nk(e.cx + e.r, e.cy + e.r); }
+    else if (e.type === 'SPLINE') (e.controlPoints || []).forEach(function (p) { nk(p[0], p[1]); });
+  });
+  if (!isFinite(x0)) return null;
+  return { x0: x0, y0: y0, w: x1 - x0, h: y1 - y0 };
+}
+
+// Parcayi olcup markayi ortasina basar. cizFn parcayi (0,0)'a ve KODSUZ cizer —
+// kodlu cizerse olcum kendi yazisini olcer ve kutu buyur.
+function markaOlcerekYaz(dxf, ox, oy, kod, cizFn) {
+  if (!kod) return;
+  var k = markaKutusu(cizFn);
+  if (!k) return;
+  addBigKodLabel(dxf, ox + k.x0, oy + k.y0, k.w, k.h, kod, false);
+}
+
+// 60 serisinde ic sacin / ust panelin etiket kutusu B-41 x K-41 formulunden gelir.
+// COK KUCUK panelde (K <= 41) bu EKSIYE duser ve marka hic basilmazdi — olculdu
+// 07.09.2026: havuzda 16983 panelin 1'i (DES-01, 647x17). Kutu bozuksa parca
+// OLCULUR; iki cagri da AYNI orijini kullandigi icin yedek yol birebir oturur.
+// Kutu saglamken davranis DEGISMEZ (cikti bayt bayt ayni).
+function kodEtiketYedekli(dxf, ox, oy, W, H, kod, isGlass, cizFn) {
+  if (W > 0 && H > 0) { addBigKodLabel(dxf, ox, oy, W, H, kod, isGlass); return; }
+  markaOlcerekYaz(dxf, ox, oy, kod, cizFn);
+}
+
 function addBigKodLabel(writer, ox, oy, W, H, kod, isGlass) {
   if (!kod) return;
+  var m = markaOlcu(kod, W, H);
+  if (!m || !(m.h > 0)) return;
   var lx = ox + W / 2;
   var ly = isGlass ? (oy + H * 0.22 - KOD_CAM_KACIS) : (oy + H / 2);
-  writer.addText(lx, ly, 35, kod, 'KOD_BUYUK', 0, 1, 2);
+  writer.addText(lx, ly, m.h, kod, MARKA_LAYER, m.rot, 1, 2);
 }
 
 // -------------------------------------------------------
@@ -16829,7 +16920,8 @@ function draw60(dxf, panelList, satirN, gapCol, gapRow) {
             function (w) { drawIc60(w, 0, 0, B, K, kod, '0'); });
         }
         addBigKodLabel(dxf, curX, curY, B, K, kod, false);
-        addBigKodLabel(dxf, curX + B + 797, curY + 20.5, B - 41, K - 41, kod, false);
+        kodEtiketYedekli(dxf, curX + B + 797, curY + 20.5, B - 41, K - 41, kod, false,
+          function (w) { drawIc60(w, 0, 0, B, K, '', '0'); });
         pairW = 2 * B + 917;        break;
       }
       case 'ACILIR': {
@@ -16844,12 +16936,14 @@ function draw60(dxf, panelList, satirN, gapCol, gapRow) {
           addCam60(dxf, oxIc + BI / 2, curY + K / 2, '0');
         }
         addBigKodLabel(dxf, curX, curY, B, K, kod, isGlass);
-        addBigKodLabel(dxf, oxIc, oyIc, BI, KI, kod, isGlass);
+        kodEtiketYedekli(dxf, oxIc, oyIc, BI, KI, kod, isGlass,
+          function (w) { drawIcAcilir60(w, 0, 0, B, K, '', '0'); });
         pairW = 2 * B + 616.5;        break;
       }
       case 'UST': {
         drawUst60(dxf, curX, curY, B, K, kod, '0');
-        addBigKodLabel(dxf, curX, curY, B - 41, K - 41, kod, false);
+        kodEtiketYedekli(dxf, curX, curY, B - 41, K - 41, kod, false,
+          function (w) { drawUst60(w, 0, 0, B, K, '', '0'); });
         pairW = B + 31;        break;
       }
       case 'BOGAZ': {
@@ -16857,7 +16951,8 @@ function draw60(dxf, panelList, satirN, gapCol, gapRow) {
         drawBogazDis60(dxf, curX, curY, B, K, bt, kod, '0');
         drawIc60(dxf, curX + B + 797, curY + 20.5, B, K, kod, '0');
         addBigKodLabel(dxf, curX, curY, B, K, kod, false);
-        addBigKodLabel(dxf, curX + B + 797, curY + 20.5, B - 41, K - 41, kod, false);
+        kodEtiketYedekli(dxf, curX + B + 797, curY + 20.5, B - 41, K - 41, kod, false,
+          function (w) { drawIc60(w, 0, 0, B, K, '', '0'); });
         pairW = 2 * B + 917;        break;
       }
     }
@@ -17276,7 +17371,8 @@ if (elBBtnExport) {
 
 var BOGAZ_LAYER = 'BOGAZ';
 
-function drawBogazDBP(dxf, ox, oy, DBP) {
+function drawBogazDBP(dxf, ox, oy, DBP, kod) {
+  if (kod) markaOlcerekYaz(dxf, ox, oy, kod, function (w) { drawBogazDBP(w, 0, 0, DBP); });
   var LR = DBP - 13.6;
   var dY = LR - 586.4;
   var L = BOGAZ_LAYER;
@@ -17363,7 +17459,8 @@ function drawBogazDBP(dxf, ox, oy, DBP) {
   dxf.addLine(ox + 130.084, oy + y622, ox + 130.084, oy + y641, L);
 }
 
-function drawBogazYBP(dxf, ox, oy, YBP) {
+function drawBogazYBP(dxf, ox, oy, YBP, kod) {
+  if (kod) markaOlcerekYaz(dxf, ox, oy, kod, function (w) { drawBogazYBP(w, 0, 0, YBP); });
   var L = BOGAZ_LAYER;
   var BW = YBP + 40;    // govde genislik
   var xR = 5.0 + BW;    // sag koselerin X merkezi
@@ -17438,7 +17535,7 @@ function bogazTakimlari(YBP) {
 }
 
 // Tek bir bogaz seti (2xDBP + 2xYBP, haci duzeni)
-function drawBogazSet(dxf, ox, oy, YBP, DBP) {
+function drawBogazSet(dxf, ox, oy, YBP, DBP, kod) {
   var G = 100.0;
   var wDBP = 163.768;
   var hDBP = DBP + 46.884;
@@ -17446,17 +17543,17 @@ function drawBogazSet(dxf, ox, oy, YBP, DBP) {
   var hYBP = 163.768;
 
   // Alt YBP
-  drawBogazYBP(dxf, ox + wDBP + G, oy + 0.0, YBP);
+  drawBogazYBP(dxf, ox + wDBP + G, oy + 0.0, YBP, kod);
   // Sol DBP
-  drawBogazDBP(dxf, ox + 0.0, oy + hYBP + G, DBP);
+  drawBogazDBP(dxf, ox + 0.0, oy + hYBP + G, DBP, kod);
   // Sag DBP
-  drawBogazDBP(dxf, ox + wDBP + G + wYBP + G, oy + hYBP + G, DBP);
+  drawBogazDBP(dxf, ox + wDBP + G + wYBP + G, oy + hYBP + G, DBP, kod);
   // Ust YBP
-  drawBogazYBP(dxf, ox + wDBP + G, oy + hYBP + G + hDBP + G, YBP);
+  drawBogazYBP(dxf, ox + wDBP + G, oy + hYBP + G + hDBP + G, YBP, kod);
 
   // Uzun durum: 3. DBP
   if (YBP >= 1950) {
-    drawBogazDBP(dxf, ox + wDBP + G + wYBP + G + wDBP + 300.0, oy + hYBP + G, DBP);
+    drawBogazDBP(dxf, ox + wDBP + G + wYBP + G + wDBP + 300.0, oy + hYBP + G, DBP, kod);
   }
 
   // Toplam olcu
@@ -17663,7 +17760,7 @@ function generateAndDownloadBogazDxf(list) {
     // Saca sigmayan genis bogaz IKI takima bolunur (bkz. bogazTakimlari).
     var bl = bogazTakimlari(b.ybp);
     for (var a = 0; a < b.adet * bl.takim; a++) {
-      var dim = drawBogazSet(dxf, 0, yCursor, bl.ybp, b.dbp);
+      var dim = drawBogazSet(dxf, 0, yCursor, bl.ybp, b.dbp, b.kod);
       yCursor += dim.h + SET_GAP;
     }
   });
@@ -18286,11 +18383,11 @@ function buildModulNestPieces() {
     for (var a = 0; a < (Number(b.adet) || 1) * bl.takim; a++) {
       for (var i = 0; i < 2; i++) {
         pieces.push(nestParca(pid++, 'BOGAZ', 'BOGAZ', 'BOĞAZ YBP ' + ybp,
-          function (w) { drawBogazYBP(w, 0, 0, ybp); }));
+          function (w) { drawBogazYBP(w, 0, 0, ybp, b.kod); }));
       }
       for (var j = 0; j < dbpAdet; j++) {
         pieces.push(nestParca(pid++, 'BOGAZ', 'BOGAZ', 'BOĞAZ DBP ' + dbp,
-          function (w) { drawBogazDBP(w, 0, 0, dbp); }));
+          function (w) { drawBogazDBP(w, 0, 0, dbp, b.kod); }));
       }
     }
   });
@@ -18305,9 +18402,9 @@ function buildModulNestPieces() {
       for (var t = 0; t < hes.takim; t++) {
         for (var i = 0; i < 2; i++) {
           pieces.push(nestParca(pid++, 'DAMPER', 'DAMPER', 'DAMPER YATAY ' + Math.round(hes.kenar),
-            function (w) { drawDamperParca(w, DAMPER_UZUN_GEOM, 0, 0, dUzun, DAMPER_UZUN_X_BOL, 'x'); }));
+            function (w) { drawDamperParca(w, DAMPER_UZUN_GEOM, 0, 0, dUzun, DAMPER_UZUN_X_BOL, 'x', d.kod); }));
           pieces.push(nestParca(pid++, 'DAMPER', 'DAMPER', 'DAMPER DİKEY ' + Math.round(yukseklik),
-            function (w) { drawDamperParca(w, DAMPER_KISA_GEOM, 0, 0, dKisa, DAMPER_KISA_Y_BOL, 'y'); }));
+            function (w) { drawDamperParca(w, DAMPER_KISA_GEOM, 0, 0, dKisa, DAMPER_KISA_Y_BOL, 'y', d.kod); }));
         }
       }
     }
@@ -18333,9 +18430,9 @@ function buildModulNestPieces() {
     var B = Number(ak.B) || 0, K = Number(ak.K) || 0;
     for (var a = 0; a < (Number(ak.adet) || 1); a++) {
       pieces.push(nestParca(pid++, 'ARAKAT', 'ARAKAT', 'ARA KAT DIŞ ' + B + 'x' + K,
-        function (w) { drawArakatPiece(w, 0, 0, B, K, 1, t.dis, t.dis - 15, t.dis + 100); }));
+        function (w) { drawArakatPiece(w, 0, 0, B, K, 1, t.dis, t.dis - 15, t.dis + 100, ak.kod); }));
       pieces.push(nestParca(pid++, 'ARAKAT', 'ARAKAT', 'ARA KAT İÇ ' + B + 'x' + K,
-        function (w) { drawArakatPiece(w, 0, 0, B, K, 4, t.ic, 15, t.ic + 98.5); }));
+        function (w) { drawArakatPiece(w, 0, 0, B, K, 4, t.ic, 15, t.ic + 98.5, ak.kod); }));
     }
   });
 
@@ -18371,7 +18468,7 @@ function buildModulNestPieces() {
       for (var a = 0; a < adet; a++) {
         pieces.push(nestParca(pid++, 'KIZAK', 'KIZAK',
           'KIZAK ' + pc.ad + ' ' + k.boy,
-          function (w) { drawKizakParca(w, 0, 0, pc.g); }));
+          function (w) { drawKizakParca(w, 0, 0, pc.g, k.kod); }));
       }
     });
   });
@@ -19413,7 +19510,9 @@ function damperSayi(v) {
 
 // Gomulu geometriyi esneterek (ox, oy) noktasina cizer.
 // delta: uzama miktari - sinir: bu degerin otesindeki noktalar blok halinde kayar
-function drawDamperParca(dxf, geom, ox, oy, delta, sinir, eksen) {
+function drawDamperParca(dxf, geom, ox, oy, delta, sinir, eksen, kod) {
+  if (kod) markaOlcerekYaz(dxf, ox, oy, kod,
+    function (w) { drawDamperParca(w, geom, 0, 0, delta, sinir, eksen); });
   var L = DAMPER_LAYER;
   function px(x) { return ox + (eksen === 'x' && x > sinir ? x + delta : x); }
   function py(y) { return oy + (eksen === 'y' && y > sinir ? y + delta : y); }
@@ -19437,7 +19536,7 @@ function drawDamperParca(dxf, geom, ox, oy, delta, sinir, eksen) {
 //   DAMPER_KISA_GEOM = dikey cerceve parcasi -> boyu YUKSEKLIGI takip eder (y'de esner)
 // Sac uzerindeki dizilim referans &quot;100 X 30 DAMPER.dxf&quot; ile ayni:
 // [DIKEY] [YATAY/YATAY] [DIKEY]
-function drawDamperTakim(dxf, ox, oy, kenar, yukseklik) {
+function drawDamperTakim(dxf, ox, oy, kenar, yukseklik, kod) {
   var dUzun = kenar - DAMPER_UZUN_REF_KENAR;
   var dKisa = (yukseklik + DAMPER_KISA_EK) - DAMPER_KISA_REF_KENAR;
 
@@ -19452,24 +19551,24 @@ function drawDamperTakim(dxf, ox, oy, kenar, yukseklik) {
 
   for (var i = 0; i < 2; i++) {
     var ty = oy + (takimY - uzunToplamY) / 2 + i * (uzunY + DAMPER_GAP);
-    drawDamperParca(dxf, DAMPER_UZUN_GEOM, ortaX, ty, dUzun, DAMPER_UZUN_X_BOL, 'x');
+    drawDamperParca(dxf, DAMPER_UZUN_GEOM, ortaX, ty, dUzun, DAMPER_UZUN_X_BOL, 'x', kod);
   }
   var kisaTabanY = oy + (takimY - kisaY) / 2;
-  drawDamperParca(dxf, DAMPER_KISA_GEOM, ox, kisaTabanY, dKisa, DAMPER_KISA_Y_BOL, 'y');
+  drawDamperParca(dxf, DAMPER_KISA_GEOM, ox, kisaTabanY, dKisa, DAMPER_KISA_Y_BOL, 'y', kod);
   drawDamperParca(dxf, DAMPER_KISA_GEOM, ortaX + uzunG + DAMPER_GAP, kisaTabanY,
-                  dKisa, DAMPER_KISA_Y_BOL, 'y');
+                  dKisa, DAMPER_KISA_Y_BOL, 'y', kod);
 
   return { w: 2 * kisaG + uzunG + 2 * DAMPER_GAP, h: takimY };
 }
 
 // Bir kaydin tum takimlarini (bolunmusse 2, degilse 1) YAN YANA cizer.
 // genislik ve yukseklik AYRI anlamlidir — buyuk/kucuk diye normalize EDILMEZ.
-function drawDamperKayit(dxf, ox, oy, genislik, yukseklik) {
+function drawDamperKayit(dxf, ox, oy, genislik, yukseklik, kod) {
   var h = damperHesap(genislik);
   var toplamW = 0;
   var yuk = 0;
   for (var t = 0; t < h.takim; t++) {
-    var dim = drawDamperTakim(dxf, ox + toplamW, oy, h.kenar, yukseklik);
+    var dim = drawDamperTakim(dxf, ox + toplamW, oy, h.kenar, yukseklik, kod);
     toplamW += dim.w + (t < h.takim - 1 ? DAMPER_GAP : 0);
     yuk = dim.h;
   }
@@ -19482,7 +19581,7 @@ function generateAndDownloadDamperDxf(list) {
 
   list.forEach(function(d) {
     for (var a = 0; a < d.adet; a++) {
-      var dim = drawDamperKayit(dxf, xCursor, 0, d.genislik, d.yukseklik);
+      var dim = drawDamperKayit(dxf, xCursor, 0, d.genislik, d.yukseklik, d.kod);
       xCursor += dim.w + DAMPER_GAP;
     }
   });
@@ -19617,7 +19716,9 @@ function akAddMiddleHoles(dxf, ox, oy, x1, y1, x2, y2, maxGap, r, layer) {
 }
 
 // Tek bir ara kat parcasi (DIS veya IC) cizer, tumu beyaz (color 7)
-function drawArakatPiece(dxf, ox, oy, B, K, DLT, LT, NEAR_OFS, FAR_OFS) {
+function drawArakatPiece(dxf, ox, oy, B, K, DLT, LT, NEAR_OFS, FAR_OFS, kod) {
+  if (kod) markaOlcerekYaz(dxf, ox, oy, kod,
+    function (w) { drawArakatPiece(w, 0, 0, B, K, DLT, LT, NEAR_OFS, FAR_OFS); });
   var r = 2.5;
   var L = ARAKAT_LAYER;
   var W = B + 2*LT - DLT;
@@ -19659,14 +19760,14 @@ function drawArakatPiece(dxf, ox, oy, B, K, DLT, LT, NEAR_OFS, FAR_OFS) {
 }
 
 // Bir ara kat seti (DIS solda + IC sagda, merkez hizali)
-function drawArakatPair(dxf, ox, oy, B, K, DIS_LT, IC_LT) {
+function drawArakatPair(dxf, ox, oy, B, K, DIS_LT, IC_LT, kod) {
   var W_DIS = B + 2*DIS_LT - 1;
   var OFS_Y = DIS_LT - IC_LT + 1.5;
   // DIS (solda)
-  drawArakatPiece(dxf, ox, oy, B, K, 1, DIS_LT, DIS_LT - 15, DIS_LT + 100);
+  drawArakatPiece(dxf, ox, oy, B, K, 1, DIS_LT, DIS_LT - 15, DIS_LT + 100, kod);
   // IC (sagda, merkez hizali)
   drawArakatPiece(dxf, ox + W_DIS + ARAKAT_SET_GAP_X, oy + OFS_Y,
-                  B, K, 4, IC_LT, 15, IC_LT + 98.5);
+                  B, K, 4, IC_LT, 15, IC_LT + 98.5, kod);
 }
 
 function generateAndDownloadArakatDxf(list) {
@@ -19684,7 +19785,7 @@ function generateAndDownloadArakatDxf(list) {
       // oncekinin ustune bindiriyordu (olculdu 04.09.2026: K 300 -> 2000).
       if (arakatIlk) arakatIlk = false;
       else yCursor -= (ARAKAT_SET_GAP_Y + H_DIS);
-      drawArakatPair(dxf, 0, yCursor, entry.B, entry.K, t.dis, t.ic);
+      drawArakatPair(dxf, 0, yCursor, entry.B, entry.K, t.dis, t.ic, entry.kod);
       totalCount++;
     }
   });
@@ -19774,12 +19875,15 @@ function kizakKutu(g) {
   return { x0: x0, y0: y0, w: x1 - x0, h: y1 - y0 };
 }
 // Parcayi (ox, oy) orijinine cizer; geometri kendi sinir kutusundan orijine cekilir.
-function drawKizakParca(dxf, ox, oy, g) {
+function drawKizakParca(dxf, ox, oy, g, kod) {
   var k = kizakKutu(g);
   g.forEach(function(a) {
     if (a[0] === 'L') dxf.addLine(ox + a[1] - k.x0, oy + a[2] - k.y0, ox + a[3] - k.x0, oy + a[4] - k.y0, KIZAK_LAYER);
     else dxf.addArc(ox + a[1] - k.x0, oy + a[2] - k.y0, a[3], a[4], a[5], KIZAK_LAYER);
   });
+  // Marka parcanin ICINE — geometri zaten orijine cekildigi icin kutu (0,0)-(w,h).
+  // Kizakta ayrica olcmeye gerek yok: kizakKutu tek dogruluk kaynagi.
+  if (kod) addBigKodLabel(dxf, ox, oy, k.w, k.h, kod, false);
   return k;
 }
 
@@ -19864,9 +19968,11 @@ function generateAndDownloadKizakDxf(list) {
       for (var a = 0; a < adet; a++) {
         if (ilk) ilk = false;
         else yCursor -= (KIZAK_GAP + KIZAK_KOD_H + 4 + k.h);
-        drawKizakParca(dxf, 0, yCursor, pc.g);
-        dxf.addText(0, yCursor - KIZAK_KOD_H - 4, KIZAK_KOD_H,
-          pc.ad + ' ' + Math.round(k.w * 10) / 10 + 'x' + Math.round(k.h * 10) / 10, KIZAK_LAYER);
+        // Parca DISINDAKI aciklama yazisi ('ALT L 37.2x848') 07.09.2026'da kalkti;
+        // yerine marka parcanin ICINE basiliyor (Cenk: «yalniz marka kalsin»).
+        // Imlecin inisi DEGISMEDI — KIZAK_KOD_H + 4 payi duruyor ki eski dosyalarla
+        // ayni yerlesim korunsun ve parcalar birbirine yaklasmasin.
+        drawKizakParca(dxf, 0, yCursor, pc.g, entry.kod);
         toplam++;
       }
     });
