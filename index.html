@@ -16452,6 +16452,13 @@ var MARKA_H     = 35.0;        // hedef yazi yuksekligi — panelin bugunku boyu
 var MARKA_MIN_H = 10.0;        // Cenk'in sectigi alt sinir (esanjorun yazisiyla ayni)
 var MARKA_HARF  = 0.6;         // DXF standart fontta karakter genisligi ~ 0.6 * yukseklik
 var MARKA_LAYER = 'KOD_BUYUK';
+// BOGAZ MARKASI KENARDAN (Cenk, 07.09.2026): «bogazlarin markalamasi ortali degil
+// kenardan 10 cm uzakta olsun, ortali olunca ortada delige denk gelebiliyor».
+// OLCULDU (_bogaz-marka-olcum.js): 17 bogaz parcasinin 6'sinda marka delige biniyordu —
+// YBP >= 1950'de ORTA delik sutunu (xM = govde/2) markanin tam altina dusuyor.
+// Kacis parcanin ALCAK kenarindan (YBP'de sol, DBP'de alt) markanin YAKIN ucuna olan
+// mesafedir; yazi hangi eksende okunuyorsa o eksende olculur.
+var BOGAZ_MARKA_KACIS = 100;   // mm
 
 // Kodu W x H kutusuna SIGDIRIR (Cenk'in sectigi sira):
 //   1) yatay, tam boy   -> sigan her parcada cikti BIREBIR bugunku gibi kalir
@@ -16497,11 +16504,12 @@ function markaKutusu(cizFn) {
 
 // Parcayi olcup markayi ortasina basar. cizFn parcayi (0,0)'a ve KODSUZ cizer —
 // kodlu cizerse olcum kendi yazisini olcer ve kutu buyur.
-function markaOlcerekYaz(dxf, ox, oy, kod, cizFn) {
+function markaOlcerekYaz(dxf, ox, oy, kod, cizFn, kacis) {
   if (!kod) return;
   var k = markaKutusu(cizFn);
   if (!k) return;
-  addBigKodLabel(dxf, ox + k.x0, oy + k.y0, k.w, k.h, kod, false);
+  if (kacis > 0) addKenarKodLabel(dxf, ox + k.x0, oy + k.y0, k.w, k.h, kod, kacis);
+  else addBigKodLabel(dxf, ox + k.x0, oy + k.y0, k.w, k.h, kod, false);
 }
 
 // 60 serisinde ic sacin / ust panelin etiket kutusu B-41 x K-41 formulunden gelir.
@@ -16520,6 +16528,24 @@ function addBigKodLabel(writer, ox, oy, W, H, kod, isGlass) {
   if (!m || !(m.h > 0)) return;
   var lx = ox + W / 2;
   var ly = isGlass ? (oy + H * 0.22 - KOD_CAM_KACIS) : (oy + H / 2);
+  writer.addText(lx, ly, m.h, kod, MARKA_LAYER, m.rot, 1, 2);
+}
+
+// Markayi kutunun ORTASINA degil, YAZININ KENDI ekseninde alcak kenardan 'kacis'
+// kadar iceriden basar (bogaz — ortada delik sutunu var). Boy ekseni disindaki
+// eksende yazi yine ortalidir.
+// SIGMA HER ZAMAN ONE GECER: kacis bir HEDEFTIR — yazi o kadar kayinca parcadan
+// tasacaksa, tasmayacagi en uzak noktaya kadar kaydirilir (marka parcadan buyuk olmaz).
+function addKenarKodLabel(writer, ox, oy, W, H, kod, kacis) {
+  if (!kod) return;
+  var m = markaOlcu(kod, W, H);
+  if (!m || !(m.h > 0)) return;
+  var boy   = String(kod).length * m.h * MARKA_HARF;   // yazinin okuma yonundeki uzunlugu
+  var eksen = (m.rot === 90) ? H : W;                  // yazinin uzandigi kenar
+  var mrk   = Math.min(kacis + boy / 2, eksen - boy / 2);
+  if (!(mrk > boy / 2)) mrk = boy / 2;
+  var lx = (m.rot === 90) ? (ox + W / 2) : (ox + mrk);
+  var ly = (m.rot === 90) ? (oy + mrk)   : (oy + H / 2);
   writer.addText(lx, ly, m.h, kod, MARKA_LAYER, m.rot, 1, 2);
 }
 
@@ -17372,7 +17398,7 @@ if (elBBtnExport) {
 var BOGAZ_LAYER = 'BOGAZ';
 
 function drawBogazDBP(dxf, ox, oy, DBP, kod) {
-  if (kod) markaOlcerekYaz(dxf, ox, oy, kod, function (w) { drawBogazDBP(w, 0, 0, DBP); });
+  if (kod) markaOlcerekYaz(dxf, ox, oy, kod, function (w) { drawBogazDBP(w, 0, 0, DBP); }, BOGAZ_MARKA_KACIS);
   var LR = DBP - 13.6;
   var dY = LR - 586.4;
   var L = BOGAZ_LAYER;
@@ -17460,7 +17486,7 @@ function drawBogazDBP(dxf, ox, oy, DBP, kod) {
 }
 
 function drawBogazYBP(dxf, ox, oy, YBP, kod) {
-  if (kod) markaOlcerekYaz(dxf, ox, oy, kod, function (w) { drawBogazYBP(w, 0, 0, YBP); });
+  if (kod) markaOlcerekYaz(dxf, ox, oy, kod, function (w) { drawBogazYBP(w, 0, 0, YBP); }, BOGAZ_MARKA_KACIS);
   var L = BOGAZ_LAYER;
   var BW = YBP + 40;    // govde genislik
   var xR = 5.0 + BW;    // sag koselerin X merkezi
