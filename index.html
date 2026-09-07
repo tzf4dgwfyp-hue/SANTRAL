@@ -16268,14 +16268,38 @@ function drawPanelDelik(dxf, ox, oy, B, K, delik, cizFn) {
   dxf.addLine(x0, y1, x0, y0, DELIK_LAYER);
 }
 
+// Bir panel ciftinin kapladigi YUKSEKLIK. Degerler draw50/draw60'in kendi
+// pairH'siyle BIREBIR aynidir; tanimadigi tipte 0 doner (switch de cizmez).
+// TEK KOPYA: satir yuksekligi yalniz buradan hesaplanir.
+function panelPairH(tip, K, seri) {
+  if (tip === 'UST') return K + 31;
+  if (tip === 'SABIT' || tip === 'ACILIR' || tip === 'BOGAZ') return K + (String(seri) === '60' ? 125 : 98);
+  return 0;
+}
+// O satira girecek panellerin EN UZUNU — satir imleci bu kadar iner.
+function panelSatirYuksekligi(panelList, bas, satirN, seri) {
+  var h = 0;
+  for (var i = bas; i < panelList.length && i < bas + satirN; i++) {
+    var ph = panelPairH(panelList[i].tip, panelList[i].K, seri);
+    if (ph > h) h = ph;
+  }
+  return h;
+}
+
 function draw50(dxf, panelList, satirN, gapCol, gapRow) {
   if (satirN === undefined) satirN = 4;
   if (gapCol === undefined) gapCol = 200;
   if (gapRow === undefined) gapRow = 300;
 
-  var curX = 0, curY = 0, rowH = 0, colI = 0;
+  var curX = 0, curY = 0, colI = 0;
 
   for (var idx = 0; idx < panelList.length; idx++) {
+    // ONCE IN, SONRA CIZ — panel imlecten YUKARI cizildigi icin imlec, cizilecek
+    // SATIRIN KENDI yuksekligi kadar inmelidir. Eskiden bir ONCEKI satirin
+    // yuksekligi kadar iniliyordu: kisa panelin ardindan gelen uzun panel
+    // (fark gapRow'dan buyukse) oncekinin USTUNE BINIYORDU.
+    if (colI === 0 && idx > 0) curY -= panelSatirYuksekligi(panelList, idx, satirN, '50') + gapRow;
+
     var panel = panelList[idx];
     var tip = panel.tip;
     var B = panel.B;
@@ -16283,7 +16307,7 @@ function draw50(dxf, panelList, satirN, gapCol, gapRow) {
     var cam = panel.cam;
     var bogazTip = panel.bogazTip;
     var kod = panel.kod;
-    var pairW = 0, pairH = 0;
+    var pairW = 0;   // yukseklik artik panelPairH'in tekelinde
 
     switch (tip) {
       case 'SABIT': {
@@ -16298,9 +16322,7 @@ function draw50(dxf, panelList, satirN, gapCol, gapRow) {
         }
         addBigKodLabel(dxf, curX, curY, Wdis, K + 98, kod, false);
         addBigKodLabel(dxf, curX + Wdis + 400, curY + 33.5, B + 31, K + 31, kod, false);
-        pairW = Wdis + 400 + B + 31;
-        pairH = K + 98;
-        break;
+        pairW = Wdis + 400 + B + 31;        break;
       }
       case 'ACILIR': {
         var Wdis = B + 98;
@@ -16309,16 +16331,12 @@ function draw50(dxf, panelList, satirN, gapCol, gapRow) {
         drawIcAcilir(dxf, curX + Wdis + 400, curY + 34.5, B, K, cam || 'H', kod);
         addBigKodLabel(dxf, curX, curY, Wdis, K + 98, kod, isGlass);
         addBigKodLabel(dxf, curX + Wdis + 400, curY + 34.5, B + 29, K + 29, kod, isGlass);
-        pairW = Wdis + 400 + B + 29;
-        pairH = K + 98;
-        break;
+        pairW = Wdis + 400 + B + 29;        break;
       }
       case 'UST': {
         drawUst(dxf, curX, curY, B, K, kod);
         addBigKodLabel(dxf, curX, curY, B + 31, K + 31, kod, false);
-        pairW = B + 31;
-        pairH = K + 31;
-        break;
+        pairW = B + 31;        break;
       }
       case 'BOGAZ': {
         var Wdis = B + 98;
@@ -16327,21 +16345,18 @@ function draw50(dxf, panelList, satirN, gapCol, gapRow) {
         drawIcSabit(dxf, curX + Wdis + 400, curY + 33.5, B, K, kod, pN);
         addBigKodLabel(dxf, curX, curY, Wdis, K + 98, kod, false);
         addBigKodLabel(dxf, curX + Wdis + 400, curY + 33.5, B + 31, K + 31, kod, false);
-        pairW = Wdis + 400 + B + 31;
-        pairH = K + 98;
-        break;
+        pairW = Wdis + 400 + B + 31;        break;
       }
     }
 
-    if (pairH > rowH) rowH = pairH;
     curX += pairW + gapCol;
     colI++;
 
+    // Satir sonu: yalniz imleci basa al. Asagi inis, SONRAKI satirin basinda
+    // o satirin kendi yuksekligiyle yapilir (bkz. dongunun ilk satiri).
     if (colI >= satirN) {
       colI = 0;
       curX = 0;
-      curY -= rowH + gapRow;
-      rowH = 0;
     }
   }
 }
@@ -16788,9 +16803,12 @@ function draw60(dxf, panelList, satirN, gapCol, gapRow) {
   if (gapCol === undefined) gapCol = 400;
   if (gapRow === undefined) gapRow = 300;
 
-  var curX = 0, curY = 0, rowH = 0, colI = 0;
+  var curX = 0, curY = 0, colI = 0;
 
   for (var idx = 0; idx < panelList.length; idx++) {
+    // ONCE IN, SONRA CIZ — bkz. draw50'deki ayni kural.
+    if (colI === 0 && idx > 0) curY -= panelSatirYuksekligi(panelList, idx, satirN, '60') + gapRow;
+
     var panel = panelList[idx];
     var tip = panel.tip;
     var B = panel.B;
@@ -16798,7 +16816,7 @@ function draw60(dxf, panelList, satirN, gapCol, gapRow) {
     var cam = panel.cam;
     var bogazTip = panel.bogazTip;
     var kod = panel.kod;
-    var pairW = 0, pairH = 0;
+    var pairW = 0;   // yukseklik artik panelPairH'in tekelinde
 
     switch (tip) {
       case 'SABIT': {
@@ -16812,9 +16830,7 @@ function draw60(dxf, panelList, satirN, gapCol, gapRow) {
         }
         addBigKodLabel(dxf, curX, curY, B, K, kod, false);
         addBigKodLabel(dxf, curX + B + 797, curY + 20.5, B - 41, K - 41, kod, false);
-        pairW = 2 * B + 917;
-        pairH = K + 125;
-        break;
+        pairW = 2 * B + 917;        break;
       }
       case 'ACILIR': {
         var BI = B - 43, KI = K - 43;
@@ -16829,16 +16845,12 @@ function draw60(dxf, panelList, satirN, gapCol, gapRow) {
         }
         addBigKodLabel(dxf, curX, curY, B, K, kod, isGlass);
         addBigKodLabel(dxf, oxIc, oyIc, BI, KI, kod, isGlass);
-        pairW = 2 * B + 616.5;
-        pairH = K + 125;
-        break;
+        pairW = 2 * B + 616.5;        break;
       }
       case 'UST': {
         drawUst60(dxf, curX, curY, B, K, kod, '0');
         addBigKodLabel(dxf, curX, curY, B - 41, K - 41, kod, false);
-        pairW = B + 31;
-        pairH = K + 31;
-        break;
+        pairW = B + 31;        break;
       }
       case 'BOGAZ': {
         var bt = (bogazTip || 'N').toUpperCase();
@@ -16846,21 +16858,18 @@ function draw60(dxf, panelList, satirN, gapCol, gapRow) {
         drawIc60(dxf, curX + B + 797, curY + 20.5, B, K, kod, '0');
         addBigKodLabel(dxf, curX, curY, B, K, kod, false);
         addBigKodLabel(dxf, curX + B + 797, curY + 20.5, B - 41, K - 41, kod, false);
-        pairW = 2 * B + 917;
-        pairH = K + 125;
-        break;
+        pairW = 2 * B + 917;        break;
       }
     }
 
-    if (pairH > rowH) rowH = pairH;
     curX += pairW + gapCol;
     colI++;
 
+    // Satir sonu: yalniz imleci basa al. Asagi inis, SONRAKI satirin basinda
+    // o satirin kendi yuksekligiyle yapilir (bkz. dongunun ilk satiri).
     if (colI >= satirN) {
       colI = 0;
       curX = 0;
-      curY -= rowH + gapRow;
-      rowH = 0;
     }
   }
 }
