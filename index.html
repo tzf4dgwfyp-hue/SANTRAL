@@ -3738,6 +3738,16 @@ function gercekOnYuz(uyari){
     if(Math.abs(t - L) > 1.5){ uyari.push('kat toplamı '+Math.round(t)+' mm, modül boyu '+L+' mm'); return null; }
   }
 
+  // EN DAR KAPAK, DUSUM SONRASI (Cenk, 08.09.2026) — bkz. gercekInceSerit.
+  // TEK SATIRLI yuzde bolum sayisi segment sayisina esittir, yani tahmin TAMDIR. Iki
+  // katli yuzde sutunlar iki satirin sinirlarindan dogar (gercekSinirBirlestir), orada
+  // segment sayisi bolum sayisini vermez ve tahmin yapilamaz — olculdu: havuzun
+  // tamaminda iki katli yuzde 100 mm den ince panel yok.
+  if(satirlar.length === 1)
+    gercekInceSerit(satirlar[0].segs,
+                    function(nb){ return L - 2*V.kenar - (nb-1)*V.takviye; },
+                    V, uyari, 'ÖN');
+
   let sinir, harita;
   if(ikiKat){
     // Eşik ÇİZİLEN profil kalınlığıdır, imalattaki takviye değil. Çizim bütün ara
@@ -4071,6 +4081,82 @@ function gercekAgizKenara(rowSeg, ic, V, uyari, yuzAd){
     rowSeg.splice(i, 1);
     uyari.push(yuzAd+' yüzde ağzın yanına 100 mm altı pay kalıyor — TAM BOĞAZ:'
       +' ağız bölümün tamamını kaplıyor, '+Math.round(buyu)+' mm pay çerçeveye gidiyor');
+  }
+}
+
+// gercekAgizKenara segmentleri '.h' alaninda okur; UST yuzun segmentleri '.w' tasir.
+// Kural TEK KOPYA kalsin diye UST tarafi bir GORUNUM uzerinden gecirilir: gorunum
+// segmentleri gercek segmente 'ref' ile baglidir, donusum sonrasi geri yazilir.
+function gercekAgizKenaraW(segs, ic, V, uyari, yuzAd){
+  const gor = segs.map(function(sg){
+    return { h: sg.w, agiz: sg.agiz, hedef: sg.hedef, bos: sg.bos, ref: sg };
+  });
+  gercekAgizKenara(gor, ic, V, uyari, yuzAd);
+  const out = gor.map(function(g){
+    g.ref.w = g.h;
+    g.ref.hedef = g.hedef;
+    if(g.yut) g.ref.yut = true;
+    return g.ref;
+  });
+  segs.length = 0;
+  for(let i=0;i<out.length;i++) segs.push(out[i]);
+}
+
+// EN DAR KAPAK — DUSUM SONRASI OLCULUR (Cenk, 08.09.2026)
+// gercekSatirSegment'in 100 mm esigi HAM olcuye bakar; oysa serbest segmentler
+// gercekDusur'de oranlarini koruyarak KISALIR (kapak bolumleri hedefinde kalir), yani
+// cizimden gelen 250 mm lik bosluk 80 mm lik panele inebilir. Olculdu (713 cizim):
+// GERCEK_MIN_KAPAK i delen 12 panelin 12 si de bu yuzden ince kaliyordu; en incesi
+// DES-01 ON de 17 mm. Acilir kapak bolumu 500 mm ye SABITLI oldugu icin cerceve ve
+// takviye payinin tamami tek serbest seritten dusuyor.
+// KURAL (Cenk, 08.09.2026): serit once ACILIRLARI GECEREK ulasilan ilk normal panele
+// aktarilir (olcek degismez, oteki kapaklar aynen kalir); oyle bir panel yoksa serit
+// bolumu tamamen KALKAR ve EN YAKIN KAPAK buyur. Aradaki takviye de kalktigi icin
+// kapak seridin olcusundan fazla genisler — hedefi dusurulur, dusumde kalan pay ona gider.
+// icKull(n): n bolumluk yuzde kullanilabilir ic olcu. Bolum sayisi degistikce takviye
+// sayisi da degistigi icin sabit deger degil FONKSIYON olarak gelir.
+function gercekInceSerit(segs, icKull, V, uyari, yuzAd){
+  const esik = GERCEK_MIN_KAPAK + (Number(V.tolW)||0);
+  function sabitMi(sg){ return !!(sg.sabit && sg.hedef != null); }
+  // Seridin OTE YANINDAKI serbest panel: aradaki segmentlerin hepsi KAPAK olmali.
+  // Bos Alan sabittir, oradan gecilmez. Iki yan da uygunsa GENIS olana aktarilir.
+  function komsu(i){
+    function ara(yon){
+      for(let j=i+yon; j>=0 && j<segs.length; j+=yon){
+        if(isBos(segs[j].tip)) return -1;
+        if(sabitMi(segs[j])) continue;
+        return j;
+      }
+      return -1;
+    }
+    const sag = ara(1), sol = ara(-1);
+    if(sag < 0) return sol;
+    if(sol < 0) return sag;
+    return segs[sag].w >= segs[sol].w ? sag : sol;
+  }
+  for(let tur=0; tur<12 && segs.length>1; tur++){
+    const ic = icKull(segs.length);
+    let sabit = 0, havuz = 0;
+    segs.forEach(function(sg){ if(sabitMi(sg)) sabit += sg.hedef; else havuz += sg.w; });
+    const kalan = ic - sabit;
+    let i = -1, enAz = 0;
+    segs.forEach(function(sg, j){
+      if(sabitMi(sg)) return;
+      const o = havuz > 0 ? sg.w*kalan/havuz : 0;
+      if(o < esik - 0.5 && (i < 0 || o < enAz)){ i = j; enAz = o; }
+    });
+    if(i < 0) return;
+    const j = komsu(i);
+    if(j >= 0){ segs[j].w += segs[i].w; segs.splice(i,1); continue; }
+    // Aktaracak panel yok — yuz bastan sona kapak. En yakin kapak seridi yutar.
+    const k = (i > 0) ? i-1 : 1;
+    if(k >= segs.length || !sabitMi(segs[k])) return;
+    segs[k].w += segs[i].w;
+    segs[k].hedef = null;   // olcu turetilir: kalan payin tamami bu kapaga gider
+    segs[k].yut = true;
+    segs.splice(i,1);
+    uyari.push(yuzAd+' yüzde kapakların arasında '+Math.round(enAz)
+      +' mm şerit kalıyordu — bölüm kaldırıldı, en yakın kapak büyüdü');
   }
 }
 
@@ -4465,6 +4551,15 @@ function gercekUstYuz(uyari){
   if(sag < -0.5){ uyari.push('ÜST yüzde ağız modül boyunun dışına taşıyor — konmadı'); return null; }
   if(sag > 0 && sag <= esik){ colSeg[colSeg.length-1].w += sag; sag = 0; }
   gercekBolNormal(colSeg, sag, band, ustLim);
+  // AGIZ KENARA DAYANIR — UST yuz SOL/SAG yuzun TRANSPOZESIDIR, kural burada da gecerli
+  // (Cenk, 08.09.2026). Olculdu: DES-01 UST te 80 | Bogaz 300 | 80 vardi, artik
+  // Bogaz 300 | 160; KS-1 de 86 | Damper 750 | 144 | Damper 750 yerine agizlar kenara
+  // dayaniyor. Tahmin icin takviye sayisi mevcut segmentlerden okunur.
+  (function(){
+    const g0 = gercekAraliklar(colSeg.map(function(g){ return g.w; }), V.kenar, V.takviye);
+    gercekAgizKenaraW(colSeg, L - 2*V.kenar - g0.filter(Boolean).length*V.takviye,
+                      V, uyari, 'ÜST');
+  })();
   const N = colSeg.length;
   const colGap = gercekAraliklar(colSeg.map(function(g){ return g.w; }), V.kenar, V.takviye);
   const icKullAlong = L - 2*V.kenar - colGap.filter(Boolean).length*V.takviye;
@@ -4500,6 +4595,13 @@ function gercekUstYuz(uyari){
   gercekBolNormal(rowSeg, ustHam, enGenis, ustLim);
   rowSeg.push({ w: bandHam, hedef: band, agiz: true });
   gercekBolNormal(rowSeg, altHam, enGenis, ustLim);
+  // Ayni kural W ekseninde de gecerli: agzin derinlikteki yeri de cizimden geliyor
+  // (onPay). Olculdu: 6.000 m3/h te 98 | Damper 600 | 366 vardi, artik Damper 600 | 464.
+  (function(){
+    const g0 = gercekAraliklar(rowSeg.map(function(g){ return g.w; }), V.kenar, V.takviye);
+    gercekAgizKenaraW(rowSeg, W - 2*V.kenar - g0.filter(Boolean).length*V.takviye,
+                      V, uyari, 'ÜST');
+  })();
   const M = rowSeg.length;
   const rowGap = gercekAraliklar(rowSeg.map(function(g){ return g.w; }), V.kenar, V.takviye);
   const icKullAcross = W - 2*V.kenar - rowGap.filter(Boolean).length*V.takviye;
@@ -4527,6 +4629,9 @@ function gercekUstYuz(uyari){
           // mekanizmasıyla yapılır (elemanCizimOlcusu); yerleşim, tolerans ve göz
           // ölçüsü DEĞİŞMEZ, yalnız f1'e giden eşleme takas edilir.
           p.yon = 'dikey';
+          // Serit yutulduysa GOZ buyudu ama KESIM olcusu cizimdekidir (elemanOlcu) —
+          // gercekYanYuz'deki tam bogaz kuralinin aynisi.
+          if(cg.yut || rw.yut) p.elemanOlcu = { w: cg.agiz.w, h: cg.agiz.h };
         }
         return p;
       }),
