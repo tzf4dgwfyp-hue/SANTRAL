@@ -185,7 +185,7 @@ iframe.active{display:block;}
     <b>AHU Studio</b><span class="sep">/</span><span class="sub">Panel Konfigüratörü</span>
   </div>
   <div class="seg">
-    <button class="tab-btn active" onclick="show(0)">Kapak Hesabı</button>
+    <button class="tab-btn active" onclick="show(0)">3B Tasarım</button>
     <button class="tab-btn" onclick="show(1)">DXF Üretme</button>
     <button class="tab-btn" onclick="show(2)">Profil Listesi</button>
   </div>
@@ -995,7 +995,7 @@ svg.ic{width:16px;height:16px;flex:none;stroke:currentColor;fill:none;
   <span class=&quot;tb-sep&quot;></span>
   <button class=&quot;btn&quot; id=&quot;btn_analiz&quot; title=&quot;Malzeme tüketimi: sac plakası, profil boyu, plastik, vida ve perçin&quot;>
     <svg class=&quot;ic&quot;><use href=&quot;#i-chart&quot;/></svg>Analiz</button>
-  <button class=&quot;btn&quot; id=&quot;btn_excel&quot; title=&quot;Kapak hesabı Excel çıktısı&quot;>
+  <button class=&quot;btn&quot; id=&quot;btn_excel&quot; title=&quot;3B Tasarım Excel çıktısı&quot;>
     <svg class=&quot;ic&quot;><use href=&quot;#i-sheet&quot;/></svg>Excel Çıktısı</button>
   <button class=&quot;btn primary&quot; id=&quot;btn_dxf&quot; title=&quot;Panel, boğaz, tava, damper, ara kat, eşanjör ve kızak DXF'leri&quot;>
     <svg class=&quot;ic&quot;><use href=&quot;#i-download&quot;/></svg>DXF Üret</button>
@@ -1553,6 +1553,17 @@ Object.defineProperty(state, 'active',  { get(){ return state.ahus[state.activeA
 Object.defineProperty(state, 'varsayimlar', { get(){ return state.ahus[state.activeAhu].varsayimlar; }, set(v){ state.ahus[state.activeAhu].varsayimlar = v; }, enumerable:true });
 // Geriye uyumluluk: mevcut tüm yüz kodu aktif modül üzerinden çalışır
 Object.defineProperty(state, 'faces', { get(){ return state.modules[state.active].faces; } });
+
+// AGACTAKI SECIM — SAYFAYA AIT, PROJEYE YAZILMAZ (Cenk, 09.09.2026)
+// «aktif module tekrar tikladigimda o modulun secimi de iptal olsun, hicbiri
+//  secilmemis olsun, acilan sekmesi de kapansin»
+// state.active DEGISTIRILMEZ: -1 yapmak state.dims / state.faces / varsayimlar
+// proxy'lerini ve 90'i askin okuma noktasini bozardi. Kapanan sey yalnizca GORUNUR
+// SECIM: agac satiri vurgusuz olur, olcu kutulari ve yuz akordiyonu kapanir, 3B'de
+// modul parlamaz. Hesap hatti (computeFace, export, Excel) aynen calisir.
+// enumerable:false — projectData() acik liste kullandigi icin JSON'a zaten girmez;
+// yine de yanlislikla serilestirmeye karsi gorunmez tutulur.
+Object.defineProperty(state, 'modSecili', { value:true, writable:true, enumerable:false });
 // Ölçü setter'ları: değer değişince o eksende İLERİDEKİ ve büyüyen modüle TEMASLA
 // BAĞLI modüller delta kadar kayar — bitişik montaj korunur: boşluk açılmaz, iç içe
 // girme oluşmaz. Temas zinciri şart: yan şeritteki bir kule, yanındaki modül büyüdü
@@ -2396,6 +2407,7 @@ function addModuleAt(m, fi){
 
   state.modules.push(nm);
   state.active = state.modules.length-1;
+  state.modSecili = true;   // yeni modul SECILI acilir (olculeri girilecek)
   renderAll();
 }
 
@@ -5159,6 +5171,7 @@ function gsmKur(){
   try{
     secim.forEach(function(ai){
       state.activeAhu = ai;
+      state.modSecili = true;   // AHU degisince agac bos gorunmesin
       const s = gercekTumAHU();
       s.ahu = state.ahus[ai].ad || ('AHU-'+(ai+1));
       hepsi.push(s);
@@ -6756,7 +6769,7 @@ function renderModTabs(){
   const sorunlu = aktifAhuSorunlu();
   state.modules.forEach((md, i)=>{
     const tab = document.createElement('div');
-    tab.className = 'tab'+(i===state.active?' active':'');
+    tab.className = 'tab'+(state.modSecili && i===state.active?' active':'');
     // Cizimin istedigi ama kurulmamis parca varsa modul isaretlenir; kilitlemez.
     const eks = cizimEksikleri(md);
     const isaret = eks.length
@@ -6767,7 +6780,7 @@ function renderModTabs(){
     // Sorunlu yuz sayisi rozeti (mockup .bd) — hangi modulde kac sorun var.
     const sy = Object.keys(sorunlu[i] || {}).length;
     const rozet = sy ? `<span class=&quot;tk-bd&quot; title=&quot;${sy} sorunlu yüz&quot;>${sy}</span>` : '';
-    tab.innerHTML = `<span class=&quot;tk-chev${i === state.active ? ' acik' : ''}&quot; data-agac=&quot;M${i}&quot;><svg class=&quot;ic&quot;><use href=&quot;#i-chev-r&quot;/></svg></span>`
+    tab.innerHTML = `<span class=&quot;tk-chev${state.modSecili && i === state.active ? ' acik' : ''}&quot; data-agac=&quot;M${i}&quot;><svg class=&quot;ic&quot;><use href=&quot;#i-chev-r&quot;/></svg></span>`
       + `<svg class=&quot;ic&quot; style=&quot;width:14px;height:14px;color:var(--t-4);&quot;><use href=&quot;#i-box&quot;/></svg>`
       + `<span class=&quot;tn-ad mono&quot;>M${i+1}</span><span class=&quot;tn-olcu&quot;>${olcu}</span>`
       + rozet + isaret
@@ -6778,7 +6791,7 @@ function renderModTabs(){
     // SECILI MODULUN OLCULERI AGACIN ICINDE (Cenk, 05.09.2026): uc kucuk kutu,
     // yan yana, modul satirinin hemen altinda. Kutularin ID'LERI DEGISMEDI
     // (dim_W / dim_H / dim_L) — okuyan/yazan butun kod aynen calisir.
-    if(i === state.active){
+    if(state.modSecili && i === state.active){
       const olcuSatir = document.createElement('div');
       olcuSatir.className = 'tk tk-olcu';
       olcuSatir.innerHTML = ['W','H','L'].map(kk=>
@@ -6791,7 +6804,7 @@ function renderModTabs(){
 
     // AKORDIYON (Cenk, 05.09.2026): yalniz SECILI modulun yuzleri acilir.
     // Acik/kapali SAYFAYA aittir, projeye yazilmaz.
-    if(i !== state.active) return;
+    if(!state.modSecili || i !== state.active) return;
     withModule(i, ()=>{
       FACE_DEFS.forEach((def, fi)=>{
         const face = faceOf(fi);
@@ -7506,7 +7519,7 @@ function xlTable(ws, startRow, title, headers, rows){
 }
 
 // ==================== ANALİZ — MALZEME TÜKETİMİ ====================
-// Kapak Hesabı Excel'i &quot;ne imal edilecek&quot;i yazar; Analiz Excel'i &quot;ne satın alınacak&quot;ı:
+// 3B Tasarım Excel'i &quot;ne imal edilecek&quot;i yazar; Analiz Excel'i &quot;ne satın alınacak&quot;ı:
 // kaç plaka sac, kaç boy profil, kaç plastik, kaç vida ve perçin. Beş kalemin üçü
 // (sac plakası, vida, perçin) f1'de bilinir — nesting ve bütün draw* ailesi oradadır —
 // bu yüzden hesap İKİ UÇTAN toplanır ve Excel burada üretilir (ExcelJS yalnız f0'da).
@@ -7583,7 +7596,7 @@ function sacKalemAdi(g){
 // kesim planına giremezler. Ara kat kendi içinde de profile göre ayrılır (30×30 / 30×60).
 // ÜRETİM ADEDİ analiz sınırında uygulanır: alttaki üreticiler (koseProfilKalemleri,
 // groupTakviyeSiparis, groupAraKatSiparis) BİR cihazın listesini verir — ekran özeti ve
-// Kapak Hesabı Excel'i onu öyle gösterir. Satın alma ise toplamı ister, o yüzden burada
+// 3B Tasarım Excel'i onu öyle gösterir. Satın alma ise toplamı ister, o yüzden burada
 // her kalemin adedi santralin üretim adediyle çarpılır (Cenk, 31.08.2026).
 function analizProfilAileleri(){
   const V = getV();
@@ -7812,7 +7825,6 @@ async function exportExcel(){
     state.activeAhu = _ai;
     render3D();
     const _ahuLabel = state.ahus[_ai].ad || ('AHU-'+(_ai+1));
-    const _isActiveAhu = (_ai === origActiveAhu);
     note.textContent = (ahuCount > 1 ? '['+(_ai+1)+'/'+ahuCount+'] ' : '') + 'Excel dosyası hazırlanıyor… ' + _ahuLabel;
   try{
     const V = getV();
@@ -7827,7 +7839,7 @@ async function exportExcel(){
     wb.lastModifiedBy = 'Cenk Altınay';
     wb.created = new Date();
 
-    // Biçim sabitleri ve tablo yazıcısı ORTAK (XL_* / xlTable) — Kapak Hesabı Excel'i
+    // Biçim sabitleri ve tablo yazıcısı ORTAK (XL_* / xlTable) — 3B Tasarım Excel'i
     // ile Analiz Excel'i aynı klasöre yan yana düşüyor, farklı görünmeleri için sebep yok.
     const FONT = XL_FONT, border = XL_BORDER, headFill = XL_HEAD_FILL;
     const headFont = XL_HEAD_FONT, titleFont = XL_TITLE_FONT, devFont = XL_DEV_FONT;
@@ -7983,8 +7995,11 @@ async function exportExcel(){
     // Resimler tablolardan sayfa kırımı ile ayrılır; her resim yeni sayfada başlar
     if (!wsO.rowBreaks) wsO.rowBreaks = [];
 
-    // 3B görünüm — yalnızca aktif AHU (diğer AHUlar için sahne değiştirilmez)
-    if(_isActiveAhu){
+    // 3B görünüm — HER AHU icin (Cenk, 09.09.2026). Eskiden yalniz aktif AHU'ya
+    // konuyordu; olculdu ki dongu zaten her tur 'state.activeAhu = _ai; render3D();'
+    // yapiyor ve capture3DView O AHU'nun sahnesini yakaliyor (iki AHU'nun gorsel
+    // hash'i FARKLI, ayni AHU'ya donunce AYNI) — kisit gereksizdi.
+    {
       wsO.rowBreaks.push({id: rr - 1, max: 16383, man: 1});
       try{
         const png3 = await pngKoseDamga(await window.capture3DView(null, null, 900, 560), damgaSatirlari);
@@ -8135,7 +8150,7 @@ async function exportExcel(){
     const parts = [];
     if(state.proje.isNo) parts.push(sanitizeF(state.proje.isNo));
     if(_ahuLabel) parts.push(sanitizeF(_ahuLabel));
-    parts.push('KAPAK_HESABI');
+    parts.push('3B_TASARIM');
     if(parts.length===1) parts.push(new Date().toISOString().slice(0,10));
     xlsxToplama.push({ad: parts.join('_')+'.xlsx', veri: buf});
     totalExported++;
@@ -8146,7 +8161,7 @@ async function exportExcel(){
   state.activeAhu = origActiveAhu;
   excelKodModu = false;
   render3D();
-  const excelZip = (state.proje.isNo ? sanitizeF(state.proje.isNo)+'_' : '') + 'KAPAK_HESABI.zip';
+  const excelZip = (state.proje.isNo ? sanitizeF(state.proje.isNo)+'_' : '') + '3B_TASARIM.zip';
   const excelInen = coklaIndir(xlsxToplama, excelZip);
   if(totalExported > 0){
     note.textContent = ahuCount > 1
@@ -8445,13 +8460,19 @@ function attachListeners(){
         }
         state.modules.splice(i,1);
         if(state.active>=state.modules.length) state.active = state.modules.length-1;
+        state.modSecili = true;   // silmeden sonra kalan modul gorunur olsun
         renderAll();
       }
       e.stopPropagation(); return;
     }
     const tab = e.target.closest('[data-modtab]');
     if(tab){
-      state.active = Number(tab.dataset.modtab);
+      const i = Number(tab.dataset.modtab);
+      // AYNI module tekrar tiklamak SECIMI KALDIRIR (Cenk, 09.09.2026):
+      // agac satiri vurgusuz kalir, olcu kutulari ve yuz akordiyonu kapanir.
+      // Baska bir module tiklamak her zaman ACAR.
+      state.modSecili = !(state.modSecili && i === state.active);
+      state.active = i;
       renderAll();
     }
   });
@@ -8505,7 +8526,7 @@ function attachListeners(){
       if(k.indexOf('F') < 0){
         // MODUL chevronu = o modulu SEC (akordiyon: oteki moduller kapanir).
         const mi = Number(k.slice(1));
-        if(isFinite(mi) && mi !== state.active){ state.active = mi; renderAll(); }
+        if(isFinite(mi)){ state.active = mi; state.modSecili = true; renderAll(); }
         return;
       }
       if(agacAcik.has(k)) agacAcik.delete(k); else agacAcik.add(k);
@@ -9292,7 +9313,7 @@ function kizakEscapeHtml(str){
 // Bir modulun bir yuzunu ACAR: modulu aktif yapar, Yuz Duzenleme gorunumune gecer
 // ve o yuzun sekmesini secer. Agac satirlari (data-facegoto) bunu cagirir.
 function yuzeGit(mi, fi){
-  if(mi !== state.active){ state.active = mi; renderAll(); }
+  if(mi !== state.active || !state.modSecili){ state.active = mi; state.modSecili = true; renderAll(); }
   const vb = document.querySelector('.vbtn[data-view=&quot;vfaces&quot;]');
   if(vb) vb.click();
   const tab = document.getElementById('tab-'+fi);
@@ -11147,7 +11168,7 @@ function dxfAdetOku(dosyaAdi, santralAdi){
 }
 
 // AHU ADINDAN '(2 ADET)' TEMIZLENIR. Ad Excel ve DXF DOSYA ADINA giriyor
-// ('{isNo}_{ahuAd}_KAPAK_HESABI.xlsx', '{proje} — YAN PANELLER.dxf'); adet ayri bir
+// ('{isNo}_{ahuAd}_3B_TASARIM.xlsx', '{proje} — YAN PANELLER.dxf'); adet ayri bir
 // alanda tutuldugu icin adin icinde birakilsa dosya adinda iki kez yazardi.
 function dxfAdSadelestir(ad){
   return String(ad||'')
@@ -11303,7 +11324,7 @@ function dxfProjeBos(){
 }
 
 // AHU adi tekil olmali: iki cizim ayni Santral Adi'ni tasiyabiliyor (olculdu — KS-1 dosyasi
-// iki kez, farkli geometriyle). Excel dosya adi {isNo}_{ahuAd}_KAPAK_HESABI.xlsx oldugu icin
+// iki kez, farkli geometriyle). Excel dosya adi {isNo}_{ahuAd}_3B_TASARIM.xlsx oldugu icin
 // ayni ad ikinci uniteyi birincinin uzerine yazardi. Dosya adinda yasak karakter de temizlenir.
 // haric: adlandirilmakta olan AHU'nun kendisi (listeye girmis olabilir, kendiyle carpismasin)
 function dxfTekilAd(ad, haric){
@@ -12097,7 +12118,7 @@ document.getElementById('btn_dxf').addEventListener('click', function(){ exportT
 // ==================== ANALİZ EXCEL ÇIKTISI ====================
 // SANTRAL BAZLI (Cenk, 31.08.2026): her AHU kendi dosyasını alır ve sac plakası sayısı
 // yalnız o santralin parçalarından çıkar — rakam santrale atfedilebilir olsun diye.
-// Kapı Kapak Hesabı Excel'iyle aynıdır (collectFaceIssues); yükler exportToDxf'in
+// Kapı 3B Tasarım Excel'iyle aynıdır (collectFaceIssues); yükler exportToDxf'in
 // toplayıcısından gelir, yani DXF'e giden neyse analiz de onu sayar.
 async function exportAnalizExcel(){
   const note = document.getElementById('excel_note');
@@ -12201,7 +12222,7 @@ async function exportAnalizExcel(){
       kalemler.push(['Takviye plastiği', plastik.takviye, 'adet',
         plastik.takviyePlastikVar ? plastik.takviyeParca+' takviye × 2 uç' : 'bu profilde kullanılmıyor']);
       if(kat > 1) kalemler.push(['— not —', kat, 'cihaz',
-        'Bütün miktarlar '+kat+' cihazın toplamıdır; bir cihazın kesim listesi Kapak Hesabı Excel dosyasındadır.']);
+        'Bütün miktarlar '+kat+' cihazın toplamıdır; bir cihazın kesim listesi 3B Tasarım Excel dosyasındadır.']);
       kalemler.push(['Vida', f1.delik.vida, 'adet', 'kapak panelleri — dış sac']);
       kalemler.push(['Perçin', f1.delik.percin, 'adet', 'kapak panelleri — iç/dış aynı delik, bir kez']);
       rr = xlTable(wsO, rr, 'SATIN ALMA KALEMLERİ', ['Kalem','Miktar','Birim','Not'], kalemler);
@@ -12639,7 +12660,7 @@ function boot(){
     // (Cenk, 05.09.2026). Artik FrontSide — kameraya donuk yuzler vurgu renginde
     // ince bir tul. depthWrite KAPALI ve kutu 6 mm disarida: panel etiketlerini ve
     // kapak renklerini ortmez, uzerlerine yalnizca bir ton katar.
-    if(m === state.active){
+    if(state.modSecili && m === state.active){
       const selGeo = new THREE.BoxGeometry(L+6, H+6, W+6);
       const selMerkez = new THREE.Vector3(pos.x+L/2, pos.y+H/2, pos.z+W/2);
       const selLine = new THREE.LineSegments(new THREE.EdgesGeometry(selGeo),
@@ -14212,7 +14233,7 @@ boot();
         </table>
         <div class=&quot;empty-msg&quot; id=&quot;empty-msg&quot;>
           Henüz panel yok.<br>
-          <b>Kapak Hesabı</b> sekmesinde hesabı yapıp <b>DXF'e Aktar</b> deyin.
+          <b>3B Tasarım</b> sekmesinde hesabı yapıp <b>DXF'e Aktar</b> deyin.
         </div>
       </div>
     </div>
@@ -14251,7 +14272,7 @@ boot();
           </table>
           <div class=&quot;empty-msg&quot; id=&quot;b-empty&quot;>
             Henüz boğaz yok.<br>
-            <b>Kapak Hesabı</b> sekmesinde bir hücreye <b>Boğaz</b> tipi verip ölçü girin
+            <b>3B Tasarım</b> sekmesinde bir hücreye <b>Boğaz</b> tipi verip ölçü girin
             (ya da <b>Boğaz Uzun</b> / <b>Boğaz 2 Uzun</b> panel seçin), <b>DXF Üret</b> deyin.
           </div>
         </div>
@@ -14293,7 +14314,7 @@ boot();
           </table>
           <div class=&quot;empty-msg&quot; id=&quot;t-empty&quot;>
             Henüz tava yok.<br>
-            <b>Kapak Hesabı</b> sekmesinde bir hücreye <b>Tava</b> tipi verip ölçü girin,
+            <b>3B Tasarım</b> sekmesinde bir hücreye <b>Tava</b> tipi verip ölçü girin,
             <b>DXF Üret</b> deyin. Tava gövdesi panel ölçüsünden otomatik hesaplanır.
           </div>
         </div>
@@ -14334,7 +14355,7 @@ boot();
           </table>
           <div class=&quot;empty-msg&quot; id=&quot;d-empty&quot;>
             Henüz damper yok.<br>
-            <b>Kapak Hesabı</b> sekmesinde bir hücreye <b>Damper</b> tipi verip ölçü girin,
+            <b>3B Tasarım</b> sekmesinde bir hücreye <b>Damper</b> tipi verip ölçü girin,
             <b>DXF Üret</b> deyin. <b>Genişliği 1800 mm ve üzeri</b> olan damper ikiye bölünür
             (yükseklik ne olursa olsun bölünmez).
           </div>
@@ -14376,7 +14397,7 @@ boot();
           </table>
           <div class=&quot;empty-msg&quot; id=&quot;a-empty&quot;>
             Henüz ara kat yok.<br>
-            <b>Kapak Hesabı</b> sekmesinde <b>ARA KAT</b> sekmesini açıp gözlere
+            <b>3B Tasarım</b> sekmesinde <b>ARA KAT</b> sekmesini açıp gözlere
             <b>Ara Kat Paneli</b> verin, <b>DXF Üret</b> deyin.
             Her kayıt için <b>DIŞ + İÇ</b> parça birlikte üretilir.
           </div>
@@ -14421,7 +14442,7 @@ boot();
           </table>
           <div class=&quot;empty-msg&quot; id=&quot;k-empty&quot;>
             Henüz batarya kızağı yok.<br>
-            <b>Kapak Hesabı</b> sekmesinde <b>KIZAK</b> sekmesini açıp
+            <b>3B Tasarım</b> sekmesinde <b>KIZAK</b> sekmesini açıp
             <b>batarya föyünü (PDF)</b> yükleyin, <b>DXF Üret</b> deyin.
             Her takım için <b>2 ALT L + 2 OMEGA + 2 ÜST L</b> üretilir.
           </div>
@@ -18256,7 +18277,7 @@ function topluDxfUret() {
   var hasEsanjor = esanjorList.length > 0;
   var hasKizak = kizakList.length > 0;
   if (!hasPanel && !hasBogaz && !hasTava && !hasDamper && !hasArakat && !hasEsanjor && !hasKizak) {
-    setStatus('Üretilecek kayıt yok — önce Kapak Hesabı sekmesinden aktarın.');
+    setStatus('Üretilecek kayıt yok — önce 3B Tasarım sekmesinden aktarın.');
     return;
   }
 
@@ -19133,7 +19154,7 @@ function renderNestModalContent() {
   var groupsEl = document.getElementById('nest-groups');
   if (!nestState || !nestState.groups.length) {
     summaryEl.innerHTML = '';
-    groupsEl.innerHTML = '<div style=&quot;color:var(--text-muted);font-size:13px;padding:20px;text-align:center;&quot;>Nestlenecek parça yok — önce Kapak Hesabı sekmesinden aktarın.</div>';
+    groupsEl.innerHTML = '<div style=&quot;color:var(--text-muted);font-size:13px;padding:20px;text-align:center;&quot;>Nestlenecek parça yok — önce 3B Tasarım sekmesinden aktarın.</div>';
     return;
   }
   var agg = nestState.aggregate;
@@ -19220,7 +19241,7 @@ function openNestModal() {
   document.getElementById('nest-gap').value = 3;
   if (panels.length === 0) {
     document.getElementById('nest-summary').innerHTML = '';
-    document.getElementById('nest-groups').innerHTML = '<div style=&quot;color:var(--text-muted);font-size:13px;padding:20px;text-align:center;&quot;>Nestlenecek parça yok — önce Kapak Hesabı sekmesinden aktarın.</div>';
+    document.getElementById('nest-groups').innerHTML = '<div style=&quot;color:var(--text-muted);font-size:13px;padding:20px;text-align:center;&quot;>Nestlenecek parça yok — önce 3B Tasarım sekmesinden aktarın.</div>';
   } else {
     nestRunAndRender();
   }
@@ -20909,7 +20930,7 @@ table.out tr.merged td.c{background:var(--accent-soft)}
 <div class=&quot;topbar&quot;>
   <div class=&quot;inner&quot;>
     <h1>Profil kesim listesi birleştirici</h1>
-    <p>Kapak hesabı dosyalarından köşe ve takviye profillerini toplar, boya göre tek listeye indirir.</p>
+    <p>3B Tasarım dosyalarından köşe ve takviye profillerini toplar, boya göre tek listeye indirir.</p>
   </div>
 </div>
 
@@ -20919,13 +20940,13 @@ table.out tr.merged td.c{background:var(--accent-soft)}
   <h2><span class=&quot;num&quot;>1</span> Kaynak</h2>
   <div class=&quot;body&quot;>
     <div class=&quot;tabs&quot; role=&quot;tablist&quot;>
-      <button role=&quot;tab&quot; aria-selected=&quot;true&quot; data-pane=&quot;pane-xl&quot;>Kapak hesabı Excel'leri</button>
+      <button role=&quot;tab&quot; aria-selected=&quot;true&quot; data-pane=&quot;pane-xl&quot;>3B Tasarım Excel'leri</button>
       <button role=&quot;tab&quot; aria-selected=&quot;false&quot; data-pane=&quot;pane-manual&quot;>Elle yapıştır</button>
     </div>
 
     <div class=&quot;pane&quot; id=&quot;pane-xl&quot;>
       <div class=&quot;drop&quot; id=&quot;drop&quot;>
-        <p>Kapak hesabı dosyalarını buraya sürükleyin — birden fazla olabilir.</p>
+        <p>3B Tasarım dosyalarını buraya sürükleyin — birden fazla olabilir.</p>
         <input type=&quot;file&quot; id=&quot;xlfiles&quot; accept=&quot;.xlsx&quot; multiple>
       </div>
       <div id=&quot;filelist&quot;></div>
@@ -22263,7 +22284,7 @@ window.addEventListener('message',e=>{
     setTimeout(()=>document.getElementById('f1').contentWindow.postMessage({type:'dxfInject',payload:e.data.payload},'*'),300);
   }
   // ANALİZ — f0 hesabı ister, f1 yanıtlar. Köprü burada İKİ YÖNLÜDÜR ve dxfExport'tan
-  // farklı olarak SEKME DEĞİŞTİRMEZ: kullanıcı Kapak Hesabı'nda kalır, hesap arka planda
+  // farklı olarak SEKME DEĞİŞTİRMEZ: kullanıcı 3B Tasarım'da kalır, hesap arka planda
   // yapılır. Yük olduğu gibi iletilir (id ile eşlenir, birden çok AHU sırayla sorulur).
   if(e.data&&e.data.type==='analizIste'){
     document.getElementById('f1').contentWindow.postMessage(e.data,'*');
