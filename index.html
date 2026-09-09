@@ -14487,6 +14487,12 @@ boot();
 // =====================================================================
 
 class DxfWriter {
+  // DXF standart fontunda (txt) karakter genisligi ~ 0.6 x yazi yuksekligi.
+  // TEK KAYNAK: _textBaslangic (hizalama) ve MARKA_HARF (sigdirma) bunu kullanir.
+  // SINIFIN ICINDE durur ki DxfWriter baska bir baglama tek basina tasindiginda da
+  // calissin — disarida duran bir atama tasinmayi unutunca koordinat NaN olur.
+  static HARF_ORANI = 0.6;
+
   constructor() {
     this.entities = [];
     this.handle = 100;
@@ -14527,6 +14533,36 @@ class DxfWriter {
       type: 'TEXT', x: x, y: y, height: height, text: text,
       layer: layer, rotation: rotation, hAlign: hAlign, vAlign: vAlign
     });
+  }
+
+  /** HIZALAMA NOKTASINDAN SOL-BASELINE NOKTASINA (Cenk, 09.09.2026)
+   *  «AutoCAD ile acarsam sorun yok ancak lazer nesting programina yukledigimde
+   *   markalamalarin konumu kayabiliyor»
+   *  Sebep: yazi DXF 72 (yatay) / 73 (dikey) hizalama koduyla yaziliyordu. Standart,
+   *  bu kodlar sifirdan farkliysa metnin code 11'e gore konumlanmasini, code 10'un
+   *  YOK SAYILMASINI soyler. AutoCAD bunu uyguluyor; basit DXF okuyucular (lazer/CNC
+   *  nesting) uygulamiyor ve code 10'u SOL-BASELINE sanip yaziyi metin boyunun yarisi
+   *  kadar kaydiriyordu (16 karakterlik kodda h=35'te 168 mm).
+   *  OLCULDU: elde duran 1483 AutoCAD DXF'indeki 18.303 TEXT'in HICBIRINDE 72/73 yok —
+   *  hizalama kodu endustride kullanilmiyor, okuyucularin desteklememesi beklenir.
+   *  COZUM: hizalamayi BIZ hesaplayip yalnizca code 10 yaziyoruz (72/73/11 hic
+   *  yazilmaz), boylece her okuyucu tek yol izler.
+   *  NOT: yazinin okuma yonundeki uzunlugu DXF fontundan olculemez, MARKA_HARF ile
+   *  TAHMIN edilir — sigdirma (markaOlcu) ve delik kacisi (markaDelikYeri) zaten ayni
+   *  tahmine dayanir, yeni bir belirsizlik girmez. TEK KOPYA: oran MARKA_HARF'tir.
+   */
+  _textBaslangic(e) {
+    var hA = e.hAlign || 0, vA = e.vAlign || 0;
+    if (!hA && !vA) return { x: e.x, y: e.y };
+    var boy = String(e.text).length * e.height * DxfWriter.HARF_ORANI;
+    // okuma yonunde kaydirma — 1 = orta, 2 = sag (0 = sol, kaydirma yok)
+    var dU = (hA === 1) ? -boy / 2 : (hA === 2) ? -boy : 0;
+    // dik yonde kaydirma — 1 = alt, 2 = orta, 3 = ust. Kodlarda descender yok:
+    // 'alt' ile baseline ayni noktadir.
+    var dV = (vA === 2) ? -e.height / 2 : (vA === 3) ? -e.height : 0;
+    var a = (e.rotation || 0) * Math.PI / 180;
+    var ca = Math.cos(a), sa = Math.sin(a);
+    return { x: e.x + dU * ca - dV * sa, y: e.y + dU * sa + dV * ca };
   }
 
   /** Spline ekle (control points + knots) */
@@ -14626,19 +14662,18 @@ class DxfWriter {
           break;
 
         case 'TEXT':
+          // DXF 72/73 HIZALAMASI YAZILMAZ (Cenk, 09.09.2026) — bkz. _textBaslangic.
+          // Konum HER ZAMAN code 10'dadir ve metnin SOL-BASELINE noktasidir; boylece
+          // 72/73'u uygulayan da uygulamayan da AYNI yeri gorur.
+          var tp = this._textBaslangic(e);
           dxf += '0\nTEXT\n8\n' + e.layer + '\n';
-          dxf += '10\n' + e.x + '\n20\n' + e.y + '\n30\n0.0\n';
+          dxf += '10\n' + tp.x + '\n20\n' + tp.y + '\n30\n0.0\n';
           dxf += '40\n' + e.height + '\n';
           dxf += '1\n' + e.text + '\n';
           if (e.rotation) dxf += '50\n' + e.rotation + '\n';
-          // Sag-/orta-/sol- ve baseline/bottom/middle/top hizalama (DXF 72/73 + 11).
-          // hAlign>0 veya vAlign>0 ise alignment point (DXF 11) eklenir; aksi
-          // halde TEXT default Left/Baseline yorumlanir (eski davranis korunur).
-          if (e.hAlign || e.vAlign) {
-            if (e.hAlign) dxf += '72\n' + e.hAlign + '\n';
-            dxf += '11\n' + e.x + '\n21\n' + e.y + '\n31\n0.0\n';
-            if (e.vAlign) dxf += '73\n' + e.vAlign + '\n';
-          }
+          // Stil ADIYLA verilir: okuyucu kendi varsayilanina (farkli genislik
+          // faktorune) dusmesin — TABLES'taki STANDARD'in 41'i 1.0'dir.
+          dxf += '7\nSTANDARD\n';
           break;
 
         case 'SPLINE':
@@ -14713,34 +14748,48 @@ class DxfWriter {
 }
 
 
+
 // =====================================================================
 // 50'lik PANEL CIZIM MOTORU
 // =====================================================================
 
-// Percin hesaplama: ceil(span / maxSp) esit aralikli daire
-// vidaPos: paralel siradaki vida konumlari (yatay sira icin X, dikey sutun icin Y).
-//          Percin bu listedeki bir konumla ortusurse 13mm kaydirilir.
-function addPercin(dxf, ox, oy, x1, y1, x2, y2, r, dir, maxSp, layer, vidaPos) {
-  var span = dir === 'V' ? Math.abs(y2 - y1) : Math.abs(x2 - x1);
+// PERCIN SAYISI — VIDAYA DENK GELEN PERCIN KAYDIRILMAZ, ARALIK SAYISI 1 ARTIRILIR.
+// Cenk (09.09.2026): «denk geliyorsa perçin deliğini 1 arttıralım».
+// Kaydirma neden yanlis: percin IKI SACI birbirine baglar, ayni delige atilir. DIS sacta
+// kaydirilan percinin IC sacta karsiligi kaymadigi icin delikler 13 mm hizadan cikiyordu
+// (olculdu, `_percin-vida-olcum.js`). Sayiyi artirmak ise araligi yeniden boler: iki sac
+// da AYNI n'i kullandigi surece hiza korunur — bu yuzden n her zaman DIS sacta cozulur ve
+// IC saca MIRAS gecer.
+// span: percinlerin dagitildigi acikligin boyu · base: acikligin baslangic koordinati
+// vidaPos: paralel siradaki vidalarin AYNI eksendeki konumlari (bos ise kural islemez)
+// Donus: aralik sayisi n — cizilen percin n-1 tanedir (uclardakiler ayri).
+var PERCIN_HIZA_TOL  = 1;    // mm — bu kadar yakinsa 'denk geliyor' sayilir
+var PERCIN_MAX_ARTIS = 20;   // guvenlik siniri (sonsuz dongu olmasin)
+function percinAralikSayisi(span, maxSp, base, vidaPos) {
   var n = Math.ceil(span / maxSp);
-  vidaPos = vidaPos || [];
-  // Herhangi bir percin vida ile cakisiyorsa n'i artir (max 20 deneme)
-  for (var iter = 0; iter < 20; iter++) {
-    var sp = span / n;
-    var base = (dir === 'V' ? Math.min(y1, y2) : Math.min(x1, x2));
-    var conflict = false;
-    for (var i = 1; i < n; i++) {
+  if (!vidaPos || !vidaPos.length) return n;
+  for (var artis = 0; artis < PERCIN_MAX_ARTIS; artis++) {
+    var sp = span / n, cakisma = false;
+    for (var i = 1; i < n && !cakisma; i++) {
       var pos = base + i * sp;
       for (var j = 0; j < vidaPos.length; j++) {
-        if (Math.abs(pos - vidaPos[j]) < 1) { conflict = true; break; }
+        if (Math.abs(pos - vidaPos[j]) < PERCIN_HIZA_TOL) { cakisma = true; break; }
       }
-      if (conflict) break;
     }
-    if (!conflict) break;
+    if (!cakisma) break;
     n++;
   }
-  var sp = span / n;
+  return n;
+}
+
+// Percin hesaplama: ceil(span / maxSp) esit aralikli daire
+// vidaPos: paralel siradaki vida konumlari (yatay sira icin X, dikey sutun icin Y).
+//          Percin bu listedeki bir konumla ortusurse SAYI ARTAR (bkz. yukarisi).
+function addPercin(dxf, ox, oy, x1, y1, x2, y2, r, dir, maxSp, layer, vidaPos) {
+  var span = dir === 'V' ? Math.abs(y2 - y1) : Math.abs(x2 - x1);
   var base = (dir === 'V' ? Math.min(y1, y2) : Math.min(x1, x2));
+  var n = percinAralikSayisi(span, maxSp, base, vidaPos);
+  var sp = span / n;
   for (var i = 1; i < n; i++) {
     var pos = base + i * sp;
     if (dir === 'V') {
@@ -16486,48 +16535,31 @@ function draw50(dxf, panelList, satirN, gapCol, gapRow) {
 
 // Yatay percin sirasi
 // vidaXs: paralel siradaki vidalarin mutlak X konumlari. Cakisma varsa percin 13mm kayar.
-function addPH(dxf, x0, x1, y, yofs, cn, cf, layer, vidaXs) {
+// nZorla: DIS sacta cozulmus aralik sayisi — IC sac onu MIRAS alir ki delikler
+//         hizadan cikmasin (50'likteki addPercinN'in 60'lik karsiligi).
+// Donus: kullanilan aralik sayisi n.
+function addPH(dxf, x0, x1, y, yofs, cn, cf, layer, vidaXs, nZorla) {
   dxf.addCircle(x0 + cn, y + yofs, 2.3, layer);
   dxf.addCircle(x1 - cf, y + yofs, 2.3, layer);
   var sp = (x1 - x0) - cn - cf;
-  if (sp > 0.001) {
-    var n = Math.ceil(sp / 390);
-    if (n > 1) {
-      var st = sp / n;
-      vidaXs = vidaXs || [];
-      for (var i = 1; i < n; i++) {
-        var px = x0 + cn + i * st;
-        var shift = 0;
-        for (var j = 0; j < vidaXs.length; j++) {
-          if (Math.abs(px - vidaXs[j]) < 1) { shift = 13; break; } // hiza tol. 1mm (asimetrik uc ofseti)
-        }
-        dxf.addCircle(px + shift, y + yofs, 2.3, layer);
-      }
-    }
-  }
+  if (!(sp > 0.001)) return 1;
+  var n = nZorla || percinAralikSayisi(sp, 390, x0 + cn, vidaXs);
+  var st = sp / n;
+  for (var i = 1; i < n; i++) dxf.addCircle(x0 + cn + i * st, y + yofs, 2.3, layer);
+  return n;
 }
 
 // Dikey percin sutunu
-// vidaYs: paralel sutundaki vidalarin mutlak Y konumlari. Cakisma varsa percin 13mm kayar.
-function addPV(dxf, x, y0, y1, xofs, cn, cf, layer, vidaYs) {
+// vidaYs: paralel sutundaki vidalarin mutlak Y konumlari. Cakisma varsa SAYI ARTAR.
+function addPV(dxf, x, y0, y1, xofs, cn, cf, layer, vidaYs, nZorla) {
   dxf.addCircle(x + xofs, y0 + cn, 2.3, layer);
   dxf.addCircle(x + xofs, y1 - cf, 2.3, layer);
   var sp = (y1 - y0) - cn - cf;
-  if (sp > 0.001) {
-    var n = Math.ceil(sp / 390);
-    if (n > 1) {
-      var st = sp / n;
-      vidaYs = vidaYs || [];
-      for (var i = 1; i < n; i++) {
-        var py = y0 + cn + i * st;
-        var shift = 0;
-        for (var j = 0; j < vidaYs.length; j++) {
-          if (Math.abs(py - vidaYs[j]) < 1) { shift = 13; break; } // hiza tol. 1mm (asimetrik uc ofseti)
-        }
-        dxf.addCircle(x + xofs, py + shift, 2.3, layer);
-      }
-    }
-  }
+  if (!(sp > 0.001)) return 1;
+  var n = nZorla || percinAralikSayisi(sp, 390, y0 + cn, vidaYs);
+  var st = sp / n;
+  for (var i = 1; i < n; i++) dxf.addCircle(x + xofs, y0 + cn + i * st, 2.3, layer);
+  return n;
 }
 
 
@@ -16555,7 +16587,7 @@ var KOD_CAM_KACIS = 20;
 // =====================================================================
 var MARKA_H     = 35.0;        // hedef yazi yuksekligi — panelin bugunku boyu
 var MARKA_MIN_H = 10.0;        // Cenk'in sectigi alt sinir (esanjorun yazisiyla ayni)
-var MARKA_HARF  = 0.6;         // DXF standart fontta karakter genisligi ~ 0.6 * yukseklik
+var MARKA_HARF  = DxfWriter.HARF_ORANI;   // TEK KAYNAK — bkz. DxfWriter.HARF_ORANI
 var MARKA_LAYER = 'KOD_BUYUK';
 // BOGAZ MARKASI DELIKTEN KACAR (Cenk, 09.09.2026): «markalama uclardaki deliklerin
 // ustune denk gelmektedir, 10 cm kaydirilarak deliklerin oldugu kenardan uzaklasmali».
@@ -16927,7 +16959,7 @@ function addCam60(dxf, cx, cy, layer) {
 function drawDis60(dxf, ox, oy, B, K, kod, layer) {
   var ly = layer || '0';
   drawFoldDis(dxf, ox, oy, B, K, ly);
-  // Vida konumlari (vidayla ayni hizaya gelen percin 13mm kayar; hiza tol. 1mm)
+  // Vida konumlari (vidayla ayni hizaya gelen percinde SAYI ARTAR; hiza tol. 1mm)
   var vidaXs = [ox + 60, ox + B - 60];
   if (B >= 800 && B < 1600) vidaXs.push(ox + B / 2);
   else if (B >= 1600) {
@@ -16940,11 +16972,11 @@ function drawDis60(dxf, ox, oy, B, K, kod, layer) {
     vidaYs.push(oy + 60 + (K - 120) / 3);
     vidaYs.push(oy + 60 + 2 * (K - 120) / 3);
   }
-  // Percin
-  addPH(dxf, ox, ox + B, oy, -51.7, 40.29, 40.70, ly, vidaXs);
-  addPH(dxf, ox, ox + B, oy + K, 51.7, 40.29, 40.70, ly, vidaXs);
-  addPV(dxf, ox, oy, oy + K, -51.7, 40.29, 40.70, ly, vidaYs);
-  addPV(dxf, ox + B, oy, oy + K, 51.7, 40.29, 40.70, ly, vidaYs);
+  // Percin — vida cakismasi nedeniyle artan sayi IC saca miras gecsin diye tutulur
+  var nBottom = addPH(dxf, ox, ox + B, oy, -51.7, 40.29, 40.70, ly, vidaXs);
+  var nTop    = addPH(dxf, ox, ox + B, oy + K, 51.7, 40.29, 40.70, ly, vidaXs);
+  var nLeft   = addPV(dxf, ox, oy, oy + K, -51.7, 40.29, 40.70, ly, vidaYs);
+  var nRight  = addPV(dxf, ox + B, oy, oy + K, 51.7, 40.29, 40.70, ly, vidaYs);
   // Sabit vida
   dxf.addCircle(ox + 60, oy + 15, 8.1, ly);
   dxf.addCircle(ox + B - 60, oy + 15, 8.1, ly);
@@ -16974,17 +17006,22 @@ function drawDis60(dxf, ox, oy, B, K, kod, layer) {
     dxf.addCircle(ox + B - 15, oy + 60 + (K - 120) / 3, 8.1, ly);
     dxf.addCircle(ox + B - 15, oy + 60 + 2 * (K - 120) / 3, 8.1, ly);
   }
+  // Vida cakismasi nedeniyle artan percin sayisi ic kapaga aktarilsin diye dondurulur
+  return { left: nLeft, right: nRight, bottom: nBottom, top: nTop };
 }
 
 // SABIT IC PANEL (60'lık) - kulak yok (SABIT ve BOGAZ icin)
-function drawIc60(dxf, ox, oy, B, K, kod, layer) {
+// percinN: DIS panelden gelen aralik sayilari — IC sacin delikleri DIS ile HIZADA
+//          kalsin diye miras alinir (50'likteki drawIcSabit'in aynisi).
+function drawIc60(dxf, ox, oy, B, K, kod, layer, percinN) {
   var ly = layer || '0';
   var BI = B - 41, KI = K - 41;
+  var pn = percinN || {};
   drawFoldIcSabit(dxf, ox, oy, BI, KI, ly);
-  addPH(dxf, ox, ox + BI, oy, -28.5, 20, 20, ly);
-  addPH(dxf, ox, ox + BI, oy + KI, 28.5, 20, 20, ly);
-  addPV(dxf, ox, oy, oy + KI, -28.5, 20, 20, ly);
-  addPV(dxf, ox + BI, oy, oy + KI, 28.5, 20, 20, ly);
+  addPH(dxf, ox, ox + BI, oy, -28.5, 20, 20, ly, null, pn.bottom);
+  addPH(dxf, ox, ox + BI, oy + KI, 28.5, 20, 20, ly, null, pn.top);
+  addPV(dxf, ox, oy, oy + KI, -28.5, 20, 20, ly, null, pn.left);
+  addPV(dxf, ox + BI, oy, oy + KI, 28.5, 20, 20, ly, null, pn.right);
 }
 
 // -------------------------------------------------------
@@ -17058,11 +17095,11 @@ function drawBogazDis60(dxf, ox, oy, B, K, tip, kod, layer) {
     vidaYs.push(oy + 60 + (K - 120) / 3);
     vidaYs.push(oy + 60 + 2 * (K - 120) / 3);
   }
-  // Percin (SABIT ile ayni)
-  addPH(dxf, ox, ox + B, oy, -51.7, 40.29, 40.70, ly, vidaXsAlt);
-  addPH(dxf, ox, ox + B, oy + K, 51.7, 40.29, 40.70, ly, vidaXsUst);
-  addPV(dxf, ox, oy, oy + K, -51.7, 40.29, 40.70, ly, vidaYs);
-  addPV(dxf, ox + B, oy, oy + K, 51.7, 40.29, 40.70, ly, vidaYs);
+  // Percin (SABIT ile ayni) — artan sayi IC saca miras gecsin diye tutulur
+  var nBottom = addPH(dxf, ox, ox + B, oy, -51.7, 40.29, 40.70, ly, vidaXsAlt);
+  var nTop    = addPH(dxf, ox, ox + B, oy + K, 51.7, 40.29, 40.70, ly, vidaXsUst);
+  var nLeft   = addPV(dxf, ox, oy, oy + K, -51.7, 40.29, 40.70, ly, vidaYs);
+  var nRight  = addPV(dxf, ox + B, oy, oy + K, 51.7, 40.29, 40.70, ly, vidaYs);
 
   // Vida
   if (K >= 150) {
@@ -17104,6 +17141,7 @@ function drawBogazDis60(dxf, ox, oy, B, K, tip, kod, layer) {
     }
     dxf.addCircle(ox + B - 60, oy + K - 15, 8.1, ly);
   }
+  return { left: nLeft, right: nRight, bottom: nBottom, top: nTop };
 }
 
 // -------------------------------------------------------
@@ -17131,17 +17169,18 @@ function draw60(dxf, panelList, satirN, gapCol, gapRow) {
 
     switch (tip) {
       case 'SABIT': {
-        drawDis60(dxf, curX, curY, B, K, kod, '0');
-        drawIc60(dxf, curX + B + 797, curY + 20.5, B, K, kod, '0');
+        // DIS sacta cozulen percin sayisi IC saca MIRAS gecer (vida cakismasi)
+        var pN60 = drawDis60(dxf, curX, curY, B, K, kod, '0');
+        drawIc60(dxf, curX + B + 797, curY + 20.5, B, K, kod, '0', pN60);
         if (panel.delik) {
           drawPanelDelik(dxf, curX, curY, B, K, panel.delik,
             function (w) { drawDis60(w, 0, 0, B, K, kod, '0'); });
           drawPanelDelik(dxf, curX + B + 797, curY + 20.5, B, K, panel.delik,
-            function (w) { drawIc60(w, 0, 0, B, K, kod, '0'); });
+            function (w) { drawIc60(w, 0, 0, B, K, kod, '0', pN60); });
         }
         addBigKodLabel(dxf, curX, curY, B, K, kod, false);
         kodEtiketYedekli(dxf, curX + B + 797, curY + 20.5, B - 41, K - 41, kod, false,
-          function (w) { drawIc60(w, 0, 0, B, K, '', '0'); });
+          function (w) { drawIc60(w, 0, 0, B, K, '', '0', pN60); });
         pairW = 2 * B + 917;        break;
       }
       case 'ACILIR': {
@@ -17168,11 +17207,11 @@ function draw60(dxf, panelList, satirN, gapCol, gapRow) {
       }
       case 'BOGAZ': {
         var bt = (bogazTip || 'N').toUpperCase();
-        drawBogazDis60(dxf, curX, curY, B, K, bt, kod, '0');
-        drawIc60(dxf, curX + B + 797, curY + 20.5, B, K, kod, '0');
+        var pNb60 = drawBogazDis60(dxf, curX, curY, B, K, bt, kod, '0');
+        drawIc60(dxf, curX + B + 797, curY + 20.5, B, K, kod, '0', pNb60);
         addBigKodLabel(dxf, curX, curY, B, K, kod, false);
         kodEtiketYedekli(dxf, curX + B + 797, curY + 20.5, B - 41, K - 41, kod, false,
-          function (w) { drawIc60(w, 0, 0, B, K, '', '0'); });
+          function (w) { drawIc60(w, 0, 0, B, K, '', '0', pNb60); });
         pairW = 2 * B + 917;        break;
       }
     }
@@ -18530,11 +18569,17 @@ function buildNestPieces(panelList) {
     var adet = Math.max(1, Number(p.adet) || 1);
     for (var a = 0; a < adet; a++) {
       var percinN = null, percinOffsets = null;
-      if (!isPas && kalinlikBase === '50' && (p.tip === 'SABIT' || p.tip === 'BOGAZ')) {
+      if (!isPas && (kalinlikBase === '50' || kalinlikBase === '60')
+          && (p.tip === 'SABIT' || p.tip === 'BOGAZ')) {
         // DIŞ panelin gerçek çizimi perçin sayısını belirliyor (vida çakışması) — atılabilir
         // bir DxfWriter'a karşı bir kez çağırıp sadece sayıyı yakalıyoruz (konum önemsiz).
+        // 60'lık da 09.09.2026'dan beri aynı yolu kullanır (eskiden 13 mm kaydırıyordu).
         var scratch = new DxfWriter();
-        if (p.tip === 'SABIT') percinN = drawDisSabit(scratch, 0, 0, p.B, p.K, p.kod);
+        if (kalinlikBase === '60') {
+          percinN = (p.tip === 'SABIT')
+            ? drawDis60(scratch, 0, 0, p.B, p.K, p.kod, '0')
+            : drawBogazDis60(scratch, 0, 0, p.B, p.K, p.bogazTip || 'N', p.kod, '0');
+        } else if (p.tip === 'SABIT') percinN = drawDisSabit(scratch, 0, 0, p.B, p.K, p.kod);
         else percinN = drawBogazDis(scratch, 0, 0, p.B, p.K, p.bogazTip || 'N', p.kod);
       } else if (isPas && (p.tip === 'SABIT' || p.tip === 'BOGAZ')) {
         percinOffsets = (p.tip === 'SABIT')
@@ -18933,12 +18978,12 @@ function drawNestPiece(writer, placement) {
       else if (p.tip === 'BOGAZ') { if (p.isPas) drawBogazDis60Pas(writer, ox, oy, B, K, bt, kod, p.percinOffsets); else drawBogazDis60(writer, ox, oy, B, K, bt, kod, '0'); }
     } else {
       if (p.tip === 'SABIT') {
-        if (p.isPas) drawIc60Pas(writer, ox, oy, B, K, kod, p.percinOffsets); else drawIc60(writer, ox, oy, B, K, kod, '0');
+        if (p.isPas) drawIc60Pas(writer, ox, oy, B, K, kod, p.percinOffsets); else drawIc60(writer, ox, oy, B, K, kod, '0', p.percinN);
         if (dlk) drawPanelDelik(writer, ox, oy, B, K, dlk, function (wr) {
-          if (p.isPas) drawIc60Pas(wr, 0, 0, B, K, kod, p.percinOffsets); else drawIc60(wr, 0, 0, B, K, kod, '0'); });
+          if (p.isPas) drawIc60Pas(wr, 0, 0, B, K, kod, p.percinOffsets); else drawIc60(wr, 0, 0, B, K, kod, '0', p.percinN); });
       }
       else if (p.tip === 'ACILIR') drawIcAcilir60(writer, ox, oy, B, K, kod, '0');
-      else if (p.tip === 'BOGAZ') { if (p.isPas) drawIc60BogazPas(writer, ox, oy, B, K, bt, kod, p.percinOffsets); else drawIc60(writer, ox, oy, B, K, kod, '0'); }
+      else if (p.tip === 'BOGAZ') { if (p.isPas) drawIc60BogazPas(writer, ox, oy, B, K, bt, kod, p.percinOffsets); else drawIc60(writer, ox, oy, B, K, kod, '0', p.percinN); }
       else if (p.tip === 'UST') drawUst60(writer, ox, oy, B, K, kod, '0');
     }
   }
