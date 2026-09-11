@@ -17318,6 +17318,18 @@ var BOGAZ_MARKA_KACIS = 100;   // mm — marka ile delik arasindaki en az mesafe
 // kademe kademe gevsetilir. 0'da bile deliksiz yer yoksa 07.09'un kenar yoluna dusulur
 // ki MARKASIZ PARCA OLMASIN (Cenk'in kurali: markalama olmayan parca olmayacak).
 var MARKA_KACIS_KADEME = [1, 0.5, 0.2, 0];
+// MARKA KENARA YAPISMAZ (Cenk, 12.09.2026): «AHU-1 — BOGAZLAR: yine tasti disariya».
+// OLCULDU (indirilen dosya): bogazin DBP parcasi 163,8 mm genis, yazi 163,2 mm —
+// her iki yanda 0,3 mm. Tahmin (MARKA_HARF) dogru olsa bile yapisik marka gercek
+// fontla acilinca harfin kendi yan bosluguyla kenar cizgisinin USTUNE biner; gozle
+// bakan 'tasmis' der ve HAKLIDIR. Kutu artik her kenardan pay birakir.
+//   pay = MARKA_KENAR_PAY x yazi yuksekligi        (h cozumu kapali formul kalir:
+//   h <= W / (n x MARKA_HARF + 2 x MARKA_KENAR_PAY)  ve  h <= H / (1 + 2 x MARKA_KENAR_PAY))
+// PAY NEDEN ORANSAL, SABIT mm DEGIL: sabit 10 mm kucuk parcayi yutar (130 mm'lik
+// bogazda yazi 10 mm'nin altina duserdi), buyuk parcada da goze yetmez. Yazi
+// yuksekliginin yarisi tipografik olarak da dogru durur ve parcayla birlikte olceklenir.
+// SIGMA SIRASI DEGISMEZ: pay da kutunun bir parcasidir, marka yine parcadan buyuk olamaz.
+var MARKA_KENAR_PAY = 0.5;
 
 // Kodu W x H kutusuna SIGDIRIR (Cenk'in sectigi sira):
 //   1) yatay, tam boy   -> sigan her parcada cikti BIREBIR bugunku gibi kalir
@@ -17327,11 +17339,14 @@ var MARKA_KACIS_KADEME = [1, 0.5, 0.2, 0];
 function markaOlcu(kod, W, H) {
   var n = String(kod || '').length;
   if (!n || !(W > 0) || !(H > 0)) return null;
-  var gen = function (h) { return n * h * MARKA_HARF; };
-  if (gen(MARKA_H) <= W && MARKA_H <= H) return { h: MARKA_H, rot: 0 };
-  if (gen(MARKA_H) <= H && MARKA_H <= W) return { h: MARKA_H, rot: 90 };
-  var hYatay = Math.min(W / (n * MARKA_HARF), H);
-  var hDikey = Math.min(H / (n * MARKA_HARF), W);
+  // Kutunun KENAR PAYI da yazinin yuksekligine baglidir (bkz. MARKA_KENAR_PAY):
+  // okuma ekseninde iki yanda, dik eksende alt ve ustte birer pay durur.
+  var gen = function (h) { return h * (n * MARKA_HARF + 2 * MARKA_KENAR_PAY); };
+  var kal = function (h) { return h * (1 + 2 * MARKA_KENAR_PAY); };
+  if (gen(MARKA_H) <= W && kal(MARKA_H) <= H) return { h: MARKA_H, rot: 0 };
+  if (gen(MARKA_H) <= H && kal(MARKA_H) <= W) return { h: MARKA_H, rot: 90 };
+  var hYatay = Math.min(W / (n * MARKA_HARF + 2 * MARKA_KENAR_PAY), H / (1 + 2 * MARKA_KENAR_PAY));
+  var hDikey = Math.min(H / (n * MARKA_HARF + 2 * MARKA_KENAR_PAY), W / (1 + 2 * MARKA_KENAR_PAY));
   var yatay = hYatay >= hDikey;
   var h = Math.floor((yatay ? hYatay : hDikey) * 10) / 10;
   return { h: h, rot: yatay ? 0 : 90, kucultuldu: true, altSinirAltinda: h < MARKA_MIN_H };
@@ -17405,6 +17420,14 @@ function addBigKodLabel(writer, ox, oy, W, H, kod, isGlass) {
   if (!m || !(m.h > 0)) return;
   var lx = ox + W / 2;
   var ly = isGlass ? (oy + H * 0.22 - KOD_CAM_KACIS) : (oy + H / 2);
+  if (isGlass) {
+    // Camli acilirda etiket bilerek merkezin ALTINA kayar (cam hattindan kacar).
+    // COK ALCAK panelde bu kayma yaziyi parcanin disina dusurebilir — kenar payi
+    // kadar iceri cekilir. Normal boydaki panelde kelepce hic devreye girmez.
+    var boyG  = String(kod).length * m.h * MARKA_HARF;
+    var yarim = (m.rot === 90 ? boyG : m.h) / 2 + MARKA_KENAR_PAY * m.h;
+    ly = Math.min(Math.max(ly, oy + yarim), oy + H - yarim);
+  }
   writer.addText(lx, ly, m.h, kod, MARKA_LAYER, m.rot, 1, 2);
 }
 
@@ -17433,10 +17456,15 @@ function markaBosluklar(delikler, rot, uzun, p0, p1, kacis) {
 // daralir, uzaktaki delik engel olmaktan cikar ve bosluk buyuyebilir — bu yuzden
 // birkac tur donulur; h her turda KUCULUR, dongu kendiliginden durur.
 function markaYonAday(n, uzun, kalin, delikler, rot, kacis) {
-  var h = Math.min(MARKA_H, kalin);
+  var h = Math.min(MARKA_H, kalin / (1 + 2 * MARKA_KENAR_PAY));
   for (var tur = 0; tur < 4 && h > 0; tur++) {
     var p0 = kalin / 2 - h / 2, p1 = kalin / 2 + h / 2;
-    var bos = markaBosluklar(delikler, rot, uzun, p0, p1, kacis);
+    // KENAR PAYI delik kacisindan AYRIDIR: parcanin iki ucundaki bosluk pay kadar
+    // kisalir, deligin ortasindaki bosluk (zaten kacis kadar uzak) etkilenmez.
+    var pay = MARKA_KENAR_PAY * h;
+    var bos = markaBosluklar(delikler, rot, uzun, p0, p1, kacis).map(function (b) {
+      return [Math.max(b[0], pay), Math.min(b[1], uzun - pay)];
+    }).filter(function (b) { return b[1] > b[0]; });
     var g = null;
     bos.forEach(function (b) { if (!g || b[1] - b[0] > g[1] - g[0]) g = b; });
     if (!g) return null;
@@ -17481,8 +17509,9 @@ function addKenarKodLabel(writer, ox, oy, W, H, kod, kacis, delikler) {
     if (!m || !(m.h > 0)) return;
     var boy   = String(kod).length * m.h * MARKA_HARF;   // yazinin okuma yonundeki uzunlugu
     var eksen = (m.rot === 90) ? H : W;                  // yazinin uzandigi kenar
-    var mrk   = Math.min(kacis + boy / 2, eksen - boy / 2);
-    if (!(mrk > boy / 2)) mrk = boy / 2;
+    var pay   = MARKA_KENAR_PAY * m.h;                   // marka kenara yapismaz
+    var mrk   = Math.min(kacis + boy / 2, eksen - pay - boy / 2);
+    if (!(mrk > pay + boy / 2)) mrk = pay + boy / 2;
     yer = { h: m.h, rot: m.rot, mrk: mrk };
   }
   var lx = (yer.rot === 90) ? (ox + W / 2) : (ox + yer.mrk);
@@ -22938,8 +22967,8 @@ const YOL_HARITASI = [
    d:'Tava dışında her parçanın üzerine tip kodu basılır ve marka parçadan büyük olamaz: sığmazsa döndürülür, yetmezse küçültülür. Boğazda marka deliklerin üstüne düşmez.'},
   {n:26, t:'Profil Listesi — 3. sekme', durum:'tamam', tarih:'09.09.2026',
    d:'3B Tasarım Excel\'lerinden (ya da elle yapıştırılan listeden) profil kesim listelerini birleştirip tek sipariş .xlsx\'i üretir. Bağımsızdır: girdisini kullanıcı verir, çıktısını kendisi indirir.'},
-  {n:27, t:'DXF çıktısı lazer nesting\'e uyumlandı', durum:'tamam', tarih:'09.09.2026',
-   d:'Markalamanın konumu artık her okuyucuda aynı yere düşüyor (DXF 72/73 hizalama kodu yazılmıyor). Vidaya denk gelen perçin kaydırılmıyor, sayı bir artıyor — iç ve dış sacın delikleri hizada kalıyor.'},
+  {n:27, t:'DXF çıktısı lazer nesting\'e uyumlandı', durum:'tamam', tarih:'12.09.2026',
+   d:'Markalamanın konumu artık her okuyucuda aynı yere düşüyor (DXF 72/73 hizalama kodu yazılmıyor). Vidaya denk gelen perçin kaydırılmıyor, sayı bir artıyor — iç ve dış sacın delikleri hizada kalıyor. Marka artık küçük parçada dışarı taşmıyor: yazı genişliği tahmini gerçek fontun üstüne çekildi.'},
   {n:28, t:'Excel SEVKİYAT sayfası', durum:'tamam', tarih:'11.09.2026',
    d:'Modül başına bir kâğıt: montaj görünüşü bitişik çizilir, o kâğıdın modülü seçili modül renginde vurgulanır, zemine oturanların altına baza çizilir. Yazdır dendiğinde her modül kendi A4\'üne düşer — kesilip modülün üzerine yapıştırılır.'},
   {n:29, t:'Kuralsız kapaklar kasaya uyar', durum:'tamam', tarih:'11.09.2026',
