@@ -7593,6 +7593,18 @@ const SEVK_BAZA_H = 150;
 // Sığmayan yere çizilmez: dar bir modülün bazasında iki delik birbirine girerdi.
 const SEVK_BAZA_DELIK_R = 25;    // mm — yarıçap
 const SEVK_BAZA_DELIK_X = 120;   // mm — bazanın ucundan deliğin merkezine
+
+// ---- SEVKİYAT KÂĞIDININ YAZDIRMA HESABI (Cenk, 11.09.2026: «her birini ayrı sayfaya
+// yazdıracağım»). Excel px'i 96 dpi sayar: 1 px = 0,2646 mm, 1 pt = 1,333 px.
+//   A4 yatay 297 × 210 mm · 0,2 inç (5,08 mm) marj → yazdırılabilir 286,8 × 199,8 mm
+//   kâğıt  1046 px = 276,7 mm  ·  740 px = 195,8 mm   → ÖLÇEKLENMEDEN sığar
+//   blok   37 satır × 15 pt = 555 pt = 740 px          → görselin tam boyu
+// SATIR BLOĞU GÖRSELDEN BÜYÜK OLMAMALI: büyükse sayfa sonu bir alt sayfaya kayar ve
+// kâğıt ikiye bölünür. Oran 1046/740 = 1,4135 — A4'ün 1,4143'ü (fark binde 1).
+const SEVK_KAGIT_W = 1046, SEVK_KAGIT_H = 740;
+const SEVK_SATIR_YUK = 15;      // pt — AÇIKÇA verilir, varsayılan tema fontuna göre değişir
+const SEVK_BLOK_SATIR = 37;     // 37 × 15 pt = 740 px
+const SEVK_MARJ = 0.2;          // inç
 //
 // SEVKİYAT KÂĞIDI (11.09.2026): aynı çizim, tek bir modül VURGULU olarak da üretilir —
 // `secenek = {vurgu, baslik, W, H}`. Parametresiz çağrı ESKİ DAVRANIŞIN BİREBİR AYNISI
@@ -8442,30 +8454,37 @@ async function exportExcel(){
     // VURGU RENGİYLE boyalı (3B sahnedeki SEÇİLİ MODÜL rengi). Kâğıt modülün üzerine
     // yapıştırılır — hangi modül olduğu YALNIZCA bu renkten okunur, başka işaret yoktur.
     // TEK sekmede dizilir, aralarına BASKI SAYFA SONU konur: yazdır dendiğinde her modül
-    // kendi A4'üne düşer (kâğıt oranı 1120×792 = A4 YATAY).
+    // kendi A4'üne düşer (kâğıt oranı A4 YATAY; ölçüler ve gerekçe SEVK_KAGIT_W/H'de).
     // Köşe damgası burada da basılır: kâğıdın büyük başlığı SANTRAL ADIDIR (Cenk, 11.09.2026:
     // «santral adı yeterli»), damganın taşıdığı İŞ EMRİ NO orada yoktur — «Excel'e giren HER
     // görsel damga taşır» kuralı bu yüzden delinmez.
     if(state.modules.length){
+      // ⚠ fitToHeight 1 DEĞİL 0: «1» bütün sayfayı TEK yaprağa sıkıştırır ve manuel sayfa
+      // sonlarını yok sayar (Cenk, 11.09.2026: «hepsini tek sayfaya sıkıştırıyor»). 0 =
+      // «genişlik bir yaprak, yükseklik serbest» — sayfa sonları o zaman işler.
       const wsS = wb.addWorksheet('SEVKİYAT');
-      wsS.pageSetup = { orientation:'landscape', fitToPage:true, fitToWidth:1, fitToHeight:1,
-        margins:{left:0.3, right:0.3, top:0.3, bottom:0.3, header:0, footer:0} };
+      wsS.pageSetup = { orientation:'landscape', fitToPage:true, fitToWidth:1, fitToHeight:0,
+        margins:{left:SEVK_MARJ, right:SEVK_MARJ, top:SEVK_MARJ, bottom:SEVK_MARJ,
+                 header:0, footer:0} };
       if(!wsS.rowBreaks) wsS.rowBreaks = [];
-      const SEVK_SATIR = 44;   // 792 px görsel ≈ 40 varsayılan satır; kalanı pay
       for(let _m=0; _m<state.modules.length; _m++){
-        const ust = _m*SEVK_SATIR;
+        const ust = _m*SEVK_BLOK_SATIR;
+        // Satır yükseklikleri AÇIKÇA verilir: varsayılan yükseklik tema fontuna göre
+        // değişir, blok görselden yüksek çıkarsa kâğıt ikiye bölünür.
+        for(let _r=1; _r<=SEVK_BLOK_SATIR; _r++) wsS.getRow(ust+_r).height = SEVK_SATIR_YUK;
         try{
           const pngS = await pngKoseDamga(
-            await svgToPng(drawMontajSVG({vurgu:_m, baslik:_ahuLabel, W:1120, H:792,
-              bitisik:true, baza:true, sadeAd:true}), 1120, 792),
+            await svgToPng(drawMontajSVG({vurgu:_m, baslik:_ahuLabel,
+              W:SEVK_KAGIT_W, H:SEVK_KAGIT_H, bitisik:true, baza:true, sadeAd:true}),
+              SEVK_KAGIT_W, SEVK_KAGIT_H),
             damgaSatirlari);
           const imgS = wb.addImage({base64: pngS, extension:'png'});
-          wsS.addImage(imgS, {tl:{col:0, row:ust}, ext:{width:1120, height:792}});
+          wsS.addImage(imgS, {tl:{col:0, row:ust}, ext:{width:SEVK_KAGIT_W, height:SEVK_KAGIT_H}});
         }catch(err){
           const tS = wsS.getCell(ust+1,1);
           tS.value = '⚠ M'+(_m+1)+' sevkiyat kâğıdı eklenemedi: '+err.message; tS.font = FONT;
         }
-        if(_m < state.modules.length-1) wsS.rowBreaks.push({id: ust+SEVK_SATIR, max:16383, man:1});
+        if(_m < state.modules.length-1) wsS.rowBreaks.push({id: ust+SEVK_BLOK_SATIR, max:16383, man:1});
       }
     }
 
