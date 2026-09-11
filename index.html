@@ -782,6 +782,10 @@ svg.ic{width:16px;height:16px;flex:none;stroke:currentColor;fill:none;
   .gsm-ad{font-size:13.5px;font-weight:600;}
   .gsm-bilgi{font-size:11.5px;color:var(--muted);margin-top:3px;line-height:1.4;}
   .gsm-bilgi .u{color:var(--warn);}
+  .gsm-fan{margin-top:6px;display:flex;flex-direction:column;gap:3px;}
+  .gsm-fan label{display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--t-2);cursor:pointer;}
+  .gsm-fan label input{margin:0;}
+  .gsm-fanyok{font-size:11.5px;color:var(--warn);padding-left:23px;}
   .gsm-rozet{margin-left:auto;font-size:11px;color:var(--muted);border:1px solid var(--border);
     border-radius:999px;padding:1px 9px;flex-shrink:0;}
   /* ================= EFEKT KATMANI — BUTUN TEMALARDA =================
@@ -2176,7 +2180,7 @@ function copyAhu(i){
   state.activeAhu = state.ahus.length - 1;
   // Tembel kurulan alanlar (araKat/esanjor/kizak/adet) JSON'da ne ise o kalir;
   // normalize ediciler yine de cagrilir ki gidis-donus sabit nokta olsun.
-  araKatNormalize(); esanjorNormalize(); kizakNormalize(); adetNormalize();
+  araKatNormalize(); esanjorNormalize(); kizakNormalize(); adetNormalize(); fanNormalize();
   renderAll();
   const not = document.getElementById('excel_note');
   if(not) not.textContent = '✓ ' + (kaynak.ad || 'AHU') + ' kopyalandı → ' + kopya.ad
@@ -3407,6 +3411,68 @@ function gercekTava(p){
   return l.length ? { w: l[0].w, tip: 'Tava' } : null;
 }
 
+// ---------- MOTORUN ALTINDAKİ KAPAK (Cenk, 10.09.2026) ----------
+// Fan kaidesi ALT yüzden sökülür; o kapağın BÖLÜM genişliği fan çapından gelir.
+// Kaynak: proje kökündeki 'Ölçüler fan ebat.xlsx' — fan çapı başına İKİ kaide boyu var:
+// BAYRAKLI (L) ve BAYRAKSIZ (Bayraksız L). Hangisinin geçerli olduğunu çizim söylemez,
+// KULLANICI SEÇER (module.fan.bayraksiz; alan yalnız doluyken var olur).
+//
+// DÜŞÜM SERİYE SABİT YAZILMAZ. Excel 50'likte 'L-60', 60'lıkta 'L-80' yazar; on iki
+// satırın on ikisinde de 'kapak + takviye = kaide - 20' çıkar (405+40 = 385+60 = 445 =
+// 465-20). Yani düşüm takviyeden türer ve özel profil serisinde de doğru kalır.
+// DÜŞÜM HER ZAMAN KASA SERİSİNDEN gelir — kapak ara kata düşse bile ara kat profilinden
+// değil (kaide kasanın üstünde durur, ara kat profilinin değil).
+const FAN_KAIDE = {
+  280:[465,310],  315:[500,350],  355:[600,350],  400:[625,400],
+  450:[625,400],  500:[800,400],  560:[800,560],  630:[900,560],
+  710:[1015,600], 800:[1080,800], 900:[1180,800], 1000:[1280,900]
+};
+const FAN_KAPAK_PAY = 20;
+
+// TEK KOPYA. Dönüş: fan yoksa null; fan varsa {w, kaide, bayraksiz} ya da {w:0, neden}.
+// Gerekçe çağırana metin olarak döner — 'sessizce 0 yazma' kuralı (eşanjör deseni).
+// `V` yalnız santral seçim modalı için vardır: orada AKTİF OLMAYAN AHU'nun kapağı da
+// yazılıyor ve getV() aktif santralin serisini okur.
+function fanKapakOlcusu(md, V){
+  const f = md && md.fan;
+  if(!f) return null;
+  // Kayış-kasnaklı fanda motor fanın üstünde değil ayrı kızakta durur; kaide kütüphanesi
+  // de onu kapsamaz (Cenk, 10.09.2026: «işlemesin»).
+  if(f.kayis) return { w: 0, neden: 'kayış-kasnaklı fan — motor kapağı kuralı işlemez' };
+  const t = FAN_KAIDE[f.cap];
+  if(!t) return { w: 0, neden: 'fan çapı ' + (f.cap || '—') + ' kaide tablosunda yok' };
+  const bayraksiz = !!f.bayraksiz;
+  const kaide = t[bayraksiz ? 1 : 0];
+  const w = kaide - ((V || getV()).takviye + FAN_KAPAK_PAY);
+  if(w < GERCEK_MIN_KAPAK) return { w: 0, neden: 'motor kapağı ' + Math.round(w) + ' mm — en dar kapaktan küçük' };
+  return { w: w, kaide: kaide, bayraksiz: bayraksiz };
+}
+
+// Motor kapağının parça zincirindeki (0..boyToplam) yeri: {lo, w} ya da null.
+//
+// HİZA KURALI (Cenk, 10.09.2026): kapak, fan bölmesindeki AÇILIR KAPAĞIN MODÜL UCUNA
+// BAKAN kenarına hizalanır ve İÇERİ doğru uzar. Düz başlangıç hizası ölçüldü ve tutmadı:
+// 294 fanlı modülün 206'sında kapak modülün dışına taşıyordu (P-PH-100T: açılır kapak
+// 1100'de başlıyor, tablo 955 mm istiyor, modül 1600) — dış kenar hizasıyla 294/294 oturur.
+// Fan parçalarının 294'ünde de TEK kapak var, hangisi olduğu belirsiz kalmaz.
+function fanKapakYeri(ps, w, boyToplam){
+  if(!(w > 0) || !(boyToplam > 0)) return null;
+  let imlec = 0, bas = null, fp = null;
+  ps.forEach(function(p){
+    if(fp === null && gercekIslev(p) === 'fan'){ bas = imlec; fp = p; }
+    imlec += Number(p.boy) || 0;
+  });
+  if(fp === null || !fp.kapaklar || !fp.kapaklar.length) return null;
+  const kap = fp.kapaklar[0];
+  const kb = bas + (Number(kap.x) || 0);
+  const ks = kb + (Number(kap.w) || 0);
+  // Hangi uca yakınsa o kenar 'dış' kenardır.
+  let lo = (kb - 0) <= (boyToplam - ks) ? kb : ks - w;
+  if(lo < 0) lo = 0;
+  if(lo > boyToplam - w) lo = boyToplam - w;
+  return lo >= -0.5 ? { lo: lo, w: w } : null;
+}
+
 // Kapaksız bir boşluğu, açılımı saca sığacak EN AZ sayıda eşit parçaya böler. Bölme BÖLÜM
 // ölçüsünde yapılır; ölçüler ilerideki düşümle yalnız KISALACAĞI için bu güvenli taraftır.
 function gercekBolNormal(segs, w, across, limit){
@@ -3429,7 +3495,13 @@ function gercekBolNormal(segs, w, across, limit){
 // ELEMAN (Tava / Damper / Boğaz) BÖLÜNMEZ: o parça çizimden gelir, ölçüsü imalat gerçeğidir;
 // saca sığmıyorsa bu bir imalat kararıdır, sessizce ikiye ayrılamaz — söylenir.
 // Dönüş: {bolunen, sigmayanEleman}
-function gercekAcrossBol(fi, icAcross, uyari){
+// `limit` = KAPAK ÖLÇÜ SINIRI, karşı eksende de geçerlidir (Cenk'in 29.08 kuralı
+// «yalnız bölünebilen eksende» der; ALT yüzde bölünebilen eksen budur). Eskiden yalnız
+// saca sığma soruluyordu: 10.09.2026'da motor kapağı ALT yüzü daha çok modülde kurunca
+// W'si 2150 mm olan modüllerde 2047 mm'lik kapaklar çıktı (ölçüldü, 32 kapak) — oysa aynı
+// modül eski otomatikle dolarken sınıra uyuyordu. Çağıranı yalnız ALT yüz ve ARA KAT.
+function gercekAcrossBol(fi, icAcross, uyari, limit){
+  const lim = limit || GERCEK_KAPAK_MAX;
   const face = faceOf(fi), V = vOf(fi);
   let bolunen = 0, sigmayanEleman = 0;
   face.columns.forEach(function(col){
@@ -3447,7 +3519,8 @@ function gercekAcrossBol(fi, icAcross, uyari){
     }
     if(isBos(p.type)) return;
     let m = 1;
-    while(m < OTO_MAX_BOLME && !otoSigar(w, (icAcross - (m-1)*V.takviye)/m)) m++;
+    while(m < OTO_MAX_BOLME && (!otoSigar(w, (icAcross - (m-1)*V.takviye)/m)
+                                || (icAcross - (m-1)*V.takviye)/m > lim)) m++;
     if(m <= 1) return;
     const kull = icAcross - (m-1)*V.takviye;
     if(kull <= m) return;
@@ -3602,6 +3675,15 @@ function gercekSinirBirlestir(satirlar, tak){
 // kapağı komşusundan (kenar - takviye/2) kadar sapıyordu; ÖN ile ARKA da 14 modülde
 // birbirini tutmuyordu (ARKA satırları orantıyla bölüyordu, ÖN kat çizgisine ortalıyordu).
 // 'kull' = iki satırın PAYLAŞTIĞI açıklık (iç açıklık - kat ayırıcı takviyesi).
+// MODÜLÜN KENDİSİ İKİ KATLI MI — tek kopya (Cenk, 11.09.2026).
+// Ölçüt `dxfBilgi.altKat`: `dxfAhuKur` onu YALNIZ tam yükseklik hücrede (katKod 'tam') ve
+// taşan gövdede doldurur. ÜST KATTA DURAN ayrı bir hücre (katKod 'üst') iki katlı DEĞİLDİR
+// — kendi içinde tek kattır, döşemesi yoktur — ama parçaları yine kat:'üst' taşır. Parçanın
+// `kat` alanına bakan bir ölçüt bu ikisini ayıramaz; iki katlılığın tek işareti altKat'tır.
+function gercekIkiKatli(md){
+  return (Number(md && md.dxfBilgi && md.dxfBilgi.altKat) || 0) > 0;
+}
+
 function gercekAltSatir(altKat, V, kull){
   let a = Math.round(altKat - 2*V.kenar);
   if(a < 1) a = 1;
@@ -4806,9 +4888,14 @@ function gercekAltYuz(uyari){
   const md = state.modules[state.active];
   const bilgi = md && md.dxfBilgi;
   if(!bilgi || !bilgi.parcalar || !bilgi.parcalar.length) return null;
-  const ps = bilgi.parcalar.filter(function(p){ return p.kat !== 'üst'; });
+  // KAT SÜZGECİ YALNIZ İKİ KATLI MODÜLDE İŞLER (Cenk, 11.09.2026). Üst katta DURAN tek
+  // katlı bir modülün parçaları da kat:'üst' taşır — süzgeç onları düşürüp yüzü boş
+  // bırakıyordu (ölçüldü: 39 modül). O modülde ikinci kat yoktur, parçaların hepsi onundur.
+  const katli = gercekIkiKatli(md);
+  const ps = katli ? bilgi.parcalar.filter(function(p){ return p.kat !== 'üst'; })
+                   : bilgi.parcalar.slice();
   if(!ps.length) return null;
-  bilgi.parcalar.forEach(function(p){
+  if(katli) bilgi.parcalar.forEach(function(p){
     if(p.kat === 'üst' && gercekTavalar(p).length)
       uyari.push('üst kattaki '+p.islev+' tavası ALT yüze konamaz — elle eklenmeli');
   });
@@ -4821,40 +4908,77 @@ function gercekAltYuz(uyari){
 
   // Tavalar ÇİZİMDEKİ YERİNE oturur (soğutma bataryasınınki bataryanın merkezine).
   // Bir parçada birden çok tava olabilir — rotorlu eşanjörde iki tane (ölçüldü, 45 modül).
+  // MOTOR KAPAĞI da bu listeye girer (Cenk, 10.09.2026): ölçüsü fan çapından, yeri fan
+  // bölmesindeki açılır kapaktan gelir (fanKapakOlcusu / fanKapakYeri).
   //
-  // ARDIŞIK TAVASIZ ALAN BİRİKTİRİLİR (Cenk, 29.08.2026) — ÖN yüzdeki düzeltmenin aynısı.
+  // SABİTLER TEK UZAYDA TOPLANIR (0..L). Eskiden döngü parça parçaydı ve tavanın yeri
+  // parçanın kendi başından ölçülüyordu; motor kapağı parça sınırını AŞABİLDİĞİ için
+  // (P-PH-100T: fan bölmesi 1100'de başlıyor, kapak 545'te) o kurgu yetmiyor. Tava yolu
+  // BİREBİR AYNI kalır: parçalar bitişik ve tavalar sıralı olduğu için düz toplam ile
+  // parça parça yürüyüş aynı 'bos' değerlerini üretir.
+  const sabitler = [];
+  let tavaN = 0, motorN = 0, imlecP = 0;
+  ps.forEach(function(p){
+    const boy = Number(p.boy)||0;
+    if(boy <= 0) return;
+    gercekTavalar(p).slice().sort(function(a,b){ return a.lo - b.lo; }).forEach(function(t){
+      sabitler.push({ lo: imlecP + t.lo, w: t.w, tip: 'Tava' });
+      tavaN++;
+    });
+    imlecP += boy;
+  });
+  // Fan ÜST KATTAYSA motor kapağı bu yüze değil ARA KATA düşer (gercekAraKatYuz) —
+  // burada ne kapak konur ne de uyarı verilir, yoksa iki katlı her fanlı modül
+  // 'açılır kapak okunamadı' derdi.
+  const mo = ps.some(function(p){ return gercekIslev(p) === 'fan'; }) ? fanKapakOlcusu(md) : null;
+  if(mo && !mo.w && mo.neden) uyari.push(mo.neden);
+  if(mo && mo.w > 0){
+    const yer = fanKapakYeri(ps, mo.w, imlecP);
+    if(!yer) uyari.push('fan bölmesinde açılır kapak okunamadı — motor kapağı konamadı');
+    else if(sabitler.some(function(s){ return yer.lo < s.lo + s.w - 0.5 && s.lo < yer.lo + yer.w - 0.5; }))
+      uyari.push('motor kapağı ALT yüzdeki tavayla çakışıyor — elle ayrılmalı');
+    else { sabitler.push({ lo: yer.lo, w: yer.w, tip: 'Normal Panel' }); motorN++; }
+  }
+  sabitler.sort(function(a,b){ return a.lo - b.lo; });
+
+  // ARDIŞIK BOŞ ALAN BİRİKTİRİLİR (Cenk, 29.08.2026) — ÖN yüzdeki düzeltmenin aynısı.
   // Eskiden her parçanın kalanı ayrı bölünüyordu ve parça sınırında olmayan bir dikme
   // çıkıyordu (KS-10 M2 ALT: Tava 600 | 144 | 860 | 687 — oysa tavadan sonrası tek kapak).
   const segs = [];
   const esikUc = V.kenar + GERCEK_MIN_KAPAK, esikOrta = GERCEK_MIN_KAPAK;
-  let tavaN = 0, bos = 0;
+  let bos = 0;
   function bosBosalt(){
     if(bos <= 0.5){ bos = 0; return; }
     if(segs.length && bos <= esikUc){ segs[segs.length-1].w += bos; bos = 0; return; }
     gercekBolNormal(segs, bos, icAcross);
     bos = 0;
   }
-  ps.forEach(function(p){
-    const boy = Number(p.boy)||0;
-    if(boy <= 0) return;
-    const tv = gercekTavalar(p).slice().sort(function(a,b){ return a.lo - b.lo; });
-    let imlec = 0;
-    tv.forEach(function(t){
-      if(t.lo < imlec - 0.5) return;          // çakışan tava — atlanır
-      let ham = t.w;
-      bos += t.lo - imlec;
-      if(bos <= (segs.length ? esikOrta : esikUc)){ ham += bos; bos = 0; }
-      bosBosalt();
-      segs.push({ w: ham, hedef: t.w, tip: 'Tava', sabit: true });
-      imlec = t.lo + t.w;
-      tavaN++;
-    });
-    bos += boy - imlec;
+  let imlec = 0;
+  sabitler.forEach(function(s){
+    if(s.lo < imlec - 0.5) return;            // çakışan sabit — atlanır
+    let ham = s.w;
+    bos += s.lo - imlec;
+    if(bos <= (segs.length ? esikOrta : esikUc)){ ham += bos; bos = 0; }
+    bosBosalt();
+    segs.push({ w: ham, hedef: s.w, tip: s.tip, sabit: true });
+    imlec = s.lo + s.w;
   });
+  // Parça zincirinin toplamı kullanılır, modül boyu DEĞİL — eski parça parça yürüyüşün
+  // ürettiği 'bos' ile birebir aynı kalsın (ikisi 664 hücrenin 664'ünde eşit ölçüldü,
+  // ama eşitliği burada varsaymak gereksiz bir risk; sapma aşağıda zaten yakalanıyor).
+  bos += imlecP - imlec;
   bosBosalt();
-  if(!tavaN || !segs.length) return null;
+  if(!sabitler.length || !segs.length) return null;
   const t = segs.reduce(function(a,b){ return a+b.w; }, 0);
   if(Math.abs(t - L) > 1.5){ uyari.push('ALT yüz toplamı '+Math.round(t)+' mm, modül boyu '+L+' mm'); return null; }
+
+  // EN DAR KAPAK DÜŞÜM SONRASI ÖLÇÜLÜR (Cenk, 08.09.2026) — ÖN/ÜST yüzdeki kuralın
+  // TEK KOPYASI burada da çalışır. ALT yüzde 10.09.2026'ya kadar gerekmiyordu: sabitlenen
+  // tek şey tavaydı. Motor kapağı da hedefine sabitlendiği için çerçeve ve takviye payının
+  // tamamı serbest şeritten düşüyor ve şerit 100 mm'nin altına inebiliyor (ölçüldü:
+  // DES-01 M1 ALT'ta 97 mm).
+  gercekInceSerit(segs, function(n){ return L - 2*V.kenar - (n-1)*V.takviye; },
+                  V, uyari, 'ALT');
 
   const N = segs.length;
   const icKullAlong = L - 2*V.kenar - (N-1)*V.takviye;
@@ -4877,7 +5001,96 @@ function gercekAltYuz(uyari){
   gercekAcrossBol(3, icAcross, uyari);
   face.selectedCells = [];
   face.selectedBars = [];
-  return { tava: tavaN };
+  return { tava: tavaN, motor: motorN };
+}
+
+// Üst kattaki fanın motor kapağı ARA KATA konur (Cenk, 10.09.2026): kaide o modülün ALT
+// yüzünde değil, iki katın arasındaki döşemede durur. Ara kat kapalıysa AÇILIR — iki katlı
+// bir modülde döşeme fiziksel olarak zaten vardır ve motor onun üstündedir.
+//
+// Ara katın ölçü zinciri kendi V'sindendir (getVAraKat), ama KAPAĞIN GENİŞLİĞİ kasa
+// serisinden gelir (fanKapakOlcusu) — kaide ara kat profilinin değil kasanın ölçüsüne bağlı.
+// Dönüş: {motor, acildi} ya da null.
+function gercekAraKatYuz(uyari){
+  const md = state.modules[state.active];
+  const bilgi = md && md.dxfBilgi;
+  if(!bilgi || !bilgi.parcalar || !bilgi.parcalar.length) return null;
+  // TAM YÜKSEKLİKTEKİ PARÇA İKİ KATA DA AİTTİR — 'üst' süzgeci onu düşürüyordu ve
+  // zincirin toplamı modül boyunu tutmuyordu (ölçüldü: 41 modülde kapak yanlış ölçüde
+  // çıktı; KS-10 M1'de üst kat 1900 sayılıyordu, oysa modül 2400). ALT yüzdeki
+  // ALT yüzdeki 'p.kat !== üst' süzgecinin aynadaki eşi budur.
+  // ⚠ ARA KAT YALNIZ İKİ KATLI MODÜLDE VARDIR (Cenk, 11.09.2026: «ara kat 2 katlı
+  // cihazlarda olur; ÜST KATTA DURUYOR diye 2 katlı olmayan modülde ara kat olmaz»).
+  // Üst katta duran tek katlı bir hücrenin parçaları da kat:'üst' taşır — aşağıdaki
+  // fan süzgeci onları da geçiriyor ve ara katı boş yere açıyordu (ölçüldü: 39 modül).
+  // O modülde döşeme yoktur; motor kapağı ALT yüze gider.
+  if(!gercekIkiKatli(md)) return null;
+  const ps = bilgi.parcalar.filter(function(p){ return p.kat !== 'alt'; });
+  // Kural YALNIZ fan ÜST KATTAYKEN işler: tek katlı modülde fan zaten ALT yüze düşer
+  // (gercekAltYuz) ve ara kat da yoktur — 'kat !== alt' süzgeci onu da alırdı.
+  if(!bilgi.parcalar.some(function(p){ return p.kat === 'üst' && gercekIslev(p) === 'fan'; })) return null;
+  const mo = fanKapakOlcusu(md);
+  if(!mo) return null;
+  if(!mo.w){ if(mo.neden) uyari.push(mo.neden); return null; }
+  const L = Number(state.dims.L)||0;
+  if(L <= 0) return null;
+  let boyToplam = 0;
+  ps.forEach(function(p){ boyToplam += Number(p.boy)||0; });
+  if(Math.abs(boyToplam - L) > 1.5){
+    uyari.push('üst kat zinciri '+Math.round(boyToplam)+' mm, modül boyu '+L+' mm — ara kata motor kapağı konmadı');
+    return null;
+  }
+  const yer = fanKapakYeri(ps, mo.w, boyToplam);
+  if(!yer){ uyari.push('üst kattaki fan bölmesinde açılır kapak okunamadı — motor kapağı konamadı'); return null; }
+
+  const ak = araKatOf(md);
+  const acildi = !ak.aktif;
+  ak.aktif = true;
+  const V = getVAraKat(), grid = ak.grid;
+  const icAcross = (Number(state.dims.W)||0) - 2*V.kenar;
+  if(icAcross <= 1){ uyari.push('ara kata motor kapağı konamadı — iç genişlik yok'); return null; }
+
+  const segs = [];
+  const esikUc = V.kenar + GERCEK_MIN_KAPAK, esikOrta = GERCEK_MIN_KAPAK;
+  let bos = 0;
+  function bosBosalt(){
+    if(bos <= 0.5){ bos = 0; return; }
+    if(segs.length && bos <= esikUc){ segs[segs.length-1].w += bos; bos = 0; return; }
+    // Ara katta 'Normal Panel' diye bir göz tipi YOKTUR (ARAKAT_CELL_TYPES) — bölme
+    // gercekBolNormal ile yapılır, tip sonradan düzeltilir.
+    const once = segs.length;
+    gercekBolNormal(segs, bos, icAcross);
+    for(let i = once; i < segs.length; i++) segs[i].tip = 'Ara Kat Paneli';
+    bos = 0;
+  }
+  bos += yer.lo;
+  bosBosalt();
+  segs.push({ w: yer.w, hedef: yer.w, tip: 'Ara Kat Paneli', sabit: true });
+  bos += boyToplam - (yer.lo + yer.w);
+  bosBosalt();
+  if(!segs.length) return null;
+
+  const N = segs.length;
+  const icKullAlong = L - V.dus - 2*V.p - (N-1)*V.p;
+  if(icKullAlong <= N){ uyari.push(L+' mm modülün ara katına '+N+' bölüm sığmıyor'); return null; }
+  const colSize = gercekDusur(segs.map(function(g){ return g.w; }),
+                              segs.map(function(g){ return g.sabit ? g.hedef : null; }),
+                              icKullAlong, uyari);
+  if(!colSize) return null;
+
+  grid.kapaksiz = false;
+  grid.orient = 'H';
+  grid.columns = colSize.map(function(cs, ci){
+    return { size: cs,
+             panels: [{ size: 0, type: segs[ci].tip, colSpan: 1 }],
+             innerGaps: [], araJoinNext: [] };
+  });
+  grid.colGaps = colSize.slice(1).map(function(){ return true; });
+  grid.anaSplitLevels = colSize.slice(1).map(function(){ return []; });
+  gercekAcrossBol(ARAKAT_FI, icAcross, uyari);
+  grid.selectedCells = [];
+  grid.selectedBars = [];
+  return { motor: 1, acildi: acildi };
 }
 
 // Aktif AHU'nun bütün modüllerini gerçek değerlerle kurar.
@@ -4935,6 +5148,7 @@ function gercekTumAHU(){
   const sonuc = { modul:0, atlanan:0, kapak:0, acilir:0, camli:0, ust:0, tava:0, mated:0,
                   damper:0, bogaz:0, disAgiz:0, ustTablo:0, arka:0, kismi:0, birlesim:0,
                   kizak:0, kizakBekleyen:0, esanjorBekleyen:0,
+                  motor:0, motorArakat:0, arakatAcilan:0,
                   uyari:[] };
   state.modules.forEach(function(m, mi){
     withModule(mi, function(){
@@ -4965,10 +5179,14 @@ function gercekTumAHU(){
         });
         if(tip === 'Üst Panel') sonuc.ust++;
       }
-      // ALT yüz: soğutma bataryası varsa tava kurulur — birleşme yüzü olsa bile kapaksız
-      // işaretlenmez, tava o modülün altında gerçekten vardır.
+      // ALT yüz: soğutma bataryası varsa tava, alt/tek kattaki fanın altında MOTOR KAPAĞI
+      // kurulur — birleşme yüzü olsa bile kapaksız işaretlenmez, ikisi de o modülün
+      // altında gerçekten vardır.
       const tv = gercekAltYuz(uyari);
-      if(tv) sonuc.tava += tv.tava;
+      if(tv){ sonuc.tava += tv.tava; sonuc.motor += tv.motor; }
+      // Üst kattaki fanın motor kapağı ARA KATA düşer (Cenk, 10.09.2026).
+      const ak = gercekAraKatYuz(uyari);
+      if(ak){ sonuc.motorArakat += ak.motor; if(ak.acildi) sonuc.arakatAcilan++; }
       // SOL/SAĞ: çizimden okunan ağızlar. Ağzı olan yüz, birleşme yüzü olsa bile
       // kapaksız işaretlenmez — ağız o yüzde gerçekten vardır (tava kuralının aynısı).
       const yanY = {};
@@ -5041,6 +5259,9 @@ function gercekNot(s){
     +s.acilir+' tanesi açılır ('+s.camli+' camlı).');
   if(s.ust) p.push(s.ust+' modülün üstü açık: ÜST PANEL kuruldu.');
   if(s.tava) p.push(s.tava+' bölmenin altına TAVA kuruldu (ALT yüz).');
+  if(s.motor) p.push(s.motor+' fanın altına MOTOR KAPAĞI kuruldu (ALT yüz, ölçü fan çapından).');
+  if(s.motorArakat) p.push(s.motorArakat+' üst kat fanının MOTOR KAPAĞI ARA KATA kondu'
+    +(s.arakatAcilan ? ' — '+s.arakatAcilan+' modülde ara kat bunun için AÇILDI.' : '.'));
   if(s.damper || s.bogaz) p.push('Çizimden '+(s.damper+s.bogaz)+' ağız okundu ve SOL/SAĞ/ÜST '
     +'yüze kondu ('+s.damper+' damper, '+s.bogaz+' boğaz).');
   if(s.arka) p.push(s.arka+' iki katlı modülün ARKA yüzüne kat ayırıcı yatay takviye kondu.');
@@ -5072,7 +5293,8 @@ function gercekNot(s){
 function gercekSonucBirlestir(liste){
   const t = {santral: liste.length, modul:0, atlanan:0, kapak:0, acilir:0, camli:0, ust:0,
              tava:0, mated:0, damper:0, bogaz:0, disAgiz:0, ustTablo:0, arka:0, kismi:0,
-             birlesim:0, kizak:0, kizakBekleyen:0, esanjorBekleyen:0, uyari:[]};
+             birlesim:0, kizak:0, kizakBekleyen:0, esanjorBekleyen:0,
+             motor:0, motorArakat:0, arakatAcilan:0, uyari:[]};
   liste.forEach(function(s){
     Object.keys(t).forEach(function(k){
       if(k === 'uyari' || k === 'santral') return;
@@ -5105,6 +5327,27 @@ function gsmAhuOzet(ai){
           malzeme: ahu.malzeme || '—'};
 }
 
+// MOTOR KAPAĞI OLAN MODÜLLER — bayraklı/bayraksız kaide seçimi burada yapılır
+// (Cenk, 10.09.2026: «elle seçilsin»). Kutucuk bilerek BU MODALDA duruyor: kural yalnız
+// gerçek yerleşimde işliyor ve o kapı zaten gizli imalat moduna bağlı.
+// Dönüş: [{mi, ad, cap, kaide, w, bayraksiz, neden}]
+function gsmFanListesi(ai){
+  const ahu = state.ahus[ai];
+  if(!ahu) return [];
+  const seri = String((ahu.varsayimlar && ahu.varsayimlar.seri) || '');
+  const V = { takviye: (PROFILES[seri] || PROFILES['60']).takviye };
+  const out = [];
+  (ahu.modules||[]).forEach(function(md, mi){
+    if(!md || !md.fan) return;
+    const o = fanKapakOlcusu(md, V);
+    if(!o) return;
+    out.push({ mi: mi, ad: md.ad || ('M'+(mi+1)), cap: md.fan.cap || 0,
+               kaide: o.kaide || 0, w: o.w || 0, bayraksiz: !!md.fan.bayraksiz,
+               neden: o.neden || '' });
+  });
+  return out;
+}
+
 function gsmCiz(){
   const body = document.getElementById('gsm_body');
   if(!body) return;
@@ -5119,13 +5362,34 @@ function gsmCiz(){
     else bilgi.push('hepsinde çizim bilgisi var');
     bilgi.push('seri ' + o.seri);
     bilgi.push(o.malzeme);
+    const fanlar = gsmFanListesi(ai);
+    const fanHtml = fanlar.length
+      ? '<div class=&quot;gsm-fan&quot;>' + fanlar.map(function(f){
+          return f.w > 0
+            ? '<label><input type=&quot;checkbox&quot; data-gsmfan=&quot;' + ai + ':' + f.mi + '&quot;'
+              + (f.bayraksiz ? ' checked' : '') + '>'
+              + '<span data-gsmfanad=&quot;' + ai + ':' + f.mi + '&quot;></span></label>'
+            : '<div class=&quot;gsm-fanyok&quot; data-gsmfanad=&quot;' + ai + ':' + f.mi + '&quot;></div>';
+        }).join('') + '</div>'
+      : '';
     return '<div class=&quot;gsm-satir' + (sec ? ' sec' : '') + '&quot; data-gsm=&quot;' + ai + '&quot;>'
       + '<input type=&quot;checkbox&quot; data-gsmchk=&quot;' + ai + '&quot;' + (sec ? ' checked' : '') + '>'
-      + '<div><div class=&quot;gsm-ad&quot; data-gsmad=&quot;' + ai + '&quot;></div>'
-      + '<div class=&quot;gsm-bilgi&quot;>' + bilgi.join(' · ') + '</div></div>'
+      + '<div style=&quot;flex:1;min-width:0;&quot;><div class=&quot;gsm-ad&quot; data-gsmad=&quot;' + ai + '&quot;></div>'
+      + '<div class=&quot;gsm-bilgi&quot;>' + bilgi.join(' · ') + '</div>' + fanHtml + '</div>'
       + (ai === state.activeAhu ? '<span class=&quot;gsm-rozet&quot;>açık olan</span>' : '')
       + '</div>';
   }).join('');
+  // Modül adı ÇİZİMDEN gelir; AHU adıyla aynı gerekçeyle innerHTML'e gömülmez (§10/11).
+  body.querySelectorAll('[data-gsmfanad]').forEach(function(el){
+    const p = String(el.dataset.gsmfanad).split(':');
+    const f = gsmFanListesi(Number(p[0])).filter(function(x){ return x.mi === Number(p[1]); })[0];
+    if(!f) return;
+    const bas = 'M' + (f.mi+1) + ' ' + f.ad + ' · Ø' + f.cap;
+    el.textContent = f.w > 0
+      ? bas + ' — bayraksız kaide · şimdiki kapak ' + Math.round(f.w)
+        + ' mm (kaide ' + Math.round(f.kaide) + ')'
+      : bas + ' — ' + f.neden;
+  });
   // AHU adı KULLANICI GİRDİSİDİR ve innerHTML'e string olarak gömülmez. srcdoc tüm HTML
   // varlıklarını çözdüğü için burada bir kaçış fonksiyonu yazmak tuzaklıdır (bkz. §10/11
   // — kaynağa yazılan '&amp;' çalışma anında '&' olur ve fonksiyon sessizce etkisiz
@@ -7304,8 +7568,33 @@ function render3D(){
 // çizilir; her modülün dış ölçüsü okunur. 3B sahneden BAĞIMSIZDIR — yalnız model + SVG
 // kullanır, bu yüzden aktif olmayan AHU'lar için de üretilebilir (3B görselleri yalnız aktif
 // AHU alır). Ara kat ÇİZİLMEZ — kotu modelde tutulmuyor (bkz. CLAUDE.md §4); yalnız not düşülür.
-function drawMontajSVG(){
-  const SVG_W = 1120, SVG_H = 660, PAD = 96;
+// Bağımsız SVG katı XML'dir: & < > ham geçemez (svgToPng'in Image'i belgeyi reddeder).
+// Varlık metinleri KOD NOKTASINDAN kurulur — srcdoc TÜM varlıkları çözdüğü için kaynağa
+// düz yazılan bir kaçış haritası çalışma anında etkisiz kalırdı (bkz. CLAUDE.md §10 tuzak 11).
+function svgXmlKacir(s){
+  const AMP = String.fromCharCode(38), LT = String.fromCharCode(60), GT = String.fromCharCode(62);
+  return String(s == null ? '' : s)
+    .split(AMP).join(AMP+'amp;')
+    .split(LT).join(AMP+'lt;')
+    .split(GT).join(AMP+'gt;');
+}
+
+// Sevkiyat kâğıdındaki vurgulu modülün rengi. 3B sahnedeki SEÇİLİ MODÜL rengiyle (SEL_EDGE
+// = 0x4d8dff) AYNI olmak zorunda ama ONA BAĞLANAMAZ: SEL_EDGE ES modülünün içindedir, bu
+// kod klasik script'tedir. İkisi ELLE senkron tutulur (zemin/etiket renginde olduğu gibi).
+const SEVK_VURGU = '#4d8dff';      // kenar — 3B'deki SEL_EDGE
+const SEVK_VURGU_DOLGU = '#dce8ff'; // yüzey — beyaz zemin üzerinde SEL_TUL (0.22) karşılığı
+const SEVK_VURGU_BAND = '#2f6ed6';  // çerçeve bandı — koyu tonu
+// Sevkiyat kâğıdındaki bazanın (kaide) temsilî yüksekliği, mm. Model baza ölçüsü TUTMAZ
+// (yol haritası #4 henüz yazılmadı); kâğıt görsel olduğu için tek bir temsilî değer yeter.
+const SEVK_BAZA_H = 150;
+//
+// SEVKİYAT KÂĞIDI (11.09.2026): aynı çizim, tek bir modül VURGULU olarak da üretilir —
+// `secenek = {vurgu, baslik, W, H}`. Parametresiz çağrı ESKİ DAVRANIŞIN BİREBİR AYNISI
+// olmalıdır (MONTAJ sayfasının görseli bayt bayt değişmesin).
+function drawMontajSVG(secenek){
+  const opt = secenek || {};
+  const SVG_W = opt.W || 1120, SVG_H = opt.H || 660, PAD = 96;
   const mods = state.modules;
   let svg = `<svg xmlns=&quot;http://www.w3.org/2000/svg&quot; width=&quot;${SVG_W}&quot; height=&quot;${SVG_H}&quot; viewBox=&quot;0 0 ${SVG_W} ${SVG_H}&quot; font-family=&quot;Arial, Helvetica, sans-serif&quot;>`;
   svg += `<rect x=&quot;0&quot; y=&quot;0&quot; width=&quot;${SVG_W}&quot; height=&quot;${SVG_H}&quot; fill=&quot;#ffffff&quot;/>`;
@@ -7326,7 +7615,9 @@ function drawMontajSVG(){
   const totL=gMaxX-gMinX, totH=gMaxY-gMinY, totW=gMaxZ-gMinZ;
   // Patlatma payı yalnız GÖRSELDİR. Modülü kendi başlangıç düzlemine göre kaydırdığımız için
   // aynı x'ten başlayan dikey istif birlikte kayar, sıralama ve komşuluk bozulmaz.
-  const pay = Math.max(150, Math.round(Math.max(totL,totH)*0.06));
+  // Sevkiyat kâğıdında pay YOKTUR (Cenk, 11.09.2026: «patlak olmasın, ön yüz görünümdeki
+  // gibi bitişik olsun») — modüller gerçek konumlarında, tıpkı ÖN cephe görünüşü gibi.
+  const pay = opt.bitisik ? 0 : Math.max(150, Math.round(Math.max(totL,totH)*0.06));
   const xKeys = [...new Set(mods.map(md=>kk(md.pos.x)))].sort((a,b)=>a-b);
   const yKeys = [...new Set(mods.map(md=>kk(md.pos.y)))].sort((a,b)=>a-b);
   const box = mods.map((md,i)=>({
@@ -7339,6 +7630,12 @@ function drawMontajSVG(){
     pMinX=Math.min(pMinX,b.x); pMaxX=Math.max(pMaxX,b.x+b.w);
     pMinY=Math.min(pMinY,b.y); pMaxY=Math.max(pMaxY,b.y+b.h);
   });
+  // BAZA (kaide) — yalnız sevkiyat kâğıdında, YALNIZ ZEMİNE OTURAN modüllerin altında.
+  // Ölçü modelde tutulmuyor (yol haritası #4 henüz yazılmadı); kâğıt GÖRSELDİR, temsilî
+  // yükseklik kullanılır. Çizim alanına dahil edilmezse tuvalin dışında kalırdı.
+  const bazaVar = !!opt.baza;
+  const zeminY = pMinY;
+  if(bazaVar) pMinY -= SEVK_BAZA_H;
   const modelW = Math.max(pMaxX-pMinX, 1), modelH = Math.max(pMaxY-pMinY, 1);
   const scale = Math.min((SVG_W-2*PAD)/modelW, (SVG_H-2*PAD)/modelH);
   const ox = (SVG_W - modelW*scale)/2;
@@ -7346,26 +7643,39 @@ function drawMontajSVG(){
   const sx = v => ox + (v-pMinX)*scale;
   const sy = v => oy + (pMaxY-v)*scale;   // model y yukarı bakar, ekranda ters çevrilir
 
-  svg += `<text x=&quot;${SVG_W/2}&quot; y=&quot;26&quot; fill=&quot;#1b2a36&quot; font-size=&quot;15&quot; font-weight=&quot;700&quot; text-anchor=&quot;middle&quot;>MONTAJ — PATLATILMIŞ ÖN GÖRÜNÜM</text>`;
-  svg += `<text x=&quot;${SVG_W/2}&quot; y=&quot;45&quot; fill=&quot;#33424e&quot; font-size=&quot;11.5&quot; text-anchor=&quot;middle&quot;>${mods.length} modül · toplam dış ölçü (bitişik montaj): L ${say(totL)} × H ${say(totH)} × W ${say(totW)} mm</text>`;
+  if(opt.baslik){
+    // Sevkiyat kâğıdı: tek başlık — SANTRAL ADI (Cenk, 11.09.2026: «santral adı yeterli»).
+    svg += `<text x=&quot;${SVG_W/2}&quot; y=&quot;46&quot; fill=&quot;#16232e&quot; font-size=&quot;32&quot; font-weight=&quot;700&quot; text-anchor=&quot;middle&quot;>${svgXmlKacir(opt.baslik)}</text>`;
+  }else{
+    svg += `<text x=&quot;${SVG_W/2}&quot; y=&quot;26&quot; fill=&quot;#1b2a36&quot; font-size=&quot;15&quot; font-weight=&quot;700&quot; text-anchor=&quot;middle&quot;>MONTAJ — PATLATILMIŞ ÖN GÖRÜNÜM</text>`;
+    svg += `<text x=&quot;${SVG_W/2}&quot; y=&quot;45&quot; fill=&quot;#33424e&quot; font-size=&quot;11.5&quot; text-anchor=&quot;middle&quot;>${mods.length} modül · toplam dış ölçü (bitişik montaj): L ${say(totL)} × H ${say(totH)} × W ${say(totW)} mm</text>`;
+  }
 
   const dimOff = Math.max(10, Math.min(18, pay*scale*0.45));
   box.forEach(b=>{
     const rx = sx(b.x), ry = sy(b.y+b.h), rw = b.w*scale, rh = b.h*scale;
-    svg += `<rect x=&quot;${rx.toFixed(1)}&quot; y=&quot;${ry.toFixed(1)}&quot; width=&quot;${rw.toFixed(1)}&quot; height=&quot;${rh.toFixed(1)}&quot; fill=&quot;#eef1f4&quot; stroke=&quot;#3a4d5c&quot; stroke-width=&quot;2&quot;/>`;
+    // Sevkiyat kâğıdında YALNIZ BİR modül vurgulanır — kâğıdın hangi modüle yapıştırılacağı
+    // yalnız bu renkten okunur, başka bir işaret yoktur.
+    const vur = (opt.vurgu === b.i);
+    svg += `<rect x=&quot;${rx.toFixed(1)}&quot; y=&quot;${ry.toFixed(1)}&quot; width=&quot;${rw.toFixed(1)}&quot; height=&quot;${rh.toFixed(1)}&quot; fill=&quot;${vur?SEVK_VURGU_DOLGU:'#eef1f4'}&quot; stroke=&quot;${vur?SEVK_VURGU:'#3a4d5c'}&quot; stroke-width=&quot;${vur?'3.5':'2'}&quot;/>`;
     // Kenar profili bandı — kutunun bir modül çerçevesi olduğu görünsün
     const band = Math.max(Math.min(rw,rh)*0.055, 2.5);
     if(rw>band*2.5 && rh>band*2.5){
-      svg += `<rect x=&quot;${(rx+band/2).toFixed(1)}&quot; y=&quot;${(ry+band/2).toFixed(1)}&quot; width=&quot;${(rw-band).toFixed(1)}&quot; height=&quot;${(rh-band).toFixed(1)}&quot; fill=&quot;none&quot; stroke=&quot;#22303d&quot; stroke-width=&quot;${band.toFixed(1)}&quot;/>`;
+      svg += `<rect x=&quot;${(rx+band/2).toFixed(1)}&quot; y=&quot;${(ry+band/2).toFixed(1)}&quot; width=&quot;${(rw-band).toFixed(1)}&quot; height=&quot;${(rh-band).toFixed(1)}&quot; fill=&quot;none&quot; stroke=&quot;${vur?SEVK_VURGU_BAND:'#22303d'}&quot; stroke-width=&quot;${band.toFixed(1)}&quot;/>`;
     }
     // Kutu içi bilgi — dar kutuda alttan satır atılır, modül adı her zaman kalır
     const fs = Math.max(8.5, Math.min(15, Math.min(rw, rh)/7));
-    const satir = [
+    // Sevkiyat kâğıdında kutunun içinde YALNIZ MODÜL NUMARASI yazar (Cenk, 11.09.2026:
+    // «sadece M1 M2 M3 yazsın, başka bilgi istemiyorum») — ad, ölçü, derinlik ve ara kat
+    // notu kâğıda girmez; kâğıt sahada modülü tanıtır, ölçü föyü değildir.
+    const satir = opt.sadeAd
+      ? [{t:'M'+(b.i+1), s:Math.max(fs*2, 13), w:700, f:'#16232e'}]
+      : [
       {t:'M'+(b.i+1)+(b.md.ad ? ' — '+b.md.ad : ''), s:fs*1.25, w:700, f:'#16232e'},
       {t:say(b.w)+' × '+say(b.h)+' mm', s:fs, w:600, f:'#33424e'},
       {t:'Derinlik (W): '+say(b.d)+' mm', s:fs*0.92, w:400, f:'#46596a'}
     ];
-    if(araKatOf(b.md).aktif) satir.push({t:'ARA KAT VAR — '+say(b.w)+'×'+say(b.d)+' mm', s:fs*0.92, w:600, f:'#a8701f'});
+    if(!opt.sadeAd && araKatOf(b.md).aktif) satir.push({t:'ARA KAT VAR — '+say(b.w)+'×'+say(b.d)+' mm', s:fs*0.92, w:600, f:'#a8701f'});
     // Kutuya sigmayan satir once kuculur, yine sigmiyorsa dusurulur — tasan yazi komsu
     // modulun uzerine binerdi. Genislik tahmini: Arial ortalama karakter ~0.56 em.
     // Sinir kutunun IC alanidir — cerceve bandi iki yandan yer kapar; ona tasan yazi koyu
@@ -7384,9 +7694,14 @@ function drawMontajSVG(){
     let ty = ry + rh/2 - yuk(satir)/2;
     satir.forEach(s=>{
       ty += s.s*1.35;
-      svg += `<text x=&quot;${(rx+rw/2).toFixed(1)}&quot; y=&quot;${(ty-s.s*0.35).toFixed(1)}&quot; fill=&quot;${s.f}&quot; font-size=&quot;${s.s.toFixed(1)}&quot; font-weight=&quot;${s.w}&quot; text-anchor=&quot;middle&quot;>${s.t}</text>`;
+      // Kaçış ÖLÇÜMDEN SONRA uygulanır: fitLabelText ham metnin genişliğini ölçer, kaçışlanmış
+      // hâli (&amp;) beş kat uzun görünür ve satır boşuna düşerdi.
+      svg += `<text x=&quot;${(rx+rw/2).toFixed(1)}&quot; y=&quot;${(ty-s.s*0.35).toFixed(1)}&quot; fill=&quot;${s.f}&quot; font-size=&quot;${s.s.toFixed(1)}&quot; font-weight=&quot;${s.w}&quot; text-anchor=&quot;middle&quot;>${svgXmlKacir(s.t)}</text>`;
     });
-    // Dış ölçü çizgileri: altta uzunluk (L), solda yükseklik (H)
+    // Dış ölçü çizgileri: altta uzunluk (L), solda yükseklik (H).
+    // BİTİŞİK kipte çizilmez: modüller arasında pay olmadığı için her çizgi komşunun
+    // içine düşerdi. Ölçü zaten kutunun içinde yazılı (1800 × 2000 mm), kayıp yok.
+    if(opt.bitisik) return;
     const dy = ry+rh+dimOff;
     svg += `<line x1=&quot;${rx.toFixed(1)}&quot; y1=&quot;${dy.toFixed(1)}&quot; x2=&quot;${(rx+rw).toFixed(1)}&quot; y2=&quot;${dy.toFixed(1)}&quot; stroke=&quot;#5a6f80&quot; stroke-width=&quot;1&quot;/>`;
     svg += `<line x1=&quot;${rx.toFixed(1)}&quot; y1=&quot;${(dy-4).toFixed(1)}&quot; x2=&quot;${rx.toFixed(1)}&quot; y2=&quot;${(dy+4).toFixed(1)}&quot; stroke=&quot;#5a6f80&quot; stroke-width=&quot;1&quot;/>`;
@@ -7399,7 +7714,41 @@ function drawMontajSVG(){
     svg += `<text x=&quot;${(dx-5).toFixed(1)}&quot; y=&quot;${(ry+rh/2).toFixed(1)}&quot; fill=&quot;#33424e&quot; font-size=&quot;10&quot; text-anchor=&quot;middle&quot; transform=&quot;rotate(-90 ${(dx-5).toFixed(1)} ${(ry+rh/2).toFixed(1)})&quot;>H ${say(b.h)}</text>`;
   });
 
-  svg += `<text x=&quot;16&quot; y=&quot;${SVG_H-14}&quot; fill=&quot;#7a8a96&quot; font-size=&quot;10&quot; font-style=&quot;italic&quot;>Modüller arası boşluk yalnızca okunabilirlik içindir — montajda modüller bitişiktir. Bakış: ÖN (+Z) · yatay: Uzunluk (L) · dikey: Yükseklik (H)</text>`;
+  // ---- BAZA (kaide) — zemine oturan her modülün altına, kendi genişliğince.
+  // Modül başına AYRI çizilir (bitişikte tek sürekli kaide gibi görünür ama modül sınırı
+  // okunur): her modül kendi bazasıyla sevk edilir, kâğıt da tek modülün kâğıdıdır.
+  if(bazaVar){
+    box.filter(b=>Math.abs(b.y-zeminY) < 0.5).forEach(b=>{
+      const vur = (opt.vurgu === b.i);
+      const bx = sx(b.x), bw = b.w*scale;
+      const by = sy(zeminY), bh = Math.max(SEVK_BAZA_H*scale, 5);
+      // `class=&quot;baza&quot;` bilerek EN BAŞTA: modül gövdesini arayan desenler (`<rect x=`)
+      // bazayı gövde sanmasın — ikisi aynı biçimde yazılıyor.
+      svg += `<rect class=&quot;baza&quot; x=&quot;${bx.toFixed(1)}&quot; y=&quot;${by.toFixed(1)}&quot; width=&quot;${bw.toFixed(1)}&quot; height=&quot;${bh.toFixed(1)}&quot; fill=&quot;${vur?SEVK_VURGU_DOLGU:'#d7dde3'}&quot; stroke=&quot;${vur?SEVK_VURGU:'#3a4d5c'}&quot; stroke-width=&quot;${vur?'3.5':'2'}&quot;/>`;
+      // Profilin üst yüzü — kaidenin bir kutu değil profil olduğu okunsun
+      const ic = Math.min(bh*0.34, 6);
+      svg += `<line x1=&quot;${(bx+1).toFixed(1)}&quot; y1=&quot;${(by+ic).toFixed(1)}&quot; x2=&quot;${(bx+bw-1).toFixed(1)}&quot; y2=&quot;${(by+ic).toFixed(1)}&quot; stroke=&quot;${vur?SEVK_VURGU_BAND:'#7a8a96'}&quot; stroke-width=&quot;1&quot;/>`;
+      // Kaidenin üzerine YAZI YAZILMAZ (Cenk, 11.09.2026) — DXF'te de yok; ne olduğu
+      // biçiminden ve dipnottan okunur.
+    });
+  }
+
+  // VURGULU kutunun kenarı EN SONDA bir kez daha basılır: bitişik kipte komşu modül
+  // sonra çizilince vurgunun kenarını örtüyordu (payın olduğu kipte böyle bir temas yok).
+  if(opt.bitisik){
+    const v = box.find(b=>opt.vurgu === b.i);
+    if(v){
+      const rx = sx(v.x), ry = sy(v.y+v.h), rw = v.w*scale, rh = v.h*scale;
+      svg += `<rect x=&quot;${rx.toFixed(1)}&quot; y=&quot;${ry.toFixed(1)}&quot; width=&quot;${rw.toFixed(1)}&quot; height=&quot;${rh.toFixed(1)}&quot; fill=&quot;none&quot; stroke=&quot;${SEVK_VURGU}&quot; stroke-width=&quot;3.5&quot;/>`;
+    }
+  }
+
+  // Sevkiyat kâğıdında sol alttaki açıklama satırı YAZILMAZ (Cenk, 11.09.2026).
+  if(opt.bitisik){
+    /* kâğıt sade kalır */
+  }else{
+    svg += `<text x=&quot;16&quot; y=&quot;${SVG_H-14}&quot; fill=&quot;#7a8a96&quot; font-size=&quot;10&quot; font-style=&quot;italic&quot;>Modüller arası boşluk yalnızca okunabilirlik içindir — montajda modüller bitişiktir. Bakış: ÖN (+Z) · yatay: Uzunluk (L) · dikey: Yükseklik (H)</text>`;
+  }
   svg += `<text x=&quot;${SVG_W-16}&quot; y=&quot;${SVG_H-14}&quot; fill=&quot;#9aa8b2&quot; font-size=&quot;9.5&quot; text-anchor=&quot;end&quot; font-style=&quot;italic&quot;>Cenk Altınay</text>`;
   svg += '</svg>';
   return svg;
@@ -8075,6 +8424,38 @@ async function exportExcel(){
       }
     }
 
+    // ---- SEVKİYAT SAYFASI (2026-09-11) ----
+    // Modül başına BİR KÂĞIT: montaj görünüşünün aynısı, ama o kâğıdın ait olduğu modül
+    // VURGU RENGİYLE boyalı (3B sahnedeki SEÇİLİ MODÜL rengi). Kâğıt modülün üzerine
+    // yapıştırılır — hangi modül olduğu YALNIZCA bu renkten okunur, başka işaret yoktur.
+    // TEK sekmede dizilir, aralarına BASKI SAYFA SONU konur: yazdır dendiğinde her modül
+    // kendi A4'üne düşer (kâğıt oranı 1120×792 = A4 YATAY).
+    // Köşe damgası burada da basılır: kâğıdın büyük başlığı SANTRAL ADIDIR (Cenk, 11.09.2026:
+    // «santral adı yeterli»), damganın taşıdığı İŞ EMRİ NO orada yoktur — «Excel'e giren HER
+    // görsel damga taşır» kuralı bu yüzden delinmez.
+    if(state.modules.length){
+      const wsS = wb.addWorksheet('SEVKİYAT');
+      wsS.pageSetup = { orientation:'landscape', fitToPage:true, fitToWidth:1, fitToHeight:1,
+        margins:{left:0.3, right:0.3, top:0.3, bottom:0.3, header:0, footer:0} };
+      if(!wsS.rowBreaks) wsS.rowBreaks = [];
+      const SEVK_SATIR = 44;   // 792 px görsel ≈ 40 varsayılan satır; kalanı pay
+      for(let _m=0; _m<state.modules.length; _m++){
+        const ust = _m*SEVK_SATIR;
+        try{
+          const pngS = await pngKoseDamga(
+            await svgToPng(drawMontajSVG({vurgu:_m, baslik:_ahuLabel, W:1120, H:792,
+              bitisik:true, baza:true, sadeAd:true}), 1120, 792),
+            damgaSatirlari);
+          const imgS = wb.addImage({base64: pngS, extension:'png'});
+          wsS.addImage(imgS, {tl:{col:0, row:ust}, ext:{width:1120, height:792}});
+        }catch(err){
+          const tS = wsS.getCell(ust+1,1);
+          tS.value = '⚠ M'+(_m+1)+' sevkiyat kâğıdı eklenemedi: '+err.message; tS.font = FONT;
+        }
+        if(_m < state.modules.length-1) wsS.rowBreaks.push({id: ust+SEVK_SATIR, max:16383, man:1});
+      }
+    }
+
     // ---- MODÜL × YÜZ SAYFALARI ----
     for(let m=0; m<state.modules.length; m++){
       // 6 yüz + (varsa) ARA KAT. FACE_DEFS büyütülmediği için sayfa listesi burada
@@ -8191,12 +8572,24 @@ function attachListeners(){
   // Satırın her yeri tıklanabilir; kutunun kendisi zaten durumu çevirdiği için
   // oradan gelen tıklama iki kez işlenmemeli.
   document.getElementById('gsm_body').addEventListener('click', function(e){
+    // Bayraksız kaide kutucuğu SATIRIN İÇİNDE durur ama santral seçimini çevirmemeli.
+    // Kutunun kendisi 'change' ile dinlenir: etikete tıklamak hem etikete hem kutuya
+    // click yollar, ikisini de burada işlemek durumu iki kez çevirirdi.
+    if(e.target.closest('.gsm-fan')) return;
     const kutu = e.target.closest('input[data-gsmchk]');
     if(kutu){ gsmSec(Number(kutu.dataset.gsmchk), kutu.checked); return; }
     const satir = e.target.closest('.gsm-satir');
     if(!satir) return;
     const ai = Number(satir.dataset.gsm);
     gsmSec(ai, gsmSecili.indexOf(ai) < 0);
+  });
+  document.getElementById('gsm_body').addEventListener('change', function(e){
+    const fan = e.target.closest('input[data-gsmfan]');
+    if(!fan) return;
+    const p = String(fan.dataset.gsmfan).split(':');
+    const ahu = state.ahus[Number(p[0])];
+    fanBayraksizYaz(ahu && ahu.modules[Number(p[1])], fan.checked);
+    gsmCiz();
   });
   document.addEventListener('keydown', adminTus);
   document.getElementById('btn_oto_takviye').addEventListener('click', otoTakviyeTikla);
@@ -12324,7 +12717,7 @@ document.getElementById('btn_analiz').addEventListener('click', exportAnalizExce
 // v4: panel.colSpan + face.anaSplitLevels (eski dosyaların alan göçü syncStructure'da yapılır)
 // v5: module.araKat (ara kat — 7. sanal yüz). Eski v4/v3/v2 dosyalar açılmaya devam eder,
 //     ara katsız modül olarak gelirler (araKatNormalize kurar).
-const PROJECT_VERSION = 19;  // v10 = DXF'ten okunan bileşenler (module.dxfBilgi)
+const PROJECT_VERSION = 20;  // v10 = DXF'ten okunan bileşenler (module.dxfBilgi)
                              // v11 = çizimden okunan ağızlar (dxfBilgi.parcalar[].agizlar)
                              // v12 = ÜST ağzın L eksenindeki yeri (agizlar[].x) + tabloDan
                              // v13 = açılır kapak işareti (parcalar[].acilir)
@@ -12337,6 +12730,8 @@ const PROJECT_VERSION = 19;  // v10 = DXF'ten okunan bileşenler (module.dxfBilg
                              //       üst kat ve sağa uzaklık ÖN yüzün köşe kapağından türer
                              // v19 = eşanjörün kodlaması OTOMATİK (esanjor.kod alanı kalktı):
                              //       iş no + santral adı, panel markalamasıyla aynı önek
+                             // v20 = motor kapağında BAYRAKSIZ kaide işareti
+                             //       (module.fan.bayraksiz — yalnız bayraksızken var olur)
 
 // Yüklenen her modülde araKat alanını kurar. Tembel kurulum (araKatOf) tek başına yeterli
 // olurdu ama o zaman projectData() → JSON → applyProjectData() → projectData() gidiş-dönüşü
@@ -12358,6 +12753,22 @@ function esanjorNormalize(){
 function kizakNormalize(){
   state.ahus.forEach(function(ahu){
     (ahu.modules||[]).forEach(function(md){ kizakOf(md); });
+  });
+}
+// Motor kapağı BAYRAKLI kaideden mi BAYRAKSIZ kaideden mi ölçülecek — çizim söylemez,
+// KULLANICI SEÇER (Cenk, 10.09.2026). Alan YALNIZ bayraksızken var olur (panel.yon
+// deseni): bayraklı varsayılandır ve o projelerin JSON'u birebir aynı kalır.
+function fanBayraksizYaz(md, v){
+  if(!md || !md.fan) return false;
+  if(v) md.fan.bayraksiz = true; else delete md.fan.bayraksiz;
+  return !!v;
+}
+// Aynı gerekçe: false/geçersiz değer DÜŞER, yoksa gidiş-dönüş sabit nokta olmazdı.
+function fanNormalize(){
+  state.ahus.forEach(function(ahu){
+    (ahu.modules||[]).forEach(function(md){
+      if(md && md.fan) fanBayraksizYaz(md, md.fan.bayraksiz);
+    });
   });
 }
 
@@ -12396,6 +12807,7 @@ function applyProjectData(data){
   esanjorNormalize();  // v5 ve öncesi: eşanjörsüz modül olarak kurulur
   kizakNormalize();    // v16 ve öncesi: kızaksız modül olarak kurulur
   adetNormalize();     // v14 ve öncesi: adetsiz (tek cihaz) olarak kurulur
+  fanNormalize();      // v19 ve öncesi: bayraklı kaide (alan yok) olarak kurulur
   return true;
 }
 
