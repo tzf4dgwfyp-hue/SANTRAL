@@ -7588,6 +7588,11 @@ const SEVK_VURGU_BAND = '#2f6ed6';  // çerçeve bandı — koyu tonu
 // Sevkiyat kâğıdındaki bazanın (kaide) temsilî yüksekliği, mm. Model baza ölçüsü TUTMAZ
 // (yol haritası #4 henüz yazılmadı); kâğıt görsel olduğu için tek bir temsilî değer yeter.
 const SEVK_BAZA_H = 150;
+// Bazanın iki ucundaki delik (Cenk, 11.09.2026: «DXF'teki gibi delik olsun, gerçekçi
+// görünüm sağlar»). Ölçüler temsilîdir — gerçek baza çizimi yol haritası #4'te.
+// Sığmayan yere çizilmez: dar bir modülün bazasında iki delik birbirine girerdi.
+const SEVK_BAZA_DELIK_R = 25;    // mm — yarıçap
+const SEVK_BAZA_DELIK_X = 120;   // mm — bazanın ucundan deliğin merkezine
 //
 // SEVKİYAT KÂĞIDI (11.09.2026): aynı çizim, tek bir modül VURGULU olarak da üretilir —
 // `secenek = {vurgu, baslik, W, H}`. Parametresiz çağrı ESKİ DAVRANIŞIN BİREBİR AYNISI
@@ -7730,6 +7735,14 @@ function drawMontajSVG(secenek){
       svg += `<line x1=&quot;${(bx+1).toFixed(1)}&quot; y1=&quot;${(by+ic).toFixed(1)}&quot; x2=&quot;${(bx+bw-1).toFixed(1)}&quot; y2=&quot;${(by+ic).toFixed(1)}&quot; stroke=&quot;${vur?SEVK_VURGU_BAND:'#7a8a96'}&quot; stroke-width=&quot;1&quot;/>`;
       // Kaidenin üzerine YAZI YAZILMAZ (Cenk, 11.09.2026) — DXF'te de yok; ne olduğu
       // biçiminden ve dipnottan okunur.
+      // İki ucundaki delik: beyaz dolgu = gerçekten delik, zemin görünür.
+      const dr = SEVK_BAZA_DELIK_R*scale, dx = SEVK_BAZA_DELIK_X*scale;
+      if(dr >= 1.4 && bw > 2*(dx+dr) + 4){
+        const dcy = by + bh/2;
+        [bx+dx, bx+bw-dx].forEach(function(dcx){
+          svg += `<circle class=&quot;baza-delik&quot; cx=&quot;${dcx.toFixed(1)}&quot; cy=&quot;${dcy.toFixed(1)}&quot; r=&quot;${dr.toFixed(1)}&quot; fill=&quot;#ffffff&quot; stroke=&quot;${vur?SEVK_VURGU:'#3a4d5c'}&quot; stroke-width=&quot;1.2&quot;/>`;
+        });
+      }
     });
   }
 
@@ -22635,7 +22648,32 @@ const YOL_HARITASI = [
   {n:16, t:'Otomatik kapak yerleşimi (kaba maliyet)', durum:'tamam', tarih:'27.08.2026',
    d:'Tek tuşla aktif AHU\'nun bütün yüzleri, kapaklar sac ölçüsüne sığacak en az sayıda parçaya bölünür; ikinci tuş kapak aralarındaki takviyeleri açıp kapatır ve ölçüleri yeniden dağıtır.'},
   {n:17, t:'Malzeme analizi (santral bazlı Excel)', durum:'tamam', tarih:'31.08.2026',
-   d:'Ne satın alınacağı: nesting sonrası kaç mm sacdan kaç plaka, kesim planı sonrası kaç boy profil, kaç köşe ve kaç takviye plastiği, kapak deliklerinden kaç vida ve kaç perçin.'}
+   d:'Ne satın alınacağı: nesting sonrası kaç mm sacdan kaç plaka, kesim planı sonrası kaç boy profil, kaç köşe ve kaç takviye plastiği, kapak deliklerinden kaç vida ve kaç perçin.'},
+  // --- 18'den itibaren: PLANDA OLMAYAN, yol boyunca eklenen işler (Cenk, 11.09.2026'da
+  // «planlama haricinde eklediğimiz özellikleri de tamamlananlar kısmına ekle» dedi).
+  // Numaralar listenin kendi sırasıdır; ekranda bölüm içi sıra gösterilir.
+  {n:18, t:'Excel MONTAJ sayfası', durum:'tamam', tarih:'25.08.2026',
+   d:'Sahada birleştirme için patlatılmış ön görünüm: modüller gerçek konumlarına yakın, aralarında pay bırakılarak, dış ölçüleri ve ölçü çizgileriyle. Excel\'e giren her görselin köşesine iş emri no + ünite adı damgalanır.'},
+  {n:19, t:'Damper ve boğazda çizim yönü', durum:'tamam', tarih:'26.08.2026',
+   d:'Girilen genişlik artık hep yatay parçayı sürmüyor: göz bazında Çizim Yönü seçilir, dikeyde ölçüler takas edilir. Yüzdeki yerleşim, tolerans ve kesim ölçüsü değişmez — takas yalnız çizime gider.'},
+  {n:20, t:'Üretim adedi — aynı santralden N cihaz', durum:'tamam', tarih:'31.08.2026',
+   d:'Santral bazında adet; kesim listeleri ve analiz o kadar cihaza göre çarpılır. Plaka sayısı lineer değildir — iki cihazın parçaları aynı saclara birlikte serilir. Adet çizimden de okunur.'},
+  {n:21, t:'Saca sığmayan boğaz ikiye bölünür', durum:'tamam', tarih:'03.09.2026',
+   d:'2900 mm ve üzeri boğaz iki takım olarak çizilir (damperdeki kuralın aynısı); eskiden Sac Nesting\'in tamamını iptal ediyordu. Tabloda ölçünün yanında (2 × 1700) rozeti çıkar.'},
+  {n:22, t:'Tek ZIP + indirme kuyruğu + santral bazlı dosya adı', durum:'tamam', tarih:'04.09.2026',
+   d:'Tarayıcı aynı anda tetiklenen indirmelerin ilk 10\'unu alıyordu: dosyalar artık tek tek kuyruğa giriyor ve çok dosyalı çıktı tek .zip iniyor. Çok santralli projede her santral ZIP içinde kendi klasöründe.'},
+  {n:23, t:'AHU kopyalama ve aynalama', durum:'tamam', tarih:'04.09.2026',
+   d:'Benzer bir santral için AHU kopyalanır; aynalama uzunluk ekseninde çevirir — ÖN yüzdeki kapak ÖN yüzde kalır, yer değiştiren SOL ile SAĞ\'dır. Aynalama kendi tersidir.'},
+  {n:24, t:'Arayüz yenileme — tek görünüm', durum:'tamam', tarih:'05.09.2026',
+   d:'Tema seçenekleri kaldırıldı, üç sekme de tek paletten besleniyor. Katlanabilir sol panel, modül/yüz/kapak ağacı, ayarlar penceresi, bildirim zili ve ölçülebilir 3B sahne (seçili modül parlar).'},
+  {n:25, t:'Markalama — her parça kod taşır', durum:'tamam', tarih:'07.09.2026',
+   d:'Tava dışında her parçanın üzerine tip kodu basılır ve marka parçadan büyük olamaz: sığmazsa döndürülür, yetmezse küçültülür. Boğazda marka deliklerin üstüne düşmez.'},
+  {n:26, t:'Profil Listesi — 3. sekme', durum:'tamam', tarih:'09.09.2026',
+   d:'3B Tasarım Excel\'lerinden (ya da elle yapıştırılan listeden) profil kesim listelerini birleştirip tek sipariş .xlsx\'i üretir. Bağımsızdır: girdisini kullanıcı verir, çıktısını kendisi indirir.'},
+  {n:27, t:'DXF çıktısı lazer nesting\'e uyumlandı', durum:'tamam', tarih:'09.09.2026',
+   d:'Markalamanın konumu artık her okuyucuda aynı yere düşüyor (DXF 72/73 hizalama kodu yazılmıyor). Vidaya denk gelen perçin kaydırılmıyor, sayı bir artıyor — iç ve dış sacın delikleri hizada kalıyor.'},
+  {n:28, t:'Excel SEVKİYAT sayfası', durum:'tamam', tarih:'11.09.2026',
+   d:'Modül başına bir kâğıt: montaj görünüşü bitişik çizilir, o kâğıdın modülü seçili modül renginde vurgulanır, zemine oturanların altına baza çizilir. Yazdır dendiğinde her modül kendi A4\'üne düşer — kesilip modülün üzerine yapıştırılır.'}
 ];
 const ROZET = {plan:['rz-plan','PLANLANDI'], suruyor:['rz-suruyor','SÜRÜYOR'],
                kontrol:['rz-kontrol','KONTROL BEKLİYOR'], tamam:['rz-tamam','TAMAM']};
