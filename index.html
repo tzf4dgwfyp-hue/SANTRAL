@@ -15194,7 +15194,19 @@ class DxfWriter {
   // TEK KAYNAK: _textBaslangic (hizalama) ve MARKA_HARF (sigdirma) bunu kullanir.
   // SINIFIN ICINDE durur ki DxfWriter baska bir baglama tek basina tasindiginda da
   // calissin — disarida duran bir atama tasinmayi unutunca koordinat NaN olur.
-  static HARF_ORANI = 0.6;
+  // KARAKTER GENISLIGI / YAZI YUKSEKLIGI — EN BUYUK OLASI DEGER (Cenk, 12.09.2026:
+  // «bogaz markalamada markalar disari tasabiliyor kucuk parcalarda»).
+  // Bu sayi bir TAHMINDIR ve hem SIGDIRMA (markaOlcu) hem HIZALAMA (_textBaslangic)
+  // ondan turer — yani GERCEK fonttan KUCUK olursa marka iki kere birden tasar:
+  // yazi sanilandan genis cikar VE ortalama kaydigi icin bir kenardan disari sarkar.
+  // 0.6 idi; kucuk parcada yazi kutuya TAM sigdirildigi icin her sapma disari tasiyordu
+  // (olculdu, _bogaz-marka-tasma.js: 0.70'te 13 mm, 0.75'te 20 mm tasma).
+  // DXF'imiz STYLE STANDARD'i 'txt' ile tanimlar ama her okuyucuda txt.shx yoktur;
+  // yerine gecen TTF'te (Cenk'in cizimlerinde Standard = Arial, olculdu) kod
+  // alfabemizin (rakam, buyuk harf, tire) ortalama ilerlemesi CAP HEIGHT'a gore
+  // ~0.79'dur. 0.85 onun uzerine emniyet payidir: TAHMIN GERCEKTEN BUYUK OLMALI —
+  // buyuk tahmin yalniz yaziyi kucultur, kucuk tahmin parcayi tasirir.
+  static HARF_ORANI = 0.85;
 
   constructor() {
     this.entities = [];
